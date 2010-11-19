@@ -1,4 +1,4 @@
-=datacard канальный драйвер устройств Huawei UMTS для Asterisk=
+=DATACARD драйвер канала Asterisk для устройств Huawei UMTS=
 
 ВНИМАНИЕ:
 
