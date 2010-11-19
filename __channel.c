@@ -30,11 +30,12 @@ static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
 	if (state == AST_STATE_RING)
 	{
 		channel->rings = 1;
-		pbx_builtin_setvar_helper (channel, "DATACARD",	pvt->id);
-		pbx_builtin_setvar_helper (channel, "PROVIDER",	pvt->provider_name);
-		pbx_builtin_setvar_helper (channel, "IMEI",	pvt->imei);
-		pbx_builtin_setvar_helper (channel, "IMSI",	pvt->imsi);
 	}
+	
+	pbx_builtin_setvar_helper (channel, "DATACARD",	pvt->id);
+	pbx_builtin_setvar_helper (channel, "PROVIDER",	pvt->provider_name);
+	pbx_builtin_setvar_helper (channel, "IMEI",	pvt->imei);
+	pbx_builtin_setvar_helper (channel, "IMSI",	pvt->imsi);
 
 	ast_string_field_set (channel, language, pvt->language);
 	ast_jb_configure (channel, &jbconf_global);
