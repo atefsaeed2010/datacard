@@ -134,7 +134,10 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "  Location area code      : %s\n", pvt->location_area_code);
 		ast_cli (a->fd, "  Cell ID                 : %s\n", pvt->cell_id);
 		ast_cli (a->fd, "  Auto delete SMS         : %s\n", pvt->auto_delete_sms ? "Yes" : "No");
-		ast_cli (a->fd, "  Disable SMS             : %s\n\n", pvt->disablesms ? "Yes" : "No");
+		ast_cli (a->fd, "  Disable SMS             : %s\n", pvt->disablesms ? "Yes" : "No");
+		ast_cli (a->fd, "  Minimal DTMF Gap        : %d\n", pvt->mindtmfgap);
+		ast_cli (a->fd, "  Minimal DTMF Duration   : %d\n", pvt->mindtmfduration);
+		ast_cli (a->fd, "  Minimal DTMF Interval   : %d\n\n", pvt->mindtmfinterval);
 		ast_mutex_unlock (&pvt->lock);
 	}
 	else

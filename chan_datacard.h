@@ -157,6 +157,9 @@ typedef struct pvt_t
 	char			number[128];
 	char			location_area_code[8];
 	char			cell_id[8];
+	char			dtmf_digit;			/*!<  */
+	struct timeval		dtmf_begin_time;		/*!<  */
+	struct timeval		dtmf_end_time;			/*!<  */
 
 	/* flags */
 	unsigned int		connected:1;			/* do we have an connection to a device */
@@ -189,6 +192,14 @@ typedef struct pvt_t
 	unsigned int		reset_datacard:1;
 	unsigned int		usecallingpres:1;
 	unsigned int		disablesms:1;
+
+	int			mindtmfgap;			/*!< minimal time in ms from end of previews DTMF and begining of next */
+#define DEFAULT_MINDTMFGAP	45
+	int			mindtmfduration;		/*!< minimal DTMF duration in ms */
+#define DEFAULT_MINDTMFDURATION	80
+	int			mindtmfinterval;		/*!< minimal DTMF interval beetween ends in ms, applied only on same digit */
+#define DEFAULT_MINDTMFINTERVAL	200
+
 }
 pvt_t;
 
