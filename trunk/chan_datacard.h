@@ -179,6 +179,7 @@ typedef struct pvt_t
 	char			audio_tty[256];			/* tty for audio connection */
 	char			data_tty[256];			/* tty for AT commands */
 	char			context[AST_MAX_CONTEXT];	/* the context for incoming calls */
+	char			language[MAX_LANGUAGE];		/* default language */
 	int			group;				/* group number for group dialling */
 	int			rxgain;				/* increase the incoming volume */
 	int			txgain;				/* increase the outgoint volume */

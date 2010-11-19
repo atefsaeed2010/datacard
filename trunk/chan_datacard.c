@@ -411,6 +411,7 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
 	ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
 	ast_copy_string (pvt->context,		"default",	sizeof (pvt->context));
+	ast_copy_string (pvt->language,		"en",		sizeof (pvt->language));
 
 	pvt->reset_datacard		=  1;
 	pvt->u2diag			= -1;
@@ -486,6 +487,10 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 		else if (!strcasecmp (v->name, "disablesms"))
 		{
 			pvt->disablesms = ast_true (v->value);				/* disablesms is set to 0 if invalid */
+		}
+		else if (!strcasecmp (v->name, "language"))
+		{
+			ast_copy_string (pvt->language, v->value, sizeof (pvt->language));	/* set channel language */
 		}
 	}
 

@@ -36,7 +36,7 @@ static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
 		pbx_builtin_setvar_helper (channel, "IMSI",	pvt->imsi);
 	}
 
-	ast_string_field_set (channel, language, "en");
+	ast_string_field_set (channel, language, pvt->language);
 	ast_jb_configure (channel, &jbconf_global);
 
 	if (pvt->audio_fd != -1)
