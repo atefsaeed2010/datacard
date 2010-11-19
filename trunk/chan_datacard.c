@@ -417,6 +417,9 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	pvt->u2diag			= -1;
 	pvt->callingpres		= -1;
 
+	pvt->mindtmfgap			= DEFAULT_MINDTMFGAP;
+	pvt->mindtmfduration		= DEFAULT_MINDTMFDURATION;
+	pvt->mindtmfinterval		= DEFAULT_MINDTMFINTERVAL;
 
 	/* setup the dsp */
 
@@ -491,6 +494,36 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 		else if (!strcasecmp (v->name, "language"))
 		{
 			ast_copy_string (pvt->language, v->value, sizeof (pvt->language));	/* set channel language */
+		}
+		else if (!strcasecmp (v->name, "mindtmfgap"))
+		{
+			errno = 0;
+			pvt->mindtmfgap = (int) strtol (v->value, (char**) NULL, 10);
+			if ((pvt->mindtmfgap == 0 && errno == EINVAL) || pvt->mindtmfgap < 0)
+			{
+				ast_log(LOG_ERROR, "Invalid valie for mindtmfgap '%s', setting default %d\n", v->value, DEFAULT_MINDTMFGAP);
+				pvt->mindtmfgap = DEFAULT_MINDTMFGAP;
+			}
+		}
+		else if (!strcasecmp (v->name, "mindtmfduration"))
+		{
+			errno = 0;
+			pvt->mindtmfduration = (int) strtol (v->value, (char**) NULL, 10);
+			if ((pvt->mindtmfduration == 0 && errno == EINVAL) || pvt->mindtmfduration < 0)
+			{
+				ast_log(LOG_ERROR, "Invalid valie for mindtmfgap '%s', setting default %d\n", v->value, DEFAULT_MINDTMFDURATION);
+				pvt->mindtmfduration = DEFAULT_MINDTMFDURATION;
+			}
+		}
+		else if (!strcasecmp (v->name, "mindtmfinterval"))
+		{
+			errno = 0;
+			pvt->mindtmfinterval = (int) strtol (v->value, (char**) NULL, 10);
+			if ((pvt->mindtmfinterval == 0 && errno == EINVAL) || pvt->mindtmfinterval < 0)
+			{
+				ast_log(LOG_ERROR, "Invalid valie for mindtmfinterval '%s', setting default %d\n", v->value, DEFAULT_MINDTMFINTERVAL);
+				pvt->mindtmfduration = DEFAULT_MINDTMFINTERVAL;
+			}
 		}
 	}
 

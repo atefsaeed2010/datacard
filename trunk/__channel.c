@@ -592,9 +592,40 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 					ast_mutex_unlock (&pvt->lock);
 					return(f);
 				}
-				if (f->frametype == AST_FRAME_DTMF_END)
+				if(f->frametype == AST_FRAME_DTMF_BEGIN)
 				{
-					ast_debug(1, "[%s] Got DTMF char %c\n",pvt->id, f->subclass);
+					pvt->dtmf_begin_time = ast_tvnow();
+				}
+				else if (f->frametype == AST_FRAME_DTMF_END)
+				{
+					if(!ast_tvzero(pvt->dtmf_begin_time) && ast_tvdiff_ms(ast_tvnow(), pvt->dtmf_begin_time) < pvt->mindtmfgap)
+					{
+						ast_debug(1, "[%s] DTMF char %c ignored min gap %d > %d\n", pvt->id, f->subclass, pvt->mindtmfgap, ast_tvdiff_ms(ast_tvnow(), pvt->dtmf_begin_time));
+						f->frametype = AST_FRAME_NULL;
+						f->subclass = 0;
+					}
+					else if(f->len < pvt->mindtmfduration)
+					{
+						ast_debug(1, "[%s] DTMF char %c ignored min duration %d > %ld\n", pvt->id, f->subclass, pvt->mindtmfduration, f->len);
+						f->frametype = AST_FRAME_NULL;
+						f->subclass = 0;
+					}
+					else if(f->subclass == pvt->dtmf_digit
+							&& 
+						!ast_tvzero(pvt->dtmf_end_time)
+							&& 
+						ast_tvdiff_ms(ast_tvnow(), pvt->dtmf_end_time) < pvt->mindtmfinterval)
+					{
+						ast_debug(1, "[%s] DTMF char %c ignored min interval %d > %d\n", pvt->id, f->subclass, pvt->mindtmfinterval, ast_tvdiff_ms(ast_tvnow(), pvt->dtmf_end_time));
+						f->frametype = AST_FRAME_NULL;
+						f->subclass = 0;
+					}
+					else
+					{
+						ast_debug(1, "[%s] Got DTMF char %c\n",pvt->id, f->subclass);
+						pvt->dtmf_digit = f->subclass;
+						pvt->dtmf_end_time = ast_tvnow();
+					}
 				}
 				ast_mutex_unlock (&pvt->lock);
 				return(f);
