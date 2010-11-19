@@ -36,6 +36,8 @@ static struct ast_channel* channel_new (pvt_t* pvt, int state, char* cid_num)
 	pbx_builtin_setvar_helper (channel, "PROVIDER",	pvt->provider_name);
 	pbx_builtin_setvar_helper (channel, "IMEI",	pvt->imei);
 	pbx_builtin_setvar_helper (channel, "IMSI",	pvt->imsi);
+	pbx_builtin_setvar_helper (channel, "IMSI",	pvt->imsi);
+	pbx_builtin_setvar_helper (channel, "CNUMBER",	pvt->number);
 
 	ast_string_field_set (channel, language, pvt->language);
 	ast_jb_configure (channel, &jbconf_global);
@@ -995,6 +997,7 @@ static struct ast_channel* channel_local_request (pvt_t* pvt, void* data, const 
 	pbx_builtin_setvar_helper (channel, "PROVIDER",	pvt->provider_name);
 	pbx_builtin_setvar_helper (channel, "IMEI",	pvt->imei);
 	pbx_builtin_setvar_helper (channel, "IMSI",	pvt->imsi);
+	pbx_builtin_setvar_helper (channel, "CNUMBER",	pvt->number);
 	ast_string_field_set (channel, language, language);
 
 	return channel;
