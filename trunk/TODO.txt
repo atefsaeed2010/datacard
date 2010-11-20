@@ -9,11 +9,12 @@ added 20.11.2010
 
 4) automatic gain control for rxgain/txgain
 
-5) Make context setting optional with 'default' as default value
-
+    5) Make context setting optional with 'default' as default value
+	20.11.2010 already exists in base 175 rev. exported
 6) Conference support
 
-7) Remove warning 'Don't know how to indicate condition 20'
+    7) Remove warning 'Don't know how to indicate condition 20'
+	done at 20.11.2010
 
 8) LED control
 
