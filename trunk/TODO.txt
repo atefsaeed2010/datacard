@@ -24,3 +24,4 @@ added 20.11.2010
 
 11) Complete fix of DTMF duplication
 
+12) Full support of SMS receive with active voice call
