@@ -35,28 +35,41 @@ AT^U2DIAG=0                    отключение всех встроенны�
 
 Вот пример для плана набора:
 
-Datacard-входящий? Экстен => смс, 1, Verbose (Входящие SMS от $ {CALLERID (NUM)} $ {} SMS) Экстен => SMS, п, система (эхо "$ {STRFTIME ($ {EPOCH},,% Y-% м -% D% H:% M:% S)} - $ {Datacard} - $ {CALLERID (NUM)}: $ {SMS} '>> / VAR / Журнал / звездочка / sms.txt) Экстен => SMS, п, Hangup ()
+[datacard-incoming]
+exten => sms,1,Verbose(Incoming SMS from ${CALLERID(num)} ${SMS})
+exten => sms,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${DATACARD} - ${CALLERID(num)}: ${SMS}' >> /var/log/asterisk/sms.txt)
+exten => sms,n,Hangup()
 
-Экстен => USSD, 1, Verbose (Входящие USSD: $ {} USSD) Экстен => USSD, п, система (эхо "$ {STRFTIME ($ {EPOCH},,% Y-% M-% D% H:% M:% S)} - $ {Datacard}: $ {USSD} '>> / VAR / Журнал / звездочка / ussd.txt) Экстен => USSD, п, Hangup ()
+exten => ussd,1,Verbose(Incoming USSD: ${USSD})
+exten => ussd,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${DATACARD}: ${USSD}' >> /var/log/asterisk/ussd.txt)
+exten => ussd,n,Hangup()
 
-Экстен => S, 1, Dial (SIP/2001 @ othersipserver) Экстен => S, N, Hangup ()
+exten => s,1,Dial(SIP/2001@othersipserver)
+exten => s,n,Hangup()
 
-othersipserver-входящий?
+[othersipserver-incoming]
 
-Экстен => X., 1, Dial (Datacard/r1 / $ {} EXTEN) Экстен => X., п, Hangup
+exten => _X.,1,Dial(Datacard/r1/${EXTEN})
+exten => _X.,n,Hangup
 
-Вы также можете использовать это:
+you can also use this:
 
-Вызова с помощью определенной группы: Экстен => X., 1, Dial (Datacard/g1 / $ {EXTEN})
+Call using a specific group:
+exten => _X.,1,Dial(Datacard/g1/${EXTEN})
 
-Вызова с помощью конкретных Datacard: Экстен => X., 1, Dial (Datacard/datacard0 / $ {EXTEN})
+Call using a specific datacard:
+exten => _X.,1,Dial(Datacard/datacard0/${EXTEN})
 
-Вызова с помощью конкретных имя поставщика: Экстен => X., 1, Dial (Datacard / р: имя поставщика / $ {EXTEN})
+Call using a specific provider name:
+exten => _X.,1,Dial(Datacard/p:PROVIDER NAME/${EXTEN})
 
-Вызова с помощью конкретных IMEI: Экстен => X., 1, Dial (Datacard / я: 123456789012345 / $ {EXTEN})
+Call using a specific IMEI:
+exten => _X.,1,Dial(Datacard/i:123456789012345/${EXTEN})
 
-Вызова с помощью IMSI номера: Экстен => X., 1, Dial (Datacard / с: 25099 / $ {EXTEN})
+Call using a IMSI prefix:
+exten => _X.,1,Dial(Datacard/s:25099/${EXTEN})
 
-Как сохранить свой номер:
+How to store your own number:
 
-Datacard CMD datacard0 AT + CPBS = \ "на \" Datacard CMD datacard0 AT + CPBW = 1, \ "+123456789 \", 145
+datacard cmd datacard0 AT+CPBS=\"ON\"
+datacard cmd datacard0 AT+CPBW=1,\"+123456789\",145
