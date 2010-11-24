@@ -2,56 +2,57 @@
 ===== 1. Установка операционной системы =====
 
 Выполняется типовая установка ОС Ubuntu 10.04 LTS Server со следующими предустановленными компонентами:
-
-  LAMP Server
-  OpenSSH Server
-  Samba file Server
-
+{{{
+LAMP Server
+OpenSSH Server
+Samba file Server
+}}}
 Локализация: русская
 Везде пароли: YourPassWord
 
 После установки необходимо активировать учетку root, так-как вся настройка выполянется с полными правами.
-  sudo passwd root
+{{{sudo passwd root}}}
 ===== 2. Загрузка компонентов из сети =====
 
 Качаем и ставим компоненты из репозитория ~44,4 Мб +~12 Мб апдейтов
-  apt-get update
-  apt-get install php5-mysql libapache2-mod-php5 mysql-server libmysqlclient15-dev php-db php5-gd php-pear sox curl g++ libncurses-dev libxml2-dev subversion
-
+{{{
+apt-get update
+apt-get install php5-mysql libapache2-mod-php5 mysql-server libmysqlclient15-dev php-db php5-gd php-pear sox curl g++ libncurses-dev libxml2-dev subversion
+}}}
 Установка драйверов DAHDI (можно не выполнять, если не нужны конференции и нет соответствующего оборудования).
-  apt-get install dahdi
-  /etc/init.d/dahdi start
-  cd /tmp
-  wget http://downloads.asterisk.org/pub/telephony/dahdi-linux-complete/releases/dahdi-linux-complete-2.4.0+2.4.0.tar.gz
-  cd /usr/src
-  tar -zxvf /tmp/dahdi-linux-complete-2.4.0+2.4.0.tar.gz
-  cd dahdi-linux-complete-2.4.0+2.4.0/
-  make
-  make install
-  make config
-
+{{{
+apt-get install dahdi
+/etc/init.d/dahdi start
+cd /tmp
+wget http://downloads.asterisk.org/pub/telephony/dahdi-linux-complete/releases/dahdi-linux-complete-2.4.0+2.4.0.tar.gz
+cd /usr/src
+tar -zxvf /tmp/dahdi-linux-complete-2.4.0+2.4.0.tar.gz
+cd dahdi-linux-complete-2.4.0+2.4.0/
+make
+make install
+make config
+}}}
 Качаем исходники Asterisk и FreePBX от производителей. Ориентировочный объём: 24Мб+0.9Мб+6.2Мб
-
-  cd /tmp
-  wget http://downloads.asterisk.org/pub/telephony/asterisk/releases/asterisk-1.6.2.13.tar.gz
-  wget http://downloads.asterisk.org/pub/telephony/asterisk/asterisk-addons-1.6.2.2.tar.gz
-  wget http://mirror.freepbx.org/freepbx-2.8.0.tar.gz
-
+{{{
+cd /tmp
+wget http://downloads.asterisk.org/pub/telephony/asterisk/releases/asterisk-1.6.2.13.tar.gz
+wget http://downloads.asterisk.org/pub/telephony/asterisk/asterisk-addons-1.6.2.2.tar.gz
+wget http://mirror.freepbx.org/freepbx-2.8.0.tar.gz
+}}}
 
 Распаковываем запакованные исходнички:
-
-  cd /usr/src
-  tar xvfz /tmp/asterisk-1.6.2.13.tar.gz
-  tar xvfz /tmp/asterisk-addons-1.6.2.2.tar.gz
-  tar xvfz /tmp/freepbx-2.8.0.tar.gz
-  
-
+{{{
+cd /usr/src
+tar xvfz /tmp/asterisk-1.6.2.13.tar.gz
+tar xvfz /tmp/asterisk-addons-1.6.2.2.tar.gz
+tar xvfz /tmp/freepbx-2.8.0.tar.gz
+}}}  
 
 ===== 3. Устанавливаем Астериск =====
-
-
-  cd /usr/src/asterisk-1.6.2.13
-  ./configure
+{{{
+cd /usr/src/asterisk-1.6.2.13
+./configure
+}}}
 Во время установки программа автоматически скачиваются звуковые файы. Необходимо убедиться, что выход в интернет работает.
   make install
   make config
