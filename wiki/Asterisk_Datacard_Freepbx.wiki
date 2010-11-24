@@ -79,7 +79,7 @@ adduser www-data asterisk
 }}}
 Заставляем апач стартовать от имени юзера астериск
 {{{
-  nano /etc/apache2/envvars
+nano /etc/apache2/envvars
 }}}
 закомментируем следующие строки 
 {{{
@@ -95,7 +95,7 @@ export APACHE_RUN_GROUP=asterisk
 
 Применяем параметры апачу
 {{{
-  apache2ctl graceful
+apache2ctl graceful
 }}}
 ===== 6. Ставим FREEPBX =====
 
@@ -141,25 +141,25 @@ quit;
 
 ==== Корректировка параметров FreePBX после установки для его правильной работы ====
 
-  nano /etc/amportal.conf
+nano /etc/amportal.conf
 
 Коментируем параметр, для работы FOP (флеш панель):
 
-  #AMPWEBADDRESS=xx.xx.xx.xx
+#AMPWEBADDRESS=xx.xx.xx.xx
 
 Исправляем параметр для включения авторизации доступа к web-админке и хранения учеток в базе данных (по умолчанию adminadmin):
 
-  AUTHTYPE=database
+AUTHTYPE=database
 
 Исправляем пароль авторизации доступа к web-админке по управлению записями разговоров.
 
-  ARI_ADMIN_PASSWORD=YourPassWord
+ARI_ADMIN_PASSWORD=YourPassWord
 
 записываем изменения Ctrl+O и выходим из редактора nano Ctrl+X
 
 ==== Исправление, для включения русского языка в web-интерфейсе FreePBX ====
 
-  nano /usr/share/locale/locale.alias
+nano /usr/share/locale/locale.alias
 
 Удаляем строку с кодировкой для russian и добавляем 3 строки вместо нее:
 {{{
@@ -173,7 +173,7 @@ ru_RU           ru_RU.UTF-8
 {{{nano /etc/rc.local}}}
 дописываем перед строчкой exit 0 следующую строчку
 
-  /usr/local/sbin/amportal start
+/usr/local/sbin/amportal start
 
 Перезагружаем сервер для проверки успешного автозапуска.
 {{{reboot}}}
