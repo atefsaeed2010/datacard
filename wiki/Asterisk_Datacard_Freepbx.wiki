@@ -54,72 +54,77 @@ cd /usr/src/asterisk-1.6.2.13
 ./configure
 }}}
 Во время установки программа автоматически скачиваются звуковые файы. Необходимо убедиться, что выход в интернет работает.
-  make install
-  make config
-  make samples
-
+{{{
+make install
+make config
+make samples
+}}}
 ===== 4. Ставим дополнения к Астериску =====
 Дополнения требуются для включения возможности записи информации о звонках (cdr) в mysql в формате, требуемом для корректной работы FreePBX
-  
-  cd /usr/src/asterisk-addons-1.6.2.2
-  perl -p -i.bak -e 's/CFLAGS.*D_GNU_SOURCE/CFLAGS+=-D_GNU_SOURCE\nCFLAGS+=-DMYSQL_LOGUNIQUEID/' Makefile
-  ./configure
-  make
-  make install
-
+{{{  
+cd /usr/src/asterisk-addons-1.6.2.2
+perl -p -i.bak -e 's/CFLAGS.*D_GNU_SOURCE/CFLAGS+=-D_GNU_SOURCE\nCFLAGS+=-DMYSQL_LOGUNIQUEID/' Makefile
+./configure
+make
+make install
+}}}
 
 ===== 5. Конфигурируем Апач =====
 
 
 Добавляем юзера и даем ему права
-
-  adduser asterisk --disabled-password --gecos "Asterisk PBX"
-  adduser www-data asterisk
-
+{{{
+adduser asterisk --disabled-password --gecos "Asterisk PBX"
+adduser www-data asterisk
+}}}
 Заставляем апач стартовать от имени юзера астериск
+{{{
   nano /etc/apache2/envvars
-
+}}}
 закомментируем следующие строки 
+{{{
   #export APACHE_RUN_USER=www-data
   #export APACHE_RUN_GROUP=www-data
-
+}}}
 и добавляем данные строки
-  export APACHE_RUN_USER=asterisk
-  export APACHE_RUN_GROUP=asterisk
-
+{{{
+export APACHE_RUN_USER=asterisk
+export APACHE_RUN_GROUP=asterisk
+}}}
 записываем изменения Ctrl+O и выходим из редактора nano Ctrl+X
 
 Применяем параметры апачу
-
+{{{
   apache2ctl graceful
-
+}}}
 ===== 6. Ставим FREEPBX =====
 
 ==== Подготовка баз MYSQL для FREEPBX ====
-
-  cd /usr/src/freepbx-2.8.0
-  mysqladmin create asterisk -pYourPassWord
-  mysqladmin create asteriskcdrdb -pYourPassWord
-  mysql asterisk < SQL/newinstall.sql -pYourPassWord
-  mysql asteriskcdrdb < SQL/cdr_mysql_table.sql -pYourPassWord
-  mysql -pYourPassWord
-  GRANT ALL PRIVILEGES ON asterisk.* TO asteriskuser@localhost IDENTIFIED BY 'YourPassWord';
-  GRANT ALL PRIVILEGES ON asteriskcdrdb.* TO asteriskuser@localhost IDENTIFIED BY 'YourPassWord';
-  flush privileges;
-  quit;
-
+{{{
+cd /usr/src/freepbx-2.8.0
+mysqladmin create asterisk -pYourPassWord
+mysqladmin create asteriskcdrdb -pYourPassWord
+mysql asterisk < SQL/newinstall.sql -pYourPassWord
+mysql asteriskcdrdb < SQL/cdr_mysql_table.sql -pYourPassWord
+mysql -pYourPassWord
+GRANT ALL PRIVILEGES ON asterisk.* TO asteriskuser@localhost IDENTIFIED BY 'YourPassWord';
+GRANT ALL PRIVILEGES ON asteriskcdrdb.* TO asteriskuser@localhost IDENTIFIED BY 'YourPassWord';
+flush privileges;
+quit;
+}}}
 
 ==== Установка FREEPBX ====
 
 Запускаем Астериск перед установкой Freepbx
-
-  /etc/init.d/asterisk start
-
+{{{
+/etc/init.d/asterisk start
+}}}
 Запускаем установку:
-  ./install_amp
-
+{{{
+./install_amp
+}}}
 ВАЖНО остальные параметры __кроме указанных__, менять НЕЛЬЗЯ!!! Параметры которые надо поменять в мастере установки:
-
+{{{
   Enter your PASSWORD to connect to the 'asterisk' database:
   [amp109] YourPassWord
 
@@ -132,7 +137,7 @@ cd /usr/src/asterisk-1.6.2.13
 
   Enter a PASSWORD to perform call transfers with the Flash Operator Panel:
   [passw0rd] YourPassWord
-
+}}}
 в случае, если в конце установки, вы получите данное сообщение (которое стало появляться при установке с версии freepbx-2.8.0)
   PHP Fatal error:  Cannot redeclare __parse_DialRulesFile() (previously declared in /usr/src/freepbx-2.8.0/upgrades/2.6.0beta1/tables.php:87) in /usr/src/freepbx-2.8.0/upgrades/2.8.0alpha2/tables.php on line 239
 необходимо повторно выполнить установку:
