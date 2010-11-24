@@ -35,18 +35,25 @@ AT^U2DIAG=0                    отключение всех встроенны�
 
 Вот пример для плана набора:
 
+Приём СМС и сохранение их в log.
+{{{
 [datacard-incoming]
 exten => sms,1,Verbose(Incoming SMS from ${CALLERID(num)} ${SMS})
 exten => sms,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${DATACARD} - ${CALLERID(num)}: ${SMS}' >> /var/log/asterisk/sms.txt)
 exten => sms,n,Hangup()
+}}}
 
+Прием ответа USSD (таких как баланс и т.п.)
+{{{
 exten => ussd,1,Verbose(Incoming USSD: ${USSD})
 exten => ussd,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${DATACARD}: ${USSD}' >> /var/log/asterisk/ussd.txt)
 exten => ussd,n,Hangup()
-
+}}}
+Прием голосового звонка на номер 2001
+{{{
 exten => s,1,Dial(SIP/2001@othersipserver)
 exten => s,n,Hangup()
-
+}}}
 [othersipserver-incoming]
 
 exten => _X.,1,Dial(Datacard/r1/${EXTEN})
