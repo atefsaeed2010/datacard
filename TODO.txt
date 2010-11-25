@@ -48,3 +48,4 @@ added from internal source at 25.11.2010
 
 22) Add more API commands
 
+23) reconfigure and 'disable' option
