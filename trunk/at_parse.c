@@ -7,240 +7,18 @@
    Dmitry Vagin <dmitry2004@yandex.ru>
 */
 
-/*!
- * \brief Get the string representation of the given AT command
- * \param cmd -- the command to process
- * \return a string describing the given command
- */
+#include "memmem.h"
 
-static const char* at_cmd2str (at_cmd_t cmd)
-{
-	switch (cmd)
-	{
-		case CMD_AT:
-			return "AT";
+#include <asterisk.h>
+#include <asterisk/logger.h>		/* ast_debug() */
+#include <asterisk/utils.h>		/* ast_test_flag() */
 
-		case CMD_AT_A:
-			return "ATA";
+#include <stdio.h>			/* NULL */
+#include <errno.h>			/* errno */
+#include <stdlib.h>			/* strtol */
 
-		case CMD_AT_CCWA:
-			return "AT+CCWA";
-
-		case CMD_AT_CFUN:
-			return "AT+CFUN";
-
-		case CMD_AT_CGMI:
-			return "AT+CGMI";
-
-		case CMD_AT_CGMM:
-			return "AT+CGMM";
-
-		case CMD_AT_CGMR:
-			return "AT+CGMR";
-
-		case CMD_AT_CGSN:
-			return "AT+CGSN";
-
-		case CMD_AT_CHUP:
-			return "AT+CHUP";
-
-		case CMD_AT_CIMI:
-			return "AT+CIMI";
-
-		case CMD_AT_CLIP:
-			return "AT+CLIP";
-
-		case CMD_AT_CLIR:
-			return "AT+CLIR";
-
-		case CMD_AT_CLVL:
-			return "AT+CLVL";
-
-		case CMD_AT_CMGD:
-			return "AT+CMGD";
-
-		case CMD_AT_CMGF:
-			return "AT+CMGF";
-
-		case CMD_AT_CMGR:
-			return "AT+CMGR";
-
-		case CMD_AT_CMGS:
-			return "AT+CMGS";
-
-		case CMD_AT_CNMI:
-			return "AT+CNMI";
-
-		case CMD_AT_CNUM:
-			return "AT+CNUM";
-
-		case CMD_AT_COPS:
-			return "AT+COPS?";
-
-		case CMD_AT_COPS_INIT:
-			return "AT+COPS=";
-
-		case CMD_AT_CPIN:
-			return "AT+CPIN?";
-
-		case CMD_AT_CPMS:
-			return "AT+CPMS";
-
-		case CMD_AT_CREG:
-			return "AT+CREG?";
-
-		case CMD_AT_CREG_INIT:
-			return "AT+CREG=";
-
-		case CMD_AT_CSCS:
-			return "AT+CSCS";
-
-		case CMD_AT_CSQ:
-			return "AT+CSQ";
-
-		case CMD_AT_CSSN:
-			return "AT+CSSN";
-
-		case CMD_AT_CUSD:
-			return "AT+CUSD";
-
-		case CMD_AT_CVOICE:
-			return "AT^CVOICE";
-
-		case CMD_AT_D:
-			return "ATD";
-
-		case CMD_AT_DDSETEX:
-			return "AT^DDSETEX";
-
-		case CMD_AT_DTMF:
-			return "AT^DTMF";
-
-		case CMD_AT_E:
-			return "ATE";
-
-		case CMD_AT_SMS_TEXT:
-			return "SMS TEXT";
-
-		case CMD_AT_U2DIAG:
-			return "AT^U2DIAG";
-
-		case CMD_AT_Z:
-			return "ATZ";
-
-		case CMD_AT_CMEE:
-			return "AT+CMEE";
-
-		case CMD_UNKNOWN:
-			return "UNKNOWN";
-
-		default:
-			return "UNDEFINED";
-	}
-}
-
-/*!
- * \brief Get the string representation of the given AT response
- * \param res -- the response to process
- * \return a string describing the given response
- */
-
-static const char* at_res2str (at_res_t res)
-{
-	switch (res)
-	{
-		case RES_OK:
-			return "OK";
-
-		case RES_ERROR:
-			return "ERROR";
-
-		case RES_CMS_ERROR:
-			return "+CMS ERROR";
-
-		case RES_RING:
-			return "RING";
-
-		case RES_CSSI:
-			return "+CSSI";
-
-		case RES_CONN:
-			return "^CONN";
-
-		case RES_CEND:
-			return "^CEND";
-
-		case RES_ORIG:
-			return "^ORIG";
-
-		case RES_CONF:
-			return "^CONF";
-
-		case RES_SMMEMFULL:
-			return "^SMMEMFULL";
-
-		case RES_CSQ:
-			return "+CSQ";
-
-		case RES_RSSI:
-			return "^RSSI";
-
-		case RES_BOOT:
-			return "^BOOT";
-
-		case RES_CLIP:
-			return "+CLIP";
-
-		case RES_CMTI:
-			return "+CMTI";
-
-		case RES_CMGR:
-			return "+CMGR";
-
-		case RES_SMS_PROMPT:
-			return "> ";
-
-		case RES_CUSD:
-			return "+CUSD";
-
-		case RES_BUSY:
-			return "BUSY";
-
-		case RES_NO_DIALTONE:
-			return "NO DIALTONE";
-
-		case RES_NO_CARRIER:
-			return "NO CARRIER";
-
-		case RES_CPIN:
-			return "+CPIN";
-
-		case RES_CNUM:
-			return "+CNUM";
-
-		case RES_COPS:
-			return "+COPS";
-
-		case RES_SRVST:
-			return "^SRVST";
-
-		case RES_CREG:
-			return "+CREG";
-
-		case RES_MODE:
-			return "^MODE";
-
-		case RES_PARSE_ERROR:
-			return "PARSE ERROR";
-
-		case RES_UNKNOWN:
-			return "UNKNOWN";
-
-		default:
-			return "UNDEFINED";
-	}
-}
-
+#include "at_parse.h"
+#include "chan_datacard.h"
 
 
 /*!
@@ -252,9 +30,10 @@ static const char* at_res2str (at_res_t res)
  * \return NULL on error (parse error) or a pointer to the caller id inforamtion in str on success
  */
 
-static inline char* at_parse_clip (pvt_t* pvt, char* str, size_t len)
+#if 0
+EXPORT_DEF char* at_parse_clip (char* str, unsigned len)
 {
-	size_t	i;
+	unsigned	i;
 	int	state;
 	char*	clip = NULL;
 
@@ -296,6 +75,8 @@ static inline char* at_parse_clip (pvt_t* pvt, char* str, size_t len)
 
 	return clip;
 }
+#endif /* if 0 */
+
 
 /*!
  * \brief Parse a CNUM response
@@ -306,9 +87,9 @@ static inline char* at_parse_clip (pvt_t* pvt, char* str, size_t len)
  * \return NULL on error (parse error) or a pointer to the subscriber number
  */
 
-static inline char* at_parse_cnum (pvt_t* pvt, char* str, size_t len)
+EXPORT_DEF char* at_parse_cnum (char* str, unsigned len)
 {
-	size_t	i;
+	unsigned	i;
 	int	state;
 	char*	number = NULL;
 
@@ -374,9 +155,9 @@ static inline char* at_parse_cnum (pvt_t* pvt, char* str, size_t len)
  * \return NULL on error (parse error) or a pointer to the provider name
  */
 
-static inline char* at_parse_cops (pvt_t* pvt, char* str, size_t len)
+EXPORT_DEF char* at_parse_cops (char* str, unsigned len)
 {
-	size_t	i;
+	unsigned	i;
 	int	state;
 	char*	provider = NULL;
 
@@ -433,9 +214,9 @@ static inline char* at_parse_cops (pvt_t* pvt, char* str, size_t len)
  * \retval -1 parse error
  */
 
-static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* gsm_reg, int* gsm_reg_status, char** lac, char** ci)
+EXPORT_DEF int at_parse_creg (char* str, unsigned len, int* gsm_reg, int* gsm_reg_status, char** lac, char** ci)
 {
-	size_t	i;
+	unsigned	i;
 	int	state;
 	char*	p1 = NULL;
 	char*	p2 = NULL;
@@ -567,7 +348,7 @@ static inline int at_parse_creg (pvt_t* pvt, char* str, size_t len, int* gsm_reg
  * \return -1 on error (parse error) or the index of the new sms message
  */
 
-static inline int at_parse_cmti (pvt_t* pvt, char* str, size_t len)
+EXPORT_DEF int at_parse_cmti (struct pvt* pvt, const char* str)
 {
 	int index = -1;
 
@@ -576,7 +357,7 @@ static inline int at_parse_cmti (pvt_t* pvt, char* str, size_t len)
 	 * +CMTI: <mem>,<index> 
 	 */
 
-	if (!sscanf (str, "+CMTI: %*[^,],%d", &index))
+	if (sscanf (str, "+CMTI: %*[^,],%d", &index) != 1)
 	{
 		ast_debug(2, "[%s] Error parsing CMTI event '%s'\n", pvt->id, str);
 		return -1;
@@ -597,7 +378,7 @@ static inline int at_parse_cmti (pvt_t* pvt, char* str, size_t len)
  * \retval -1 parse error
  */
 
-static inline int at_parse_cmgr (pvt_t* pvt, char* str, size_t len, char** number, char** text)
+EXPORT_DEF int at_parse_cmgr (char* str, size_t len, char** number, char** text)
 {
 	size_t	i;
 	int	state;
@@ -676,7 +457,7 @@ static inline int at_parse_cmgr (pvt_t* pvt, char* str, size_t len, char** numbe
  * \retval -1 parse error
  */
 
-static inline int at_parse_cusd (pvt_t* pvt, char* str, size_t len, char** cusd, unsigned char* dcs)
+EXPORT_DEF int at_parse_cusd (char* str, size_t len, char** cusd, unsigned char* dcs)
 {
 	size_t	i;
 	int	state;
@@ -754,7 +535,7 @@ static inline int at_parse_cusd (pvt_t* pvt, char* str, size_t len, char** cusd,
  * \return -1 on error (parse error) or card lock
  */
 
-static inline int at_parse_cpin (pvt_t* pvt, char* str, size_t len)
+EXPORT_DEF int at_parse_cpin (struct pvt* pvt, char* str, size_t len)
 {
 	if (memmem (str, len, "READY", 5))
 	{
@@ -785,7 +566,7 @@ static inline int at_parse_cpin (pvt_t* pvt, char* str, size_t len)
  * \retval -1 error
  */
 
-static inline int at_parse_csq (pvt_t* pvt, char* str, size_t len, int* rssi)
+EXPORT_DEF int at_parse_csq (struct pvt* pvt, const char* str, int* rssi)
 {
 	/*
 	 * parse +CSQ response in the following format:
@@ -794,7 +575,7 @@ static inline int at_parse_csq (pvt_t* pvt, char* str, size_t len, int* rssi)
 
 	*rssi = -1;
 
-	if (!sscanf (str, "+CSQ: %2d,", rssi))
+	if (sscanf (str, "+CSQ: %2d,", rssi) != 1)
 	{
 		ast_debug (2, "[%s] Error parsing +CSQ result '%s'\n", pvt->id, str);
 		return -1;
@@ -811,7 +592,7 @@ static inline int at_parse_csq (pvt_t* pvt, char* str, size_t len, int* rssi)
  * \return -1 on error (parse error) or the rssi value
  */
 
-static inline int at_parse_rssi (pvt_t* pvt, char* str, size_t len)
+EXPORT_DEF int at_parse_rssi (struct pvt* pvt, const char* str)
 {
 	int rssi = -1;
 
@@ -820,7 +601,7 @@ static inline int at_parse_rssi (pvt_t* pvt, char* str, size_t len)
 	 * ^RSSI:<rssi>
 	 */
 
-	if (!sscanf (str, "^RSSI:%d", &rssi))
+	if (sscanf (str, "^RSSI:%d", &rssi) != 1)
 	{
 		ast_debug (2, "[%s] Error parsing RSSI event '%s'\n", pvt->id, str);
 		return -1;
@@ -837,7 +618,7 @@ static inline int at_parse_rssi (pvt_t* pvt, char* str, size_t len)
  * \return -1 on error (parse error) or the the link mode value
  */
 
-static inline int at_parse_mode (pvt_t* pvt, char* str, size_t len, int* mode, int* submode)
+EXPORT_DEF int at_parse_mode (struct pvt* pvt, char* str, size_t len, int* mode, int* submode)
 {
 	/*
 	 * parse RSSI info in the following format:

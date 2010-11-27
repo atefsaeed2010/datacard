@@ -7,7 +7,12 @@
    Dmitry Vagin <dmitry2004@yandex.ru>
 */
 
-static inline void rb_init (ringbuffer_t* rb, char* buf, size_t size)
+#include "memmem.h"
+#include <sys/uio.h>			/* struct iovec */
+
+#include "ringbuffer.h"
+
+EXPORT_DEF void rb_init (struct ringbuffer* rb, void* buf, size_t size)
 {
 	rb->buffer = buf;
 	rb->size   = size;
@@ -16,17 +21,17 @@ static inline void rb_init (ringbuffer_t* rb, char* buf, size_t size)
 	rb->write  = 0;
 }
 
-static inline size_t rb_used (ringbuffer_t* rb)
+EXPORT_DEF size_t rb_used (const struct ringbuffer* rb)
 {
 	return rb->used;
 }
 
-static inline size_t rb_free (ringbuffer_t* rb)
+EXPORT_DEF size_t rb_free (const struct ringbuffer* rb)
 {
 	return rb->size - rb->used;
 }
 
-static int rb_memcmp (ringbuffer_t* rb, const char* mem, size_t len)
+EXPORT_DEF int rb_memcmp (const struct ringbuffer* rb, const char* mem, size_t len)
 {
 	size_t tmp;
 
@@ -61,8 +66,7 @@ static int rb_memcmp (ringbuffer_t* rb, const char* mem, size_t len)
 }
 
 // ============================ READ ============================= 
-
-static int rb_read_all_iov (ringbuffer_t* rb, struct iovec* iov)
+EXPORT_DEF int rb_read_all_iov (const struct ringbuffer* rb, struct iovec* iov)
 {
 	if (rb->used > 0)
 	{
@@ -86,7 +90,7 @@ static int rb_read_all_iov (ringbuffer_t* rb, struct iovec* iov)
 	return 0;
 }
 
-static int rb_read_n_iov (ringbuffer_t* rb, struct iovec* iov, size_t len)
+EXPORT_DEF int rb_read_n_iov (const struct ringbuffer* rb, struct iovec* iov, size_t len)
 {
 	if (rb->used < len)
 	{
@@ -115,7 +119,7 @@ static int rb_read_n_iov (ringbuffer_t* rb, struct iovec* iov, size_t len)
 	return 0;
 }
 
-static int rb_read_until_char_iov (ringbuffer_t* rb, struct iovec* iov, char c)
+EXPORT_DEF int rb_read_until_char_iov (const struct ringbuffer* rb, struct iovec* iov, char c)
 {
 	void* p;
 
@@ -155,7 +159,7 @@ static int rb_read_until_char_iov (ringbuffer_t* rb, struct iovec* iov, char c)
 	return 0;
 }
 
-static int rb_read_until_mem_iov (ringbuffer_t* rb, struct iovec* iov, const void* mem, size_t len)
+EXPORT_DEF int rb_read_until_mem_iov (const struct ringbuffer* rb, struct iovec* iov, const void* mem, size_t len)
 {
 	size_t	i;
 	void*	p;
@@ -241,7 +245,7 @@ static int rb_read_until_mem_iov (ringbuffer_t* rb, struct iovec* iov, const voi
 	return 0;
 }
 
-static size_t rb_read_upd (ringbuffer_t* rb, size_t len)
+EXPORT_DEF size_t rb_read_upd (struct ringbuffer* rb, size_t len)
 {
 	size_t s;
 
@@ -277,7 +281,8 @@ static size_t rb_read_upd (ringbuffer_t* rb, size_t len)
 	return len;
 }
 
-static size_t rb_read (ringbuffer_t* rb, char* buf, size_t len)
+/* unused
+static size_t rb_read (struct ringbuffer* rb, char* buf, size_t len)
 {
 	size_t s;
 
@@ -319,10 +324,11 @@ static size_t rb_read (ringbuffer_t* rb, char* buf, size_t len)
 
 	return len;
 }
+*/
 
 // ============================ WRITE ============================ 
 
-static int rb_write_iov (ringbuffer_t* rb, struct iovec* iov)
+EXPORT_DEF int rb_write_iov (const struct ringbuffer* rb, struct iovec* iov)
 {
 	size_t free;
 
@@ -350,7 +356,7 @@ static int rb_write_iov (ringbuffer_t* rb, struct iovec* iov)
 	return 0;
 }
 
-static size_t rb_write_upd (ringbuffer_t* rb, size_t len)
+EXPORT_DEF size_t rb_write_upd (struct ringbuffer* rb, size_t len)
 {
 	size_t free;
 	size_t s;
@@ -380,7 +386,7 @@ static size_t rb_write_upd (ringbuffer_t* rb, size_t len)
 	return len;
 }
 
-static size_t rb_write (ringbuffer_t* rb, char* buf, size_t len)
+EXPORT_DEF size_t rb_write (struct ringbuffer* rb, char* buf, size_t len)
 {
 	size_t	free;
 	size_t	s;

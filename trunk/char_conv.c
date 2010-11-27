@@ -7,6 +7,12 @@
    Dmitry Vagin <dmitry2004@yandex.ru>
 */
 
+#include <iconv.h>			/* iconv_t iconv() */
+#include <string.h>			/* memcpy() */
+#include <stdio.h>			/* sscanf() snprintf() */
+
+#include "char_conv.h"
+
 static ssize_t convert_string (const char* in, size_t in_length, char* out, size_t out_size, char* from, char* to)
 {
 	ICONV_CONST char*	in_ptr = (ICONV_CONST char*) in;
@@ -51,7 +57,7 @@ static ssize_t hexstr_to_ucs2char (const char* in, size_t in_length, char* out, 
 
 	for (i = 0, x = 0; i < in_length; i++)
 	{
-		memmove (buf, in + i * 2, 2);
+		memcpy (buf, in + i * 2, 2);
 		if (sscanf (buf, "%x", &hexval) != 1)
 		{
 			return -1;
@@ -79,7 +85,7 @@ static ssize_t ucs2char_to_hexstr (const char* in, size_t in_length, char* out, 
 	for (i = 0, x = 0; i < in_length; i++)
 	{
 		snprintf (buf,sizeof (buf),"%.2X", in[i]);
-		memmove (out + x, buf, 2);
+		memcpy (out + x, buf, 2);
 		x = x + 2;
 	}
 
@@ -88,7 +94,7 @@ static ssize_t ucs2char_to_hexstr (const char* in, size_t in_length, char* out, 
 	return x;
 }
 
-static ssize_t hexstr_ucs2_to_utf8 (const char* in, size_t in_length, char* out, size_t out_size)
+EXPORT_DEF ssize_t hexstr_ucs2_to_utf8 (const char* in, size_t in_length, char* out, size_t out_size)
 {
 	char	buf[out_size];
 	ssize_t	res;
@@ -109,7 +115,7 @@ static ssize_t hexstr_ucs2_to_utf8 (const char* in, size_t in_length, char* out,
 	return res;
 }
 
-static ssize_t utf8_to_hexstr_ucs2 (const char* in, size_t in_length, char* out, size_t out_size)
+EXPORT_DEF ssize_t utf8_to_hexstr_ucs2 (const char* in, size_t in_length, char* out, size_t out_size)
 {
 	char	buf[out_size];
 	ssize_t	res;
@@ -130,14 +136,14 @@ static ssize_t utf8_to_hexstr_ucs2 (const char* in, size_t in_length, char* out,
 	return res;
 }
 
-static ssize_t char_to_hexstr_7bit (const char* in, size_t in_length, char* out, size_t out_size)
+EXPORT_DEF ssize_t char_to_hexstr_7bit (const char* in, size_t in_length, char* out, size_t out_size)
 {
 	size_t		i;
 	size_t		x;
 	size_t		s;
 	unsigned char	c;
 	unsigned char	b;
-	unsigned char	buf[] = { 0x0, 0x0, 0x0 };
+	char	buf[] = { 0x0, 0x0, 0x0 };
 
 	x = (in_length - in_length / 8) * 2;
 	if (out_size - 1 < x)
@@ -161,13 +167,13 @@ static ssize_t char_to_hexstr_7bit (const char* in, size_t in_length, char* out,
 
 		snprintf (buf, sizeof(buf), "%.2X", c);
 
-		memmove (out + x, buf, 2);
+		memcpy (out + x, buf, 2);
 		x = x + 2;
 	}
 
 	c = in[i] >> s;
 	snprintf (buf, sizeof(buf), "%.2X", c);
-	memmove (out + x, buf, 2);
+	memcpy (out + x, buf, 2);
 	x = x + 2;
 
 	out[x] = '\0';
@@ -175,7 +181,7 @@ static ssize_t char_to_hexstr_7bit (const char* in, size_t in_length, char* out,
 	return x;
 }
 
-static ssize_t hexstr_7bit_to_char (const char* in, size_t in_length, char* out, size_t out_size)
+EXPORT_DEF ssize_t hexstr_7bit_to_char (const char* in, size_t in_length, char* out, size_t out_size)
 {
 	size_t		i;
 	size_t		x;
@@ -183,7 +189,7 @@ static ssize_t hexstr_7bit_to_char (const char* in, size_t in_length, char* out,
 	int		hexval;
 	unsigned char	c;
 	unsigned char	b;
-	unsigned char	buf[] = { 0x0, 0x0, 0x0 };
+	char	buf[] = { 0x0, 0x0, 0x0 };
 
 	in_length = in_length / 2;
 	x = in_length + in_length / 7;
@@ -194,7 +200,7 @@ static ssize_t hexstr_7bit_to_char (const char* in, size_t in_length, char* out,
 
 	for (i = 0, x = 0, s = 1, b = 0; i < in_length; i++)
 	{
-		memmove (buf, in + i * 2, 2);
+		memcpy (buf, in + i * 2, 2);
 		if (sscanf (buf, "%x", &hexval) != 1)
 		{
 			return -1;

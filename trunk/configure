@@ -3,12 +3,15 @@
 host_os=`uname -s`
 config_files="Makefile"
 
+# TODO 1. set real DESTDIR if build with local Asterisk 2. set HAVE_MEMMEM
+# http://www.gnu.org/software/hello/manual/gnulib/Exported-Symbols-of-Shared-Libraries.html
+
 case "$host_os" in
 FreeBSD*)
 	DESTDIR="/usr/local/lib/asterisk/modules/"
 
 	INCDIR="-I. -I/usr/local/include"
-	CFLAGS="-O2 -DICONV_CONST=\"const\" -D__DEBUG__ -D__MANAGER__ -D__APP__"
+	CFLAGS="fvisibility=hidden -Wall -O2 -DHAVE_MEMMEM -DICONV_CONST=\"const\" -D__DEBUG__ -D__MANAGER__ -D__APP__"
 
 	LIBDIR="-L/usr/local/lib"
 	LIBS="-liconv"
@@ -19,7 +22,7 @@ Linux*)
 	DESTDIR="/usr/lib/asterisk/modules/"
 
 	INCDIR="-I. -I/usr/include"
-	CFLAGS="-O2 -DICONV_CONST=\"\" -D__DEBUG__ -D__MANAGER__ -D__APP__"
+	CFLAGS="-fvisibility=hidden -Wall -O2 -DHAVE_MEMMEM -DICONV_CONST=\"\" -D__DEBUG__ -D__MANAGER__ -D__APP__ "
 
 	LIBDIR=""
 	LIBS=""
@@ -30,7 +33,7 @@ Darwin*)
 	DESTDIR="/opt/local/lib/asterisk/modules/"
 
 	INCDIR="-I. -I/opt/local/include"
-	CFLAGS="-O2 -DNO_MEMMEM -DICONV_CONST=\"const\" -D__DEBUG__ -D__MANAGER__ -D__APP__"
+	CFLAGS="fvisibility=hidden -Wall -O2 -UHAVE_MEMMEM -DICONV_CONST=\"const\" -D__DEBUG__ -D__MANAGER__ -D__APP__"
 
 	LIBDIR="-L/opt/local/lib"
 	LIBS="-liconv"

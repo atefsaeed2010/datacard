@@ -27,74 +27,58 @@
  * \ingroup channel_drivers
  */
 
+
 #include <asterisk.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Rev: 200 $")
 
-ASTERISK_FILE_VERSION(__FILE__, "$Rev: 174 $")
-
-#include <errno.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-#include <termios.h>
-#include <unistd.h>
-
-#include <iconv.h>
-
-#include <asterisk/app.h>
-#include <asterisk/callerid.h>
-#include <asterisk/causes.h>
-#include <asterisk/frame.h>
-#include <asterisk/channel.h>
-#include <asterisk/cli.h>
-#include <asterisk/config.h>
-#include <asterisk/devicestate.h>
-#include <asterisk/dsp.h>
-#include <asterisk/io.h>
-#include <asterisk/linkedlists.h>
-#include <asterisk/lock.h>
-#include <asterisk/logger.h>
+#include <asterisk/stringfields.h>		/* AST_DECLARE_STRING_FIELDS for asterisk/manager.h */
 #include <asterisk/manager.h>
-#include <asterisk/module.h>
-#include <asterisk/musiconhold.h>
-#include <asterisk/options.h>
-#include <asterisk/pbx.h>
-#include <asterisk/timing.h>
-#include <asterisk/utils.h>
-#include <asterisk/version.h>
+#include <asterisk/dsp.h>
+#include <asterisk/callerid.h>
+#include <asterisk/module.h>			/* AST_MODULE_LOAD_DECLINE ... */
+#include <asterisk/timing.h>			/* ast_timer_open() ast_timer_fd() */
 
-#ifdef NO_MEMMEM 
-#include "__memmem.c"
-#endif
+#include <termios.h>				/* struct termios tcgetattr() tcsetattr()  */
+#include <pthread.h>				/* pthread_t pthread_kill() pthread_join() */
+#include <fcntl.h>				/* O_RDWR O_NOCTTY */
+#include <signal.h>				/* SIGURG */
 
-#include "__ringbuffer.h"
 #include "chan_datacard.h"
+#include "at_response.h"			/* at_res_t */
+#include "at_queue.h"				/* struct at_queue_task_cmd at_queue_head_cmd() */
+#include "at_command.h"				/* at_cmd2str() */
+#include "helpers.h"				/* ITEMS_OF() */
+#include "at_read.h"
+#include "cli.h"
+#include "app.h"
+#include "manager.h"
+#include "channel.h"				/* channel_queue_hangup() */
 
-#include "__char_conv.c"
-#include "__helpers.c"
-#include "__ringbuffer.c"
+#define CONFIG_FILE		"datacard.conf"
+#define DEF_DISCOVERY_INT	60
 
-#include "__cli.c"
+typedef struct
+{
+	int			discovery_interval;		/* The device discovery interval */
+	pthread_t		discovery_thread;		/* The discovery thread handler */
+	int			unloading_flag;			/* no need mutex or other locking for protect this variable because no concurent r/w and set non-0 atomically */
+	const struct ast_jb_conf jbconf_default;		/* */
+} global_state_t;
 
-#ifdef __APP__
-#include "__app.c"
-#endif
+static global_state_t  globals = {
+	DEF_DISCOVERY_INT,
+	AST_PTHREADT_NULL,
+	0,
+	{
+		.flags			= 0,
+		.max_size		= -1,
+		.resync_threshold	= -1,
+		.impl			= "",
+		.target_extra		= -1,
+	}
+};
 
-#ifdef __MANAGER__
-#include "__manager.c"
-#endif
-
-#include "__channel.c"
-
-#include "__at_fifo_queue.c"
-#include "__at_parse.c"
-
-#include "__at_send.c"
-#include "__at_read.c"
-#include "__at_response.c"
-
+EXPORT_DEF public_state_t * gpublic;
 
 static int opentty (char* dev)
 {
@@ -149,32 +133,108 @@ static int device_status (int fd)
 	return tcgetattr (fd, &t);
 }
 
+static int disconnect_datacard (struct pvt* pvt)
+{
+	struct cpvt * cpvt, * next;
+	
+	if (pvt->chansno)
+	{
+		ast_debug (1, "[%s] Datacard disconnected, hanging up owners\n", pvt->id);
+		
+		for(cpvt = pvt->chans.first; cpvt; cpvt = next)
+		{
+			next = cpvt->entry.next;
+//			cpvt->needhangup = 0;
+			CPVT_RESET_FLAG(cpvt, CALL_FLAG_NEED_HANGUP);
+			channel_queue_hangup (cpvt, 0);
+		}
+	}
+
+	close (pvt->data_fd);
+	close (pvt->audio_fd);
+	
+	pvt->data_fd		= -1;
+	pvt->audio_fd		= -1;
+
+	pvt->connected		= 0;
+	pvt->initialized	= 0;
+	pvt->gsm_registered	= 0;
+	pvt->use_pdu		= 0;
+	pvt->has_call_waiting	= 0;
+
+	pvt->gsm_reg_status	= -1;
+
+	pvt->manufacturer[0]	= '\0';
+	pvt->model[0]		= '\0';
+	pvt->firmware[0]	= '\0';
+	pvt->imei[0]		= '\0';
+	pvt->imsi[0]		= '\0';
+	pvt->number[0]		= '\0';
+	pvt->location_area_code[0]= '\0';
+	pvt->cell_id[0]		= '\0';
+	pvt->sms_scenter[0]	= '\0';
+
+	pvt->dtmf_digit		= 0;
+	
+	ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
+	ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
+
+	at_queue_flush(pvt);
+
+	ast_verb (3, "Datacard %s has disconnected\n", pvt->id);
+
+#ifdef __MANAGER__
+	manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Disconnect\r\nDevice: %s\r\n", pvt->id);
+#endif
+
+	return 1;
+}
+
+/*!
+ * \brief Check if the module is unloading.
+ * \retval 0 not unloading
+ * \retval 1 unloading
+ */
+
 static void* do_monitor_phone (void* data)
 {
-	pvt_t*		pvt = (pvt_t*) data;
+	struct pvt*	pvt = (struct pvt*) data;
 	at_res_t	at_res;
-	at_queue_t*	e;
+	const struct at_queue_cmd * ecmd;
 	int		t;
-	int		res;
+	char		buf[4*1024];
+	struct ringbuffer rb;
 	struct iovec	iov[2];
 	int		iovcnt;
-	size_t		size;
-	size_t		i = 0;
 
-	/* start datacard initilization with the AT request */
+	rb_init (&rb, buf, sizeof (buf));
+	pvt->timeout = DATA_READ_TIMEOUT;
+
 	ast_mutex_lock (&pvt->lock);
 
-	pvt->timeout = 10000;
-
-	if (at_send_at (pvt) || at_fifo_queue_add (pvt, CMD_AT, RES_OK))
+	/* anybody can write some to device before me, and not read results, clean pending results here */
+	for (t = 0; at_wait (pvt, &t); t = 0)
 	{
-		ast_log (LOG_ERROR, "[%s] Error sending AT\n", pvt->id);
+		iovcnt = at_read (pvt, &rb);
+		ast_debug (4, "[%s] drop %d bytes of pending data before initialization\n", pvt->id, rb_used(&rb));
+		/* drop readed */
+		rb_init (&rb, buf, sizeof (buf));
+		if (iovcnt)
+			break;
+	}
+
+	/* schedule datacard initilization  */
+	if (at_enque_initialization (&pvt->sys_chan, CMD_AT))
+	{
+		ast_log (LOG_ERROR, "[%s] Error adding initialization commands to queue\n", pvt->id);
 		goto e_cleanup;
 	}
 
 	ast_mutex_unlock (&pvt->lock);
 
-	while (!check_unloading ())
+
+	// TODO: also check if voice write failed with ENOENT?
+	while (globals.unloading_flag == 0)
 	{
 		ast_mutex_lock (&pvt->lock);
 
@@ -194,11 +254,12 @@ static void* do_monitor_phone (void* data)
 			if (!pvt->initialized)
 			{
 				ast_debug (1, "[%s] timeout waiting for data, disconnecting\n", pvt->id);
-
-				if ((e = at_fifo_queue_head (pvt)))
+				
+				ecmd = at_queue_head_cmd (pvt);
+				if (ecmd)
 				{
 					ast_debug (1, "[%s] timeout while waiting '%s' in response to '%s'\n", pvt->id,
-							at_res2str (e->res), at_cmd2str (e->cmd));
+							at_res2str (ecmd->res), at_cmd2str (ecmd->cmd));
 				}
 
 				goto e_cleanup;
@@ -213,15 +274,15 @@ static void* do_monitor_phone (void* data)
 
 		ast_mutex_lock (&pvt->lock);
 
-		if (at_read (pvt))
+		if (at_read (pvt, &rb))
 		{
 			goto e_cleanup;
 		}
-		while ((iovcnt = at_read_result_iov (pvt)) > 0)
+		while ((iovcnt = at_read_result_iov (pvt, &rb, iov)) > 0)
 		{
-			at_res = at_read_result_classification (pvt, iovcnt);
+			at_res = at_read_result_classification (&rb, iov[0].iov_len + iov[1].iov_len);
 
-			if (at_response (pvt, iovcnt, at_res))
+			if (at_response (pvt, iov, iovcnt, at_res))
 			{
 				goto e_cleanup;
 			}
@@ -244,55 +305,8 @@ e_cleanup:
 	return NULL;
 }
 
-static int disconnect_datacard (pvt_t* pvt)
-{
-	if (pvt->owner)
-	{
-		ast_debug (1, "[%s] Datacard disconnected, hanging up owner\n", pvt->id);
-		pvt->needchup = 0;
-		channel_queue_hangup (pvt, 0);
-	}
 
-	close (pvt->data_fd);
-	close (pvt->audio_fd);
-
-	pvt->data_fd		= -1;
-	pvt->audio_fd		= -1;
-
-	pvt->connected		= 0;
-	pvt->initialized	= 0;
-	pvt->gsm_registered	= 0;
-
-	pvt->incoming		= 0;
-	pvt->outgoing		= 0;
-	pvt->needring		= 0;
-	pvt->needchup		= 0;
-	
-	pvt->gsm_reg_status	= -1;
-
-	pvt->manufacturer[0]	= '\0';
-	pvt->model[0]		= '\0';
-	pvt->firmware[0]	= '\0';
-	pvt->imei[0]		= '\0';
-	pvt->imsi[0]		= '\0';
-
-	ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
-	ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
-
-	rb_init (&pvt->d_read_rb, pvt->d_read_buf, sizeof (pvt->d_read_buf));
-
-	at_fifo_queue_flush (pvt);
-
-	ast_verb (3, "Datacard %s has disconnected\n", pvt->id);
-
-#ifdef __MANAGER__
-	manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Disconnect\r\nDevice: %s\r\n", pvt->id);
-#endif
-
-	return 1;
-}
-
-static inline int start_monitor (pvt_t* pvt)
+static inline int start_monitor (struct pvt* pvt)
 {
 	if (ast_pthread_create_background (&pvt->monitor_thread, NULL, do_monitor_phone, pvt) < 0)
 	{
@@ -303,14 +317,14 @@ static inline int start_monitor (pvt_t* pvt)
 	return 1;
 }
 
-static void* do_discovery (void* data)
+static void* do_discovery (attribute_unused void * data)
 {
-	pvt_t* pvt;
-
-	while (!check_unloading ())
+	struct pvt* pvt;
+	
+	while (globals.unloading_flag == 0)
 	{
-		AST_RWLIST_RDLOCK (&devices);
-		AST_RWLIST_TRAVERSE (&devices, pvt, entry)
+		AST_RWLIST_RDLOCK (&gpublic->devices);
+		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
 		{
 			ast_mutex_lock (&pvt->lock);
 
@@ -336,18 +350,258 @@ static void* do_discovery (void* data)
 
 			ast_mutex_unlock (&pvt->lock);
 		}
-		AST_RWLIST_UNLOCK (&devices);
+		AST_RWLIST_UNLOCK (&gpublic->devices);
 
 		/* Go to sleep (only if we are not unloading) */
-		if (!check_unloading ())
+		if (globals.unloading_flag == 0)
 		{
-			sleep (discovery_interval);
+			sleep (globals.discovery_interval);
 		}
 	}
 
 	return NULL;
 }
 
+#/* */
+EXPORT_DEF void pvt_on_create_1st_channel(struct pvt* pvt)
+{
+	rb_init (&pvt->a_write_rb, pvt->a_write_buf, sizeof (pvt->a_write_buf));
+
+	pvt->a_timer = ast_timer_open ();
+
+/* FIXME: do on each channel switch */
+	ast_dsp_digitreset (pvt->dsp);
+	pvt->dtmf_digit = 0;
+	pvt->dtmf_begin_time.tv_sec = 0;
+	pvt->dtmf_begin_time.tv_usec = 0;
+	pvt->dtmf_end_time.tv_sec = 0;
+	pvt->dtmf_end_time.tv_usec = 0;
+}
+
+#/* */
+EXPORT_DEF void pvt_on_remove_last_channel(struct pvt* pvt)
+{
+	if (pvt->a_timer)
+	{
+		ast_timer_close(pvt->a_timer);
+		pvt->a_timer = NULL;
+	}
+}
+
+#define SET_BIT(dw_array,bitno)		do { (dw_array)[(bitno) >> 5] |= 1 << ((bitno) & 31) ; } while(0)
+#define TEST_BIT(dw_array,bitno)	((dw_array)[(bitno) >> 5] & 1 << ((bitno) & 31))
+
+#/* */
+EXPORT_DEF int pvt_get_pseudo_call_idx(const struct pvt * pvt)
+{
+	struct cpvt * cpvt;
+	int * bits;
+	int dwords = ((MAX_CALL_IDX + sizeof(*bits) - 1) / sizeof(*bits));
+
+	bits = alloca(dwords * sizeof(*bits));
+	memset(bits, 0, dwords * sizeof(*bits));
+	
+	AST_LIST_TRAVERSE(&pvt->chans, cpvt, entry) {
+		SET_BIT(bits, cpvt->call_idx);
+	}
+
+	for(dwords = 1; dwords <= MAX_CALL_IDX; dwords++)
+	{
+		if(!TEST_BIT(bits, dwords))
+			return dwords;
+	}
+	return 0;
+}
+
+#undef TEST_BIT
+#undef SET_BIT
+
+#/* */
+EXPORT_DEF int is_dial_possible(const struct pvt * pvt, int opts, const struct cpvt * ignore_cpvt)
+{
+	struct cpvt * cpvt;
+	int hold = 0;
+	int active = 0;
+	int use_call_waiting = opts & CALL_FLAG_HOLD_OTHER;
+	
+	if(pvt->ring || pvt->cwaiting || pvt->dialing)
+		return 0;
+
+	AST_LIST_TRAVERSE(&pvt->chans, cpvt, entry) {
+		if(cpvt != ignore_cpvt)
+		{
+			switch(cpvt->state)
+			{
+				case CALL_STATE_DIALING:
+				case CALL_STATE_ALERTING:
+				case CALL_STATE_INCOMING:
+				case CALL_STATE_WAITING:		// TODO: check its possible to ATD; at moments when +CCWA: ?
+				case CALL_STATE_INIT:
+					return 0;
+
+				case CALL_STATE_ACTIVE:
+					if(hold || !use_call_waiting)
+						return 0;
+					active++;
+					break;
+				case CALL_STATE_ONHOLD:
+					if(active || !use_call_waiting)
+						return 0;
+					hold++;
+					break;
+				case CALL_STATE_RELEASED:
+					;
+			}
+		}
+	}
+	return 1;
+}
+
+#/* */
+EXPORT_DEF int ready4voice_call(const struct pvt* pvt, const struct cpvt * ignore_cpvt, int opts)
+{
+	if(!pvt->connected || !pvt->initialized || !pvt->has_voice || !pvt->gsm_registered)
+		return 0;
+
+	return is_dial_possible(pvt, opts, ignore_cpvt);
+}
+
+#/* */
+EXPORT_DEF const char* pvt_str_state(const struct pvt* pvt)
+{
+	const char * state = "Free";
+
+	if(!pvt->connected)
+		state = "Not connected";
+	else if(!pvt->initialized)
+		state = "Not initialized";
+	else if(!pvt->gsm_registered)
+		state = "GSM not registered";
+	else if(!is_dial_possible(pvt, CALL_FLAG_NONE, NULL))
+		state = "Busy";
+	else if(pvt->outgoing_sms || pvt->incoming_sms)
+		state = "SMS";
+
+	return state;
+}
+
+#/* */
+EXPORT_DEF struct ast_str* pvt_str_state_ex(const struct pvt* pvt)
+{
+	struct ast_str* buf = ast_str_create (256);
+
+	if(!pvt->connected)
+		ast_str_append (&buf, 0, "Not connected");
+	else if(!pvt->initialized)
+		ast_str_append (&buf, 0, "Not initialized");
+	else if(!pvt->gsm_registered)
+		ast_str_append (&buf, 0, "GSM not registered");
+	else
+	{
+		if(pvt->ring || pvt->chan_count[CALL_STATE_INCOMING])
+			ast_str_append (&buf, 0, "Ring ");
+
+		if(pvt->dialing || (pvt->chan_count[CALL_STATE_DIALING] + pvt->chan_count[CALL_STATE_ALERTING]))
+			ast_str_append (&buf, 0, "Dialing ");
+
+		if(pvt->cwaiting || pvt->chan_count[CALL_STATE_WAITING])
+			ast_str_append (&buf, 0, "Waiting ");
+
+		if(pvt->chan_count[CALL_STATE_ACTIVE])
+			ast_str_append (&buf, 0, "Active %u ", pvt->chan_count[CALL_STATE_ACTIVE]);
+
+		if(pvt->chan_count[CALL_STATE_ONHOLD])
+			ast_str_append (&buf, 0, "Held %u ", pvt->chan_count[CALL_STATE_ONHOLD]);
+
+		if(pvt->incoming_sms)
+			ast_str_append (&buf, 0, "Incoming SMS ");
+
+		if(pvt->outgoing_sms)
+			ast_str_append (&buf, 0, "Outgoing SMS");
+
+		if(!ast_str_strlen(buf))
+			ast_str_append (&buf, 0, "Free");
+	}
+
+	return buf;
+}
+
+#/* */
+static const char* str_descibe(const char * const * strings, unsigned items, int value)
+{
+	if(value >= 0 && value < (int)items)
+		return strings[value];
+
+	return "Unknown";
+}
+
+#/* */
+EXPORT_DEF const char* GSM_regstate2str(int gsm_reg_status)
+{
+	static const char * const gsm_states[] = {
+		"Not registered, not searching",
+		"Registered, home network",
+		"Not registered, but searching",
+		"Registration denied",
+		"Registered, roaming",
+		};
+	return str_descibe (gsm_states, ITEMS_OF (gsm_states), gsm_reg_status);
+}
+
+#/* */
+EXPORT_DEF const char* sys_mode2str(int sys_mode)
+{
+	static const char * const sys_modes[] = {
+		"No Service",
+		"AMPS",
+		"CDMA",
+		"GSM/GPRS",
+		"HDR",
+		"WCDMA",
+		"GPS",
+		};
+
+	return str_descibe (sys_modes, ITEMS_OF (sys_modes), sys_mode);
+}
+
+#/* */
+EXPORT_DEF const char * sys_submode2str(int sys_submode)
+{
+	static const char * const sys_submodes[] = {
+		"No service",
+		"GSM",
+		"GPRS",
+		"EDGE",
+		"WCDMA",
+		"HSDPA",
+		"HSUPA",
+		"HSDPA and HSUPA",
+		};
+
+	return str_descibe (sys_submodes, ITEMS_OF (sys_submodes), sys_submode);
+}
+
+#/* */
+EXPORT_DECL char* rssi2dBm(int rssi, char * buf, unsigned len)
+{
+	if(rssi <= 0)
+	{
+		snprintf(buf, len, "<= -125 dBm");
+	}
+	else if(rssi <= 30)
+	{
+		snprintf(buf, len, "%d dBm", 31 * rssi / 50 - 125);
+	}
+	else if(rssi == 31)
+	{
+		snprintf(buf, len, ">= -75 dBm");
+	}
+	else
+	{
+		snprintf(buf, len, "unknown");
+	}
+	return buf;
+}
 
 
 /* Module */
@@ -359,9 +613,9 @@ static void* do_discovery (void* data)
  * \return NULL on error, a pointer to the device that was loaded on success
  */
 
-static pvt_t* load_device (struct ast_config* cfg, const char* cat)
+static struct pvt* load_device (struct ast_config* cfg, const char* cat)
 {
-	pvt_t*			pvt;
+	struct pvt*		pvt;
 	const char*		audio_tty;
 	const char*		data_tty;
 	struct ast_variable*	v;
@@ -389,9 +643,10 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	ast_mutex_init (&pvt->lock);
 
 	AST_LIST_HEAD_INIT_NOLOCK (&pvt->at_queue);
-
-	rb_init (&pvt->d_read_rb, pvt->d_read_buf, sizeof (pvt->d_read_buf));
-
+	AST_LIST_HEAD_INIT_NOLOCK (&pvt->chans);
+	pvt->sys_chan.pvt = pvt;
+	pvt->sys_chan.state = CALL_STATE_RELEASED;
+	
 
 	/* populate the pvt structure */
 
@@ -404,7 +659,7 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	pvt->monitor_thread		= AST_PTHREADT_NULL;
 	pvt->audio_fd			= -1;
 	pvt->data_fd			= -1;
-	pvt->timeout			= 10000;
+	pvt->timeout			= DATA_READ_TIMEOUT;
 	pvt->cusd_use_ucs2_decoding	=  1;
 	pvt->gsm_reg_status		= -1;
 
@@ -416,11 +671,12 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 	pvt->reset_datacard		=  1;
 	pvt->u2diag			= -1;
 	pvt->callingpres		= -1;
-
+	
 	pvt->mindtmfgap			= DEFAULT_MINDTMFGAP;
 	pvt->mindtmfduration		= DEFAULT_MINDTMFDURATION;
 	pvt->mindtmfinterval		= DEFAULT_MINDTMFINTERVAL;
 
+	pvt->call_waiting = CALL_WAITING_AUTO;
 	/* setup the dsp */
 
 	pvt->dsp = ast_dsp_new ();
@@ -495,6 +751,10 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 		{
 			ast_copy_string (pvt->language, v->value, sizeof (pvt->language));	/* set channel language */
 		}
+		else if (!strcasecmp (v->name, "smsaspdu"))
+		{
+			pvt->send_sms_as_pdu = ast_true (v->value);			/* send_sms_as_pdu us set to 0 if invalid */
+		}
 		else if (!strcasecmp (v->name, "mindtmfgap"))
 		{
 			errno = 0;
@@ -525,14 +785,19 @@ static pvt_t* load_device (struct ast_config* cfg, const char* cat)
 				pvt->mindtmfduration = DEFAULT_MINDTMFINTERVAL;
 			}
 		}
+		else if (!strcasecmp (v->name, "callwaiting"))
+		{
+			if(strcasecmp(v->value, "auto"))
+				pvt->call_waiting = ast_true (v->value);
+		}
 	}
 
 	ast_debug (1, "[%s] Loaded device\n", pvt->id);
 	ast_log (LOG_NOTICE, "Loaded device %s\n", pvt->id);
 
-	AST_RWLIST_WRLOCK (&devices);
-	AST_RWLIST_INSERT_HEAD (&devices, pvt, entry);
-	AST_RWLIST_UNLOCK (&devices);
+	AST_RWLIST_WRLOCK (&gpublic->devices);
+	AST_RWLIST_INSERT_HEAD (&gpublic->devices, pvt, entry);
+	AST_RWLIST_UNLOCK (&gpublic->devices);
 
 	return pvt;
 }
@@ -553,7 +818,7 @@ static int load_config ()
 	for (v = ast_variable_browse (cfg, "general"); v; v = v->next)
 	{
 		/* handle jb conf */
-		if (!ast_jb_read_conf (&jbconf_global, v->name, v->value))
+		if (!ast_jb_read_conf (&gpublic->jbconf_global, v->name, v->value))
 		{
 			continue;
 		}
@@ -561,11 +826,11 @@ static int load_config ()
 		if (!strcasecmp (v->name, "interval"))
 		{
 			errno = 0;
-			discovery_interval = (int) strtol (v->value, (char**) NULL, 10);
-			if (discovery_interval == 0 && errno == EINVAL)
+			globals.discovery_interval = (int) strtol (v->value, (char**) NULL, 10);
+			if (globals.discovery_interval == 0 && errno == EINVAL)
 			{
 				ast_log (LOG_NOTICE, "Error parsing 'interval' in general section, using default value\n");
-				discovery_interval = DEF_DISCOVERY_INT;
+				globals.discovery_interval = DEF_DISCOVERY_INT;
 			}
 		}
 	}
@@ -584,86 +849,20 @@ static int load_config ()
 	return 0;
 }
 
-
-/*!
- * \brief Check if the module is unloading.
- * \retval 0 not unloading
- * \retval 1 unloading
- */
-
-static inline int check_unloading ()
-{
-	int res;
-
-	ast_mutex_lock (&unload_mtx);
-	res = unloading_flag;
-	ast_mutex_unlock (&unload_mtx);
-
-	return res;
-}
-
-static int unload_module ()
-{
-	pvt_t* pvt;
-
-	/* First, take us out of the channel loop */
-	ast_channel_unregister (&channel_tech);
-
-	/* Unregister the CLI & APP & MANAGER */
-	ast_cli_unregister_multiple (cli, sizeof (cli) / sizeof (cli[0]));
-
-#ifdef __APP__
-	ast_unregister_application (app_status);
-	ast_unregister_application (app_send_sms);
-#endif
-
-#ifdef __MANAGER__
-	ast_manager_unregister ("DatacardShowDevices");
-	ast_manager_unregister ("DatacardSendUSSD");
-	ast_manager_unregister ("DatacardSendSMS");
-#endif
-
-	/* signal everyone we are unloading */
-	ast_mutex_lock (&unload_mtx);
-	unloading_flag = 1;
-	ast_mutex_unlock (&unload_mtx);
-
-	/* Kill the discovery thread */
-	if (discovery_thread != AST_PTHREADT_NULL)
-	{
-		pthread_kill (discovery_thread, SIGURG);
-		pthread_join (discovery_thread, NULL);
-	}
-
-	/* Destroy the device list */
-	AST_RWLIST_WRLOCK (&devices);
-	while ((pvt = AST_RWLIST_REMOVE_HEAD (&devices, entry)))
-	{
-		if (pvt->monitor_thread != AST_PTHREADT_NULL)
-		{
-			pthread_kill (pvt->monitor_thread, SIGURG);
-			pthread_join (pvt->monitor_thread, NULL);
-		}
-
-		close (pvt->audio_fd);
-		close (pvt->data_fd);
-
-		at_fifo_queue_flush (pvt);
-
-		ast_dsp_free (pvt->dsp);
-		ast_free (pvt);
-	}
-	AST_RWLIST_UNLOCK (&devices);
-
-	return 0;
-}
-
 static int load_module ()
 {
+	gpublic = ast_calloc(1, sizeof(*gpublic));
+	if(!gpublic)
+	{
+		ast_log (LOG_ERROR, "Unable to allocate global state structure\n");
+		return AST_MODULE_LOAD_DECLINE;
+	}
+	
+	AST_RWLIST_HEAD_INIT(&gpublic->devices);
 	/* Copy the default jb config over global jbconf */
-	memmove (&jbconf_global, &jbconf_default, sizeof (jbconf_global));
-
-	memset (silence_frame, 0, sizeof (silence_frame));
+	memcpy (&gpublic->jbconf_global, &globals.jbconf_default, sizeof (gpublic->jbconf_global));
+	ast_mutex_init(&gpublic->round_robin_mtx);
+	
 
 	if (load_config ())
 	{
@@ -672,7 +871,7 @@ static int load_module ()
 	}
 
 	/* Spin the discovery thread */
-	if (ast_pthread_create_background (&discovery_thread, NULL, do_discovery, NULL) < 0)
+	if (ast_pthread_create_background (&globals.discovery_thread, NULL, do_discovery, NULL) < 0)
 	{
 		ast_log (LOG_ERROR, "Unable to create discovery thread\n");
 		return AST_MODULE_LOAD_FAILURE;
@@ -685,56 +884,77 @@ static int load_module ()
 		return AST_MODULE_LOAD_FAILURE;
 	}
 
-	ast_cli_register_multiple (cli, sizeof (cli) / sizeof (cli[0]));
+	cli_register();
 
 #ifdef __APP__
-	ast_register_application (app_status,   app_status_exec,   app_status_synopsis,   app_status_desc);
-	ast_register_application (app_send_sms, app_send_sms_exec, app_send_sms_synopsis, app_send_sms_desc);
+	app_register();
 #endif
 
 #ifdef __MANAGER__
-	ast_manager_register2 (
-		"DatacardShowDevices",
-		EVENT_FLAG_SYSTEM | EVENT_FLAG_CONFIG | EVENT_FLAG_REPORTING,
-		manager_show_devices,
-		"List Datacard devices",
-		manager_show_devices_desc
-	);
-
-	ast_manager_register2 (
-		"DatacardSendUSSD",
-		EVENT_FLAG_SYSTEM | EVENT_FLAG_CONFIG | EVENT_FLAG_REPORTING,
-		manager_send_ussd,
-		"Send a ussd command to the datacard.",
-		manager_send_ussd_desc
-	);
-
-	ast_manager_register2 (
-		"DatacardSendSMS",
-		EVENT_FLAG_SYSTEM | EVENT_FLAG_CONFIG | EVENT_FLAG_REPORTING,
-		manager_send_sms,
-		"Send a sms message.",
-		manager_send_sms_desc
-	);
-	
-	ast_manager_register2 (
-		"DatacardCCWADisable",
-		EVENT_FLAG_SYSTEM | EVENT_FLAG_CONFIG | EVENT_FLAG_REPORTING,
-		manager_ccwa_disable,
-		"Disabled Call-Waiting on a datacard.",
-		manager_ccwa_disable_desc
-	);
-	
-	ast_manager_register2 (
-		"DatacardReset",
-		EVENT_FLAG_SYSTEM | EVENT_FLAG_CONFIG | EVENT_FLAG_REPORTING,
-		manager_reset,
-		"Reset a datacard.",
-		manager_reset_desc
-	);
+	manager_register();
 #endif
 
 	return AST_MODULE_LOAD_SUCCESS;
 }
 
+static int unload_module ()
+{
+	struct pvt* pvt;
+
+	/* First, take us out of the channel loop */
+	ast_channel_unregister (&channel_tech);
+
+	/* Unregister the CLI & APP & MANAGER */
+
+#ifdef __MANAGER__
+	manager_unregister ();
+#endif
+
+#ifdef __APP__
+	app_unregister();
+#endif
+
+	cli_unregister();
+
+	/* signal everyone we are unloading */
+	globals.unloading_flag = 1;
+
+	/* Kill the discovery thread */
+	if (globals.discovery_thread != AST_PTHREADT_NULL)
+	{
+		pthread_kill (globals.discovery_thread, SIGURG);
+		pthread_join (globals.discovery_thread, NULL);
+	}
+
+	/* Destroy the device list */
+	AST_RWLIST_WRLOCK (&gpublic->devices);
+	while ((pvt = AST_RWLIST_REMOVE_HEAD (&gpublic->devices, entry)))
+	{
+		if (pvt->monitor_thread != AST_PTHREADT_NULL)
+		{
+			pthread_kill (pvt->monitor_thread, SIGURG);
+			pthread_join (pvt->monitor_thread, NULL);
+		}
+
+		close (pvt->audio_fd);
+		close (pvt->data_fd);
+
+		at_queue_flush (pvt);
+
+		ast_dsp_free (pvt->dsp);
+		ast_free (pvt);
+	}
+	AST_RWLIST_UNLOCK (&gpublic->devices);
+
+	ast_mutex_destroy(&gpublic->round_robin_mtx);
+	AST_RWLIST_HEAD_DESTROY(&gpublic->devices);
+	ast_free(gpublic);
+	return 0;
+}
+
 AST_MODULE_INFO_STANDARD (ASTERISK_GPL_KEY, "Datacard Channel Driver");
+
+EXPORT_DEF struct ast_module* self_module()
+{
+	return ast_module_info->self;
+}
