@@ -1,3 +1,4 @@
+#ifndef HAVE_MEMMEM
 /*-
  * Copyright (c) 2005 Pascal Gloor <pascal.gloor@spale.com>
  *
@@ -33,7 +34,7 @@
  * Find the first occurrence of the byte string s in byte string l.
  */
 
-void *
+EXPORT_DEF void *
 memmem(const void *l, size_t l_len, const void *s, size_t s_len)
 {
 	register char *cur, *last;
@@ -61,3 +62,5 @@ memmem(const void *l, size_t l_len, const void *s, size_t s_len)
 
 	return NULL;
 }
+
+#endif /* HAVE_MEMMEM */

@@ -1,5 +1,11 @@
-PROJ = chan_datacard
-OBJ  = chan_datacard.o
+PROJM =  chan_datacard.so
+PROJS =  chan_datacards.so
+
+chan_datacardm_so_OBJS =  app.o at_command.o at_parse.o at_queue.o at_read.o at_response.o \
+	chan_datacard.o channel.o char_conv.o cli.o helpers.o manager.o \
+	memmem.o ringbuffer.o cpvt.o
+
+chan_datacards_so_OBJS	= single.o
 
 CC = gcc
 LD = gcc
@@ -7,24 +13,38 @@ STRIP = strip
 RM = rm -f
 CHMOD = chmod
 INSTALL = install
+MAKE_DEPS=-MD -MT $@ -MF .$(subst /,_,$@).d -MP
 
-CFLAGS  += -Wextra -fPIC -DAST_MODULE=\"$(PROJ)\" -D_THREAD_SAFE @INCDIR@ @CFLAGS@
+CFLAGS  += -Wextra -fPIC -DAST_MODULE=\"$(PROJM)\" -D_THREAD_SAFE @INCDIR@ @CFLAGS@
 LDFLAGS += @LIBDIR@
 LIBS     = @LIBS@
 SOLINK   = @SOLINK@
 
-all	: clean $(PROJ).so
+all: $(PROJM)
+bundle: $(PROJS)
 
-install	: all
-	$(STRIP) $(PROJ).so
-	$(INSTALL) -m 755 $(PROJ).so @DESTDIR@
+install: all
+	$(STRIP) $(PROJM)
+	$(INSTALL) -m 755 $(PROJM) @DESTDIR@
 
-$(PROJ).so: $(OBJ)
-	$(LD) $(LDFLAGS) $(SOLINK) $(OBJ) $(LIBS) -o $@
+$(PROJM): $(chan_datacardm_so_OBJS) Makefile
+	$(LD) $(LDFLAGS) $(SOLINK) -o $@ $(chan_datacardm_so_OBJS) $(LIBS)
 	$(CHMOD) 755 $@
 
-.c.o	:
-	$(CC) $(CFLAGS) -c $<
+$(PROJS): $(chan_datacards_so_OBJS) Makefile
+	$(LD) $(LDFLAGS) $(SOLINK) -o $@ $(chan_datacards_so_OBJS) $(LIBS)
+	$(CHMOD) 755 $@
+	mv $@ chan_datacard.so
 
-clean	:
-	@$(RM) $(PROJ).so *.o *.core
+.c.o:
+	$(CC) $(CFLAGS) $(MAKE_DEPS) -o $@ -c $<
+
+clean:
+	$(RM) $(PROJM) $(PROJS) *.o *.core .*.d
+
+Makefile: Makefile.in
+	./configure
+
+ifneq ($(wildcard .*.d),)
+   include .*.d
+endif
