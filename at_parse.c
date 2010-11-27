@@ -21,62 +21,6 @@
 #include "chan_datacard.h"
 
 
-/*!
- * \brief Parse a CLIP event
- * \param pvt -- pvt structure
- * \param str -- string to parse (null terminated)
- * \param len -- string lenght
- * @note str will be modified when the CID string is parsed
- * \return NULL on error (parse error) or a pointer to the caller id inforamtion in str on success
- */
-
-#if 0
-EXPORT_DEF char* at_parse_clip (char* str, unsigned len)
-{
-	unsigned	i;
-	int	state;
-	char*	clip = NULL;
-
-	/*
-	 * parse clip info in the following format:
-	 * +CLIP: "123456789",128,...
-	 */
-
-	for (i = 0, state = 0; i < len && state < 3; i++)
-	{
-		switch (state)
-		{
-			case 0: /* search for start of the number (") */
-				if (str[i] == '"')
-				{
-					state++;
-				}
-				break;
-
-			case 1: /* mark the number */
-				clip = &str[i];
-				state++;
-				/* fall through */
-
-			case 2: /* search for the end of the number (") */
-				if (str[i] == '"')
-				{
-					str[i] = '\0';
-					state++;
-				}
-				break;
-		}
-	}
-
-	if (state != 3)
-	{
-		return NULL;
-	}
-
-	return clip;
-}
-#endif /* if 0 */
-
 
 /*!
  * \brief Parse a CNUM response

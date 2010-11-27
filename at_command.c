@@ -474,7 +474,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* number, const char* 
 		at_cmd[1].length = res;
 		res -= sca_len + 1;
 		
-		at_cmd[0].length += snprintf(buf + at_cmd[0].length, sizeof(buf) - at_cmd[0].length - 2, "%u", res / 2);
+		at_cmd[0].length += snprintf(buf + at_cmd[0].length, sizeof(buf) - at_cmd[0].length - 2, "%d", (int)(res / 2));
 		buf[at_cmd[0].length++] = '\r';
 		buf[at_cmd[0].length] = '\0';
 
