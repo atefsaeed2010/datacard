@@ -24,7 +24,7 @@ EXPORT_DEF struct pvt* find_device (const char* name)
 	AST_RWLIST_RDLOCK (&gpublic->devices);
 	AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
 	{
-		if (!strcmp (pvt->id, name))
+		if (!strcmp (PVT_ID(pvt), name))
 		{
 			break;
 		}
@@ -46,7 +46,7 @@ EXPORT_DEF int get_at_clir_value (struct pvt* pvt, int clir)
 		case AST_PRES_ALLOWED_USER_NUMBER_NOT_SCREENED:
 		case AST_PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN:
 		case AST_PRES_NUMBER_NOT_AVAILABLE:
-			ast_debug (2, "[%s] callingpres: %s\n", pvt->id, ast_describe_caller_presentation (clir));
+			ast_debug (2, "[%s] callingpres: %s\n", PVT_ID(pvt), ast_describe_caller_presentation (clir));
 			res = 2;
 			break;
 
@@ -54,12 +54,12 @@ EXPORT_DEF int get_at_clir_value (struct pvt* pvt, int clir)
 		case AST_PRES_PROHIB_USER_NUMBER_FAILED_SCREEN:
 		case AST_PRES_PROHIB_USER_NUMBER_NOT_SCREENED:
 		case AST_PRES_PROHIB_USER_NUMBER_PASSED_SCREEN:
-			ast_debug (2, "[%s] callingpres: %s\n", pvt->id, ast_describe_caller_presentation (clir));
+			ast_debug (2, "[%s] callingpres: %s\n", PVT_ID(pvt), ast_describe_caller_presentation (clir));
 			res = 1;
 			break;
 
 		default:
-			ast_log (LOG_WARNING, "[%s] Unsupported callingpres: %d\n", pvt->id, clir);
+			ast_log (LOG_WARNING, "[%s] Unsupported callingpres: %d\n", PVT_ID(pvt), clir);
 			if ((clir & AST_PRES_RESTRICTION) != AST_PRES_ALLOWED)
 			{
 				res = 0;
@@ -93,7 +93,7 @@ static const char* send2(const char* dev_name, int * status, int online, at_cmd_
 			if ((*func) (&pvt->sys_chan, arg1, arg2))
 			{
 				msg = emsg;
-				ast_log (LOG_ERROR, "[%s] %s\n", pvt->id, emsg);
+				ast_log (LOG_ERROR, "[%s] %s\n", PVT_ID(pvt), emsg);
 			}
 			else
 			{

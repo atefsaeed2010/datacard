@@ -262,32 +262,32 @@ EXPORT_DEF int at_enque_initialization(struct cpvt* cpvt, at_cmd_t from_command)
 				continue;
 		}
 		
-		if(st_cmds[in].cmd == CMD_AT_Z && pvt->reset_datacard != 1)
+		if(st_cmds[in].cmd == CMD_AT_Z && !CONF_SHARED(pvt, reset_datacard))
 			continue;
-		if(st_cmds[in].cmd == CMD_AT_U2DIAG && pvt->u2diag == -1)
+		if(st_cmds[in].cmd == CMD_AT_U2DIAG && CONF_SHARED(pvt, u2diag) == -1)
 			continue;
-		if(st_cmds[in].cmd == CMD_AT_CCWA_SET && pvt->call_waiting == CALL_WAITING_AUTO)
+		if(st_cmds[in].cmd == CMD_AT_CCWA_SET && CONF_SHARED(pvt, call_waiting) == CALL_WAITING_AUTO)
 			continue;
 
 		memcpy(&cmds[out], &st_cmds[in], sizeof(st_cmds[in]));
 
 		if(cmds[out].cmd == CMD_AT_U2DIAG)
 		{
-			err = at_fill_generic_cmd(&cmds[out], "AT^U2DIAG=%d\r", pvt->u2diag);
+			err = at_fill_generic_cmd(&cmds[out], "AT^U2DIAG=%d\r", CONF_SHARED(pvt, u2diag));
 			if(err)
 				goto failure;
 			ptmp1 = cmds[out].data;
 		}
 		else if(cmds[out].cmd == CMD_AT_CMGF)
 		{
-			err = at_fill_generic_cmd(&cmds[out], "AT+CMGF=%d\r", pvt->send_sms_as_pdu ? 0 : 1);
+			err = at_fill_generic_cmd(&cmds[out], "AT+CMGF=%d\r", CONF_SHARED(pvt, smsaspdu) ? 0 : 1);
 			if(err)
 				goto failure;
 			ptmp2 = cmds[out].data;
 		}
 		else if(cmds[out].cmd == CMD_AT_CCWA_SET)
 		{
-			err = pvt->call_waiting == CALL_WAITING_ALLOWED ? 1 : 0;
+			err = CONF_SHARED(pvt, call_waiting) == CALL_WAITING_ALLOWED ? 1 : 0;
 			err = at_fill_generic_cmd(&cmds[out], cmd_ccwa_set, err, err, CCWA_CLASS_VOICE);
 			if(err)
 				goto failure;
@@ -424,7 +424,7 @@ static int build_pdu(struct pvt* pvt, char* buffer, unsigned length, const char*
 	data_len = utf8_to_hexstr_ucs2(msg, msg_len, buffer + len + 8, length - len - 11);
 	if(data_len < 0)
 	{
-		ast_log (LOG_ERROR, "[%s] Error converting SMS to UCS-2: '%s'\n", pvt->id, msg);
+		ast_log (LOG_ERROR, "[%s] Error converting SMS to UCS-2: '%s'\n", PVT_ID(pvt), msg);
 		return -2;
 	}
 	// TODO: check message limit in 178 octet of TPDU (w/o SCA)
@@ -478,8 +478,8 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* number, const char* 
 		buf[at_cmd[0].length++] = '\r';
 		buf[at_cmd[0].length] = '\0';
 
-//		ast_debug (5, "[%s] PDU Head '%s'\n", pvt->id, buf);
-//		ast_debug (5, "[%s] PDU Body '%s'\n", pvt->id, pdu_buf);
+//		ast_debug (5, "[%s] PDU Head '%s'\n", PVT_ID(pvt), buf);
+//		ast_debug (5, "[%s] PDU Body '%s'\n", PVT_ID(pvt), pdu_buf);
 	}
 	else
 	{
@@ -488,7 +488,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* number, const char* 
 		res = utf8_to_hexstr_ucs2 (number, strlen (number), buf + at_cmd[0].length, sizeof(buf) - at_cmd[0].length - 3);
 		if(res <= 0)
 		{
-			ast_log (LOG_ERROR, "[%s] Error converting SMS number to UCS-2: %s\n", pvt->id, number);
+			ast_log (LOG_ERROR, "[%s] Error converting SMS number to UCS-2: %s\n", PVT_ID(pvt), number);
 			return -4;
 		}
 		at_cmd[0].length += res;
@@ -510,7 +510,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* number, const char* 
 			if (res < 0)
 			{
 				ast_free (at_cmd[0].data);
-				ast_log (LOG_ERROR, "[%s] Error converting SMS to UCS-2: '%s'\n", pvt->id, msg);
+				ast_log (LOG_ERROR, "[%s] Error converting SMS to UCS-2: '%s'\n", PVT_ID(pvt), msg);
 				return -4;
 			}
 			pdu_buf[res++] = 0x1a;
@@ -583,7 +583,7 @@ EXPORT_DEF int at_enque_cusd (struct cpvt* cpvt, const char* code)
 	res = (*coder->func)(code, strlen (code), buf + STRLEN(cmd), sizeof (buf) - STRLEN(cmd) - STRLEN(cmd_end) - 1);
 	if (res <= 0)
 	{
-		ast_log (LOG_ERROR, "[%s] Error converting USSD code to %s: %s\n", pvt->id, coder->descr, code);
+		ast_log (LOG_ERROR, "[%s] Error converting USSD code to %s: %s\n", PVT_ID(pvt), coder->descr, code);
 		return -1;
 	}
 	
@@ -644,7 +644,7 @@ EXPORT_DEF int at_enque_set_ccwa (struct cpvt* cpvt, int enable)
 	int err;
 	if(enable)
 		enable = 1;
-	cpvt->pvt->call_waiting = enable;
+	CONF_SHARED(cpvt->pvt, call_waiting) = enable;
 
 	err = at_enque_generic(cpvt, CMD_AT_CCWA_SET, 0, cmd_ccwa_set, enable, enable, CCWA_CLASS_VOICE);
 	if(err == 0)
@@ -756,7 +756,7 @@ EXPORT_DEF int at_enque_answer(struct cpvt* cpvt)
 	}
 	else
 	{
-		ast_log (LOG_ERROR, "[%s] Request answer for call idx %d with state '%s'\n", cpvt->pvt->id, cpvt->call_idx, call_state2str(cpvt->state));
+		ast_log (LOG_ERROR, "[%s] Request answer for call idx %d with state '%s'\n", PVT_ID(cpvt->pvt), cpvt->call_idx, call_state2str(cpvt->state));
 		return -1;
 	}
 
@@ -785,7 +785,7 @@ EXPORT_DEF int at_enque_activate (struct cpvt* cpvt)
 	if (cpvt->state != CALL_STATE_ONHOLD && cpvt->state != CALL_STATE_WAITING)
 	{
 		ast_log (LOG_ERROR, "[%s] Imposible activate call idx %d from state '%s'\n", 
-					cpvt->pvt->id, cpvt->call_idx, call_state2str(cpvt->state));
+				PVT_ID(cpvt->pvt), cpvt->call_idx, call_state2str(cpvt->state));
 		return -1;
 	}
 	

@@ -25,9 +25,9 @@ static char* complete_device (const char* word, int state)
 	AST_RWLIST_RDLOCK (&gpublic->devices);
 	AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
 	{
-		if (!strncasecmp (pvt->id, word, wordlen) && ++which > state)
+		if (!strncasecmp (PVT_ID(pvt), word, wordlen) && ++which > state)
 		{
-			res = ast_strdup (pvt->id);
+			res = ast_strdup (PVT_ID(pvt));
 			break;
 		}
 	}
@@ -67,8 +67,8 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 	{
 		ast_mutex_lock (&pvt->lock);
 		ast_cli (a->fd, FORMAT2,
-			pvt->id,
-			pvt->group,
+			PVT_ID(pvt),
+			CONF_SHARED(pvt, group),
 			pvt_str_state(pvt),
 			pvt->rssi,
 			pvt->linkmode,
@@ -126,13 +126,13 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 
 		ast_cli (a->fd, "\n Current device settings:\n");
 		ast_cli (a->fd, "------------------------------------\n");
-		ast_cli (a->fd, "  Device                  : %s\n", pvt->id);
-		ast_cli (a->fd, "  Group                   : %d\n", pvt->group);
+		ast_cli (a->fd, "  Device                  : %s\n", PVT_ID(pvt));
+		ast_cli (a->fd, "  Group                   : %d\n", CONF_SHARED(pvt, group));
 		ast_cli (a->fd, "  GSM Registration Status : %s\n", GSM_regstate2str(pvt->gsm_reg_status));
 		ast_cli (a->fd, "  State                   : %s\n", ast_str_buffer(statebuf));
 		ast_cli (a->fd, "  Voice                   : %s\n", (pvt->has_voice) ? "Yes" : "No");
 		ast_cli (a->fd, "  SMS                     : %s\n", (pvt->has_sms) ? "Yes" : "No");
-		ast_cli (a->fd, "  RSSI                    : %d %s\n", pvt->rssi, rssi2dBm(pvt->rssi, buf, sizeof(buf)));
+		ast_cli (a->fd, "  RSSI                    : %d, %s\n", pvt->rssi, rssi2dBm(pvt->rssi, buf, sizeof(buf)));
 		ast_cli (a->fd, "  Mode                    : %s\n", sys_mode2str(pvt->linkmode));
 		ast_cli (a->fd, "  Submode                 : %s\n", sys_submode2str(pvt->linksubmode));
 		ast_cli (a->fd, "  ProviderName            : %s\n", pvt->provider_name);
@@ -143,20 +143,20 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "  IMSI                    : %s\n", pvt->imsi);
 		ast_cli (a->fd, "  Number                  : %s\n", pvt->number);
 		ast_cli (a->fd, "  SMS Service Center      : %s\n", pvt->sms_scenter);
-		ast_cli (a->fd, "  Use CallingPres         : %s\n", pvt->usecallingpres ? "Yes" : "No");
-		ast_cli (a->fd, "  Default CallingPres     : %s\n", pvt->callingpres < 0 ? "<Not set>" : ast_describe_caller_presentation (pvt->callingpres));
+		ast_cli (a->fd, "  Use CallingPres         : %s\n", CONF_SHARED(pvt, usecallingpres) ? "Yes" : "No");
+		ast_cli (a->fd, "  Default CallingPres     : %s\n", CONF_SHARED(pvt, callingpres) < 0 ? "<Not set>" : ast_describe_caller_presentation (CONF_SHARED(pvt, callingpres)));
 		ast_cli (a->fd, "  Use UCS-2 encoding      : %s\n", pvt->use_ucs2_encoding ? "Yes" : "No");
 		ast_cli (a->fd, "  USSD use 7 bit encoding : %s\n", pvt->cusd_use_7bit_encoding ? "Yes" : "No");
 		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
 		ast_cli (a->fd, "  Location area code      : %s\n", pvt->location_area_code);
 		ast_cli (a->fd, "  Cell ID                 : %s\n", pvt->cell_id);
-		ast_cli (a->fd, "  Auto delete SMS         : %s\n", pvt->auto_delete_sms ? "Yes" : "No");
-		ast_cli (a->fd, "  Disable SMS             : %s\n", pvt->disablesms ? "Yes" : "No");
-		ast_cli (a->fd, "  Channel Language        : %s\n", pvt->language);
-		ast_cli (a->fd, "  Send SMS as PDU         : %s\n", pvt->send_sms_as_pdu ? "Yes" : "No");
-		ast_cli (a->fd, "  Minimal DTMF Gap        : %d\n", pvt->mindtmfgap);
-		ast_cli (a->fd, "  Minimal DTMF Duration   : %d\n", pvt->mindtmfduration);
-		ast_cli (a->fd, "  Minimal DTMF Interval   : %d\n", pvt->mindtmfinterval);
+		ast_cli (a->fd, "  Auto delete SMS         : %s\n", CONF_SHARED(pvt, auto_delete_sms) ? "Yes" : "No");
+		ast_cli (a->fd, "  Disable SMS             : %s\n", CONF_SHARED(pvt, disablesms) ? "Yes" : "No");
+		ast_cli (a->fd, "  Channel Language        : %s\n", CONF_SHARED(pvt, language));
+		ast_cli (a->fd, "  Send SMS as PDU         : %s\n", CONF_SHARED(pvt, smsaspdu) ? "Yes" : "No");
+		ast_cli (a->fd, "  Minimal DTMF Gap        : %d\n", CONF_SHARED(pvt, mindtmfgap));
+		ast_cli (a->fd, "  Minimal DTMF Duration   : %d\n", CONF_SHARED(pvt, mindtmfduration));
+		ast_cli (a->fd, "  Minimal DTMF Interval   : %d\n", CONF_SHARED(pvt, mindtmfinterval));
 		ast_cli (a->fd, "  Call Waiting            : %s\n\n", pvt->has_call_waiting ? "Enabled" : "Disabled" );
 // TODO: show call waiting  network setting and local config value
 		ast_mutex_unlock (&pvt->lock);

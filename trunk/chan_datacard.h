@@ -11,13 +11,13 @@
 
 #include <asterisk.h>
 #include <asterisk/frame.h>		/* AST_FRIENDLY_OFFSET */
-#include <asterisk/channel.h>		/* AST_MAX_CONTEXT ... */
 #include <asterisk/lock.h>
 #include <asterisk/linkedlists.h>
 
 #include "ringbuffer.h"			/* struct ringbuffer */
 #include "cpvt.h"			/* struct cpvt */
 #include "export.h"			/* EXPORT_DECL EXPORT_DEF */
+#include "dc_config.h"			/* pvt_config_t */
 
 #define FRAME_SIZE		320
 
@@ -43,12 +43,6 @@ typedef struct pvt_stat
 	unsigned int		write_rb_overflow;		/*!< number of times when a_write_rb overflowed */
 } pvt_stat_t;
 #define PVT_STAT_PUMP(name, expr)		pvt->stat.name expr
-
-typedef enum {
-	CALL_WAITING_DISALLOWED	= 0,
-	CALL_WAITING_ALLOWED,
-	CALL_WAITING_AUTO
-} call_waiting_t;
 
 typedef struct pvt
 {
@@ -83,6 +77,7 @@ typedef struct pvt
 
 	int			timeout;			/*!< used to set the timeout for data */
 #define DATA_READ_TIMEOUT	10000
+
 	unsigned long		channel_instanse;		/*!< id of channel on this device */
 	unsigned int		rings;				/*!< ring/ccwa  number distributed to at_response_clcc() */
 
@@ -118,7 +113,8 @@ typedef struct pvt
 	unsigned int		volume_sync_step:2;		/*!< volume synchronized stage */
 #define VOLUME_SYNC_BEGIN	0
 #define VOLUME_SYNC_DONE	3
-	unsigned int		use_pdu;			/*!< PDU SMS mode in force */
+
+	unsigned int		use_pdu:1;			/*!< PDU SMS mode in force */
 	unsigned int		has_sms:1;			/*!< device has SMS support */
 	unsigned int		has_voice:1;			/*!< device has voice call support */
 	unsigned int		has_call_waiting:1;		/*!< call waiting enabled on device */
@@ -128,33 +124,12 @@ typedef struct pvt
 	unsigned int		sim_last_used:1;		/*!< mark the last used device */
 	unsigned int		d_read_result:1;		/*!< for response parsing, may move to reader thread stack */
 
-	/* Config settings */
-	char			id[31];				/*!< id from datacard.conf */
-	char			audio_tty[256];			/*!< tty for audio connection */
-	char			data_tty[256];			/*!< tty for AT commands */
-	char			context[AST_MAX_CONTEXT];	/*!< the context for incoming calls */
-	char			language[MAX_LANGUAGE];		/*!< default language */
-	int			group;				/*!< group number for group dialling */
-	int			rxgain;				/*!< increase the incoming volume */
-	int			txgain;				/*!< increase the outgoint volume */
-	int			u2diag;
-	int			callingpres;			/*!< calling presentation */
-	unsigned int		auto_delete_sms:1;
-	unsigned int		reset_datacard:1;
-	unsigned int		usecallingpres:1;
-	unsigned int		disablesms:1;
-	unsigned int		send_sms_as_pdu:1;
-	call_waiting_t		call_waiting;			/*!< enable/disable/auto call waiting */
-
-	int			mindtmfgap;			/*!< minimal time in ms from end of previews DTMF and begining of next */
-#define DEFAULT_MINDTMFGAP	45
-	int			mindtmfduration;		/*!< minimal DTMF duration in ms */
-#define DEFAULT_MINDTMFDURATION	80
-	int			mindtmfinterval;		/*!< minimal DTMF interval beetween ends in ms, applied only on same digit */
-#define DEFAULT_MINDTMFINTERVAL	200
-
-	struct pvt_stat		stat;				/*!< various statistics */
+	pvt_config_t		settings;			/*!< all device settings from config file */
+	pvt_stat_t		stat;				/*!< various statistics */
 } pvt_t;
+#define CONF_SHARED(pvt, name)	((pvt)->settings.shared.name)
+#define CONF_UNIQ(pvt, name)	((pvt)->settings.unique.name)
+#define PVT_ID(pvt)		((pvt)->settings.unique.id)
 
 typedef struct public_state
 {

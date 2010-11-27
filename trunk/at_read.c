@@ -62,7 +62,7 @@ EXPORT_DEF int at_read (struct pvt* pvt, struct ringbuffer* rb)
 		{
 			if (errno != EINTR && errno != EAGAIN)
 			{
-				ast_debug (1, "[%s] readv() error: %d\n", pvt->id, errno);
+				ast_debug (1, "[%s] readv() error: %d\n", PVT_ID(pvt), errno);
 				return -1;
 			}
 
@@ -76,7 +76,7 @@ EXPORT_DEF int at_read (struct pvt* pvt, struct ringbuffer* rb)
 		rb_write_upd (rb, n);
 
 		ast_debug (5, "[%s] receive %zu byte, used %zu, free %zu, read %zu, write %zu\n", 
-				pvt->id, n, rb_used (rb), rb_free (rb), rb->read, rb->write);
+				PVT_ID(pvt), n, rb_used (rb), rb_free (rb), rb->read, rb->write);
 
 		iovcnt = rb_read_all_iov (rb, iov);
 
@@ -84,13 +84,13 @@ EXPORT_DEF int at_read (struct pvt* pvt, struct ringbuffer* rb)
 		{
 			if (iovcnt == 2)
 			{
-				ast_debug (5, "[%s] [%.*s%.*s]\n", pvt->id,
+				ast_debug (5, "[%s] [%.*s%.*s]\n", PVT_ID(pvt),
 						(int) iov[0].iov_len, (char*) iov[0].iov_base,
 							(int) iov[1].iov_len, (char*) iov[1].iov_base);
 			}
 			else
 			{
-				ast_debug (5, "[%s] [%.*s]\n", pvt->id,
+				ast_debug (5, "[%s] [%.*s]\n", PVT_ID(pvt),
 						(int) iov[0].iov_len, (char*) iov[0].iov_base);
 			}
 		}
@@ -98,7 +98,7 @@ EXPORT_DEF int at_read (struct pvt* pvt, struct ringbuffer* rb)
 		return 0;
 	}
 
-	ast_log (LOG_ERROR, "[%s] at cmd receive buffer overflow\n", pvt->id);
+	ast_log (LOG_ERROR, "[%s] at cmd receive buffer overflow\n", PVT_ID(pvt));
 
 	return -1;
 }
@@ -113,7 +113,7 @@ EXPORT_DEF int at_read_result_iov (struct pvt* pvt, struct ringbuffer* rb, struc
 	s = rb_used (rb);
 	if (s > 0)
 	{
-//		ast_debug (5, "[%s] d_read_result %d len %d input [%.*s]\n", pvt->id, pvt->d_read_result, s, MIN(s, rb->size - rb->read), (char*)rb->buffer + rb->read);
+//		ast_debug (5, "[%s] d_read_result %d len %d input [%.*s]\n", PVT_ID(pvt), pvt->d_read_result, s, MIN(s, rb->size - rb->read), (char*)rb->buffer + rb->read);
 		
 		if (pvt->d_read_result == 0)
 		{
@@ -129,7 +129,7 @@ EXPORT_DEF int at_read_result_iov (struct pvt* pvt, struct ringbuffer* rb, struc
 			{
 				if (rb_memcmp (rb, "\n", 1) == 0)
 				{
-					ast_debug (5, "[%s] multiline response\n", pvt->id);
+					ast_debug (5, "[%s] multiline response\n", PVT_ID(pvt));
 					rb_read_upd (rb, 1);
 
 					return at_read_result_iov (pvt, rb, iov);

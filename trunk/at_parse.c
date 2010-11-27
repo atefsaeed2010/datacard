@@ -359,7 +359,7 @@ EXPORT_DEF int at_parse_cmti (struct pvt* pvt, const char* str)
 
 	if (sscanf (str, "+CMTI: %*[^,],%d", &index) != 1)
 	{
-		ast_debug(2, "[%s] Error parsing CMTI event '%s'\n", pvt->id, str);
+		ast_debug(2, "[%s] Error parsing CMTI event '%s'\n", PVT_ID(pvt), str);
 		return -1;
 	}
 
@@ -543,16 +543,16 @@ EXPORT_DEF int at_parse_cpin (struct pvt* pvt, char* str, size_t len)
 	}
 	if (memmem (str, len, "SIM PIN", 7))
 	{
-		ast_log (LOG_ERROR, "Datacard %s needs PIN code!\n", pvt->id);
+		ast_log (LOG_ERROR, "Datacard %s needs PIN code!\n", PVT_ID(pvt));
 		return 1;
 	}
 	if (memmem (str, len, "SIM PUK", 7))
 	{
-		ast_log (LOG_ERROR, "Datacard %s needs PUK code!\n", pvt->id);
+		ast_log (LOG_ERROR, "Datacard %s needs PUK code!\n", PVT_ID(pvt));
 		return 2;
 	}
 
-	ast_log (LOG_ERROR, "[%s] Error parsing +CPIN message: %s\n", pvt->id, str);
+	ast_log (LOG_ERROR, "[%s] Error parsing +CPIN message: %s\n", PVT_ID(pvt), str);
 
 	return -1;
 }
@@ -577,7 +577,7 @@ EXPORT_DEF int at_parse_csq (struct pvt* pvt, const char* str, int* rssi)
 
 	if (sscanf (str, "+CSQ: %2d,", rssi) != 1)
 	{
-		ast_debug (2, "[%s] Error parsing +CSQ result '%s'\n", pvt->id, str);
+		ast_debug (2, "[%s] Error parsing +CSQ result '%s'\n", PVT_ID(pvt), str);
 		return -1;
 	}
 
@@ -603,7 +603,7 @@ EXPORT_DEF int at_parse_rssi (struct pvt* pvt, const char* str)
 
 	if (sscanf (str, "^RSSI:%d", &rssi) != 1)
 	{
-		ast_debug (2, "[%s] Error parsing RSSI event '%s'\n", pvt->id, str);
+		ast_debug (2, "[%s] Error parsing RSSI event '%s'\n", PVT_ID(pvt), str);
 		return -1;
 	}
 
@@ -630,7 +630,7 @@ EXPORT_DEF int at_parse_mode (struct pvt* pvt, char* str, size_t len, int* mode,
 
 	if (!sscanf (str, "^MODE:%d,%d", mode, submode))
 	{
-		ast_debug (2, "[%s] Error parsing MODE event '%.*s'\n", pvt->id, (int) len, str);
+		ast_debug (2, "[%s] Error parsing MODE event '%.*s'\n", PVT_ID(pvt), (int) len, str);
 		return -1;
 	}
 

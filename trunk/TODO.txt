@@ -1,16 +1,17 @@
 TODO list
 
 added 20.11.2010
-1) Command queue or serialization of write operations to device
-
-2) Handling call waiting
-
+    1) Command queue or serialization of write operations to device
+	done at 27.11.2010 r45
+    2) Handling call waiting
+	done at 27.11.2010 r45
 3) Extended device name 'i:' 's:' for DEVICE_STATE() and DatacardStatus()
 
 4) automatic gain control for rxgain/txgain
 
     5) Make context setting optional with 'default' as default value
 	20.11.2010 already exists in base 175 rev. exported
+
 6) Conference support
 
     7) Remove warning 'Don't know how to indicate condition 20'
@@ -19,7 +20,7 @@ added 20.11.2010
 8) LED control
 
 9) SMS send/receive in Unicode
-
+	send in PDU added at 27.11.2010 r45
 10) Automatic device discovery by IMEI or IMSI
 
 11) Complete fix of DTMF duplication
@@ -29,9 +30,10 @@ added 20.11.2010
 added 24.11.2010
 13) Device files locking
 
-14) SMS PDU mode
+    14) SMS PDU mode
+	duplicate for 9)
+	    added from internal source at 25.11.2010
 
-added from internal source at 25.11.2010
 15) Do a lot of testing with the channel driver
 
 16) Test sending SMS with a new line character in it
@@ -45,7 +47,10 @@ added from internal source at 25.11.2010
 20) Make a better Makefile
 
 21) Write a better documentation
-
+	paritally 
+	
 22) Add more API commands
 
-23) reconfigure and 'disable' option
+23) reconfigure and 'disable' option in device section
+
+24) [global] with template settings
