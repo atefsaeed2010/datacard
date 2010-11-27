@@ -51,6 +51,10 @@ added 24.11.2010
 	
 22) Add more API commands
 
-23) reconfigure and 'disable' option in device section
+    23) 'disable' option in device section
+	done 27.11.2010 at r46 with [defaults]
 
-24) [global] with template settings
+    24) [global] with template settings
+	done 27.11.2010 at r46 with [defaults]
+
+24) reconfigure on fly
