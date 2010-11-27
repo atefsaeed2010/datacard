@@ -147,7 +147,7 @@ badconf:
 			{
 				ast_mutex_lock (&pvt->lock);
 
-				if (pvt->group == group && ready4voice_call(pvt, NULL, opts))
+				if (CONF_SHARED(pvt, group) == group && ready4voice_call(pvt, NULL, opts))
 				{
 					break;
 				}
@@ -171,7 +171,7 @@ badconf:
 			AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
 			{
 				ast_mutex_lock (&pvt->lock);
-				if (pvt->group == group)
+				if (CONF_SHARED(pvt, group) == group)
 				{
 					gpublic->round_robin[c] = pvt;
 					if (pvt->group_last_used == 1)
@@ -337,7 +337,7 @@ badconf:
 		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
 		{
 			ast_mutex_lock (&pvt->lock);
-			if (!strcmp (pvt->id, dest_dev))
+			if (!strcmp (PVT_ID(pvt), dest_dev))
 			{
 				break;
 			}
@@ -406,16 +406,16 @@ static int channel_call (struct ast_channel* channel, char* dest, attribute_unus
 	if (!ready4voice_call(pvt, cpvt, opts))
 	{
 		ast_mutex_unlock (&pvt->lock);
-		ast_log (LOG_ERROR, "[%s] Error device already in use or uninitialized\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Error device already in use or uninitialized\n", PVT_ID(pvt));
 		return -1;
 	}
 	CPVT_SET_FLAGS(cpvt, opts);
 
-	ast_debug (1, "[%s] Calling %s on %s\n", pvt->id, dest, channel->name);
+	ast_debug (1, "[%s] Calling %s on %s\n", PVT_ID(pvt), dest, channel->name);
 
-	if (pvt->usecallingpres)
+	if (CONF_SHARED(pvt, usecallingpres))
 	{
-		if (pvt->callingpres < 0)
+		if (CONF_SHARED(pvt, callingpres) < 0)
 		{
 #if ASTERISK_VERSION_NUM >= 10800
 			clir = channel->connected.id.number.presentation;
@@ -425,7 +425,7 @@ static int channel_call (struct ast_channel* channel, char* dest, attribute_unus
 		}
 		else
 		{
-			clir = pvt->callingpres;
+			clir = CONF_SHARED(pvt, callingpres);
 		}
 
 		clir = get_at_clir_value (pvt, clir);
@@ -438,7 +438,7 @@ static int channel_call (struct ast_channel* channel, char* dest, attribute_unus
 	if (at_enque_dial (cpvt, dest_num, clir))
 	{
 		ast_mutex_unlock (&pvt->lock);
-		ast_log (LOG_ERROR, "[%s] Error sending ATD command\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Error sending ATD command\n", PVT_ID(pvt));
 		return -1;
 	}
 
@@ -461,7 +461,7 @@ static void channel_activate(struct cpvt* cpvt)
 //			if (PVT_SINGLE_CHAN(pvt))
 //			{
 				ast_timer_set_rate (pvt->a_timer, 50);
-//				ast_debug (3, "[%s] Timer set\n", pvt->id);
+//				ast_debug (3, "[%s] Timer set\n", PVT_ID(pvt));
 //			}
 		}
 	}
@@ -486,7 +486,7 @@ static int channel_hangup (struct ast_channel* channel)
 	}
 	pvt = cpvt->pvt;
 
-	ast_debug (1, "[%s] Hanging up call idx %d\n", pvt->id, cpvt->call_idx);
+	ast_debug (1, "[%s] Hanging up call idx %d\n", PVT_ID(pvt), cpvt->call_idx);
 
 	ast_mutex_lock (&pvt->lock);
 
@@ -495,7 +495,7 @@ static int channel_hangup (struct ast_channel* channel)
 	{
 		if (at_enque_hangup (cpvt, cpvt->call_idx))
 		{
-			ast_log (LOG_ERROR, "[%s] Error adding AT+CHUP command to queue\n", pvt->id);
+			ast_log (LOG_ERROR, "[%s] Error adding AT+CHUP command to queue\n", PVT_ID(pvt));
 		}
 		else
 		{
@@ -536,7 +536,7 @@ static int channel_answer (struct ast_channel* channel)
 	{
 		if (at_enque_answer (cpvt))
 		{
-			ast_log (LOG_ERROR, "[%s] Error sending answer commands\n", pvt->id);
+			ast_log (LOG_ERROR, "[%s] Error sending answer commands\n", PVT_ID(pvt));
 		}
 	}
 
@@ -563,14 +563,14 @@ static int channel_digit_begin (struct ast_channel* channel, char digit)
 	if (at_enque_dtmf (cpvt, digit))
 	{
 		ast_mutex_unlock (&pvt->lock);
-		ast_log (LOG_ERROR, "[%s] Error adding DTMF %c command to queue\n", pvt->id, digit);
+		ast_log (LOG_ERROR, "[%s] Error adding DTMF %c command to queue\n", PVT_ID(pvt), digit);
 
 		return -1;
 	}
 
 	ast_mutex_unlock (&pvt->lock);
 
-	ast_debug (1, "[%s] Send DTMF %c\n", pvt->id, digit);
+	ast_debug (1, "[%s] Send DTMF %c\n", PVT_ID(pvt), digit);
 
 	return 0;
 }
@@ -598,7 +598,7 @@ again:
 				--count;
 				if(count != 0)
 				    goto again;
-				ast_debug (1, "[%s] Deadlock avoided for write!\n", pvt->id);
+				ast_debug (1, "[%s] Deadlock avoided for write!\n", PVT_ID(pvt));
 			}
 			break;
 		}
@@ -626,7 +626,7 @@ again:
 	
 	if (done != FRAME_SIZE)
 	{
-		ast_debug (1, "[%s] Write error!\n", pvt->id);
+		ast_debug (1, "[%s] Write error!\n", PVT_ID(pvt));
 	}
 }
 
@@ -671,7 +671,7 @@ static void channel_timing_write (struct pvt* pvt)
 	iov_write(pvt, pvt->audio_fd, iov, iovcnt);
 
 	if(msg)
-		ast_debug (7, msg, pvt->id);
+		ast_debug (7, msg, PVT_ID(pvt));
 }
 
 #if ASTERISK_VERSION_NUM >= 10800
@@ -700,7 +700,7 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 		CHANNEL_DEADLOCK_AVOIDANCE (channel);
 	}
 
-	ast_debug (7, "[%s] read call idx %d state %d audio_fd %d\n", pvt->id, cpvt->call_idx, cpvt->state, pvt->audio_fd);
+	ast_debug (7, "[%s] read call idx %d state %d audio_fd %d\n", PVT_ID(pvt), cpvt->call_idx, cpvt->state, pvt->audio_fd);
 
 	if (!CPVT_IS_ACTIVE(cpvt) || pvt->audio_fd < 0)
 	{
@@ -711,7 +711,7 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 	{
 		ast_timer_ack (pvt->a_timer, 1);
 		channel_timing_write (pvt);
-		ast_debug (7, "[%s] *** timing ***\n", pvt->id);
+		ast_debug (7, "[%s] *** timing ***\n", PVT_ID(pvt));
 	}
 	else
 	{
@@ -727,13 +727,13 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 		{
 			if (errno != EAGAIN && errno != EINTR)
 			{
-				ast_debug (1, "[%s] Read error %d, going to wait for new connection\n", pvt->id, errno);
+				ast_debug (1, "[%s] Read error %d, going to wait for new connection\n", PVT_ID(pvt), errno);
 			}
 
 			goto e_return;
 		}
 
-		ast_debug (7, "[%s] call idx %d read %d\n", pvt->id, cpvt->call_idx, res);
+		ast_debug (7, "[%s] call idx %d read %d\n", PVT_ID(pvt), cpvt->call_idx, res);
 		PVT_STAT_PUMP(read_bytes, += res);
 		PVT_STAT_PUMP(read_frames, ++);
 		if(res < FRAME_SIZE)
@@ -760,15 +760,15 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 				}
 				else if (f->frametype == AST_FRAME_DTMF_END)
 				{
-					if(!ast_tvzero(pvt->dtmf_begin_time) && ast_tvdiff_ms(ast_tvnow(), pvt->dtmf_begin_time) < pvt->mindtmfgap)
+					if(!ast_tvzero(pvt->dtmf_begin_time) && ast_tvdiff_ms(ast_tvnow(), pvt->dtmf_begin_time) < CONF_SHARED(pvt, mindtmfgap))
 					{
-						ast_debug(1, "[%s] DTMF char %c ignored min gap %d > %ld\n", pvt->id, f->subclass_integer, pvt->mindtmfgap, (long)ast_tvdiff_ms(ast_tvnow(), pvt->dtmf_begin_time));
+						ast_debug(1, "[%s] DTMF char %c ignored min gap %d > %ld\n", PVT_ID(pvt), f->subclass_integer, CONF_SHARED(pvt, mindtmfgap), (long)ast_tvdiff_ms(ast_tvnow(), pvt->dtmf_begin_time));
 						f->frametype = AST_FRAME_NULL;
 						f->subclass_integer = 0;
 					}
-					else if(f->len < pvt->mindtmfduration)
+					else if(f->len < CONF_SHARED(pvt, mindtmfduration))
 					{
-						ast_debug(1, "[%s] DTMF char %c ignored min duration %d > %ld\n", pvt->id, f->subclass_integer, pvt->mindtmfduration, f->len);
+						ast_debug(1, "[%s] DTMF char %c ignored min duration %d > %ld\n", PVT_ID(pvt), f->subclass_integer, CONF_SHARED(pvt, mindtmfduration), f->len);
 						f->frametype = AST_FRAME_NULL;
 						f->subclass_integer = 0;
 					}
@@ -776,15 +776,15 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 							&& 
 						!ast_tvzero(pvt->dtmf_end_time)
 							&& 
-						ast_tvdiff_ms(ast_tvnow(), pvt->dtmf_end_time) < pvt->mindtmfinterval)
+						ast_tvdiff_ms(ast_tvnow(), pvt->dtmf_end_time) < CONF_SHARED(pvt, mindtmfinterval))
 					{
-						ast_debug(1, "[%s] DTMF char %c ignored min interval %d > %ld\n", pvt->id, f->subclass_integer, pvt->mindtmfinterval, (long)ast_tvdiff_ms(ast_tvnow(), pvt->dtmf_end_time));
+						ast_debug(1, "[%s] DTMF char %c ignored min interval %d > %ld\n", PVT_ID(pvt), f->subclass_integer, CONF_SHARED(pvt, mindtmfinterval), (long)ast_tvdiff_ms(ast_tvnow(), pvt->dtmf_end_time));
 						f->frametype = AST_FRAME_NULL;
 						f->subclass_integer = 0;
 					}
 					else
 					{
-						ast_debug(1, "[%s] Got DTMF char %c\n",pvt->id, f->subclass_integer);
+						ast_debug(1, "[%s] Got DTMF char %c\n",PVT_ID(pvt), f->subclass_integer);
 						pvt->dtmf_digit = f->subclass_integer;
 						pvt->dtmf_end_time = ast_tvnow();
 					}
@@ -794,11 +794,11 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 			}
 		}
 
-		if (pvt->rxgain)
+		if (CONF_SHARED(pvt, rxgain))
 		{
-			if (ast_frame_adjust_volume (f, pvt->rxgain) == -1)
+			if (ast_frame_adjust_volume (f, CONF_SHARED(pvt, rxgain)) == -1)
 			{
-				ast_debug (1, "[%s] Volume could not be adjusted!\n", pvt->id);
+				ast_debug (1, "[%s] Volume could not be adjusted!\n", PVT_ID(pvt));
 			}
 		}
 	}
@@ -823,7 +823,7 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 	}
 	pvt = cpvt->pvt;
 
-	ast_debug (7, "[%s] write call idx %d state %d\n", pvt->id, cpvt->call_idx, cpvt->state);
+	ast_debug (7, "[%s] write call idx %d state %d\n", PVT_ID(pvt), cpvt->call_idx, cpvt->state);
 
 	if (f->frametype != AST_FRAME_VOICE || f->subclass_codec != AST_FORMAT_SLINEAR)
 	{
@@ -840,16 +840,16 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 	
 	if (pvt->audio_fd < 0)
 	{
-		ast_debug (1, "[%s] audio_fd not ready\n", pvt->id);
+		ast_debug (1, "[%s] audio_fd not ready\n", PVT_ID(pvt));
 	}
 	else
 	{
 
-		if (pvt->txgain && f->datalen > 0)
+		if (CONF_SHARED(pvt, txgain) && f->datalen > 0)
 		{
-			if (ast_frame_adjust_volume (f, pvt->txgain) == -1)
+			if (ast_frame_adjust_volume (f, CONF_SHARED(pvt, txgain)) == -1)
 			{
-				ast_debug (1, "[%s] Volume could not be adjusted!\n", pvt->id);
+				ast_debug (1, "[%s] Volume could not be adjusted!\n", PVT_ID(pvt));
 			}
 		}
 
@@ -889,7 +889,7 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 
 //		if (f->datalen != 320)
 		{
-			ast_debug (7, "[%s] Write frame: samples = %d, data lenght = %d byte\n", pvt->id, f->samples, f->datalen);
+			ast_debug (7, "[%s] Write frame: samples = %d, data lenght = %d byte\n", PVT_ID(pvt), f->samples, f->datalen);
 		}
 	}
 
@@ -963,7 +963,7 @@ static int channel_indicate (struct ast_channel* channel, int condition, const v
 	int	res = 0;
 
 
-	ast_debug (1, "[%s] Requested indication %d\n", pvt->id, condition);
+	ast_debug (1, "[%s] Requested indication %d\n", PVT_ID(pvt), condition);
 
 	switch (condition)
 	{
@@ -992,7 +992,7 @@ static int channel_indicate (struct ast_channel* channel, int condition, const v
 			break;
 
 		default:
-			ast_log (LOG_WARNING, "[%s] Don't know how to indicate condition %d\n", pvt->id, condition);
+			ast_log (LOG_WARNING, "[%s] Don't know how to indicate condition %d\n", PVT_ID(pvt), condition);
 			res = -1;
 			break;
 	}
@@ -1015,7 +1015,7 @@ EXPORT_DEF void channel_change_state(struct cpvt * cpvt, unsigned newstate, int 
 		pvt->chan_count[oldstate]--;
 		pvt->chan_count[newstate]++;
 
-		ast_debug (1, "[%s] Call idx %d change state from '%s' to '%s' has%s channel\n", pvt->id, cpvt->call_idx, call_state2str(oldstate), call_state2str(newstate), cpvt->channel ? "" : "'t");
+		ast_debug (1, "[%s] Call idx %d change state from '%s' to '%s' has%s channel\n", PVT_ID(pvt), cpvt->call_idx, call_state2str(oldstate), call_state2str(newstate), cpvt->channel ? "" : "'t");
 		if(!cpvt->channel)
 		{
 			if(newstate == CALL_STATE_RELEASED)
@@ -1041,35 +1041,35 @@ EXPORT_DEF void channel_change_state(struct cpvt * cpvt, unsigned newstate, int 
 				channel_activate(cpvt);
 				if (oldstate == CALL_STATE_ONHOLD)
 				{
-					ast_debug (1, "[%s] Unhold call idx %d\n", pvt->id, cpvt->call_idx);
+					ast_debug (1, "[%s] Unhold call idx %d\n", PVT_ID(pvt), cpvt->call_idx);
 					channel_queue_control (cpvt, AST_CONTROL_UNHOLD);
 				}
 				else if (cpvt->dir == CALL_DIR_OUTGOING)
 				{
-					ast_debug (1, "[%s] Remote end answered on call idx %d\n", pvt->id, cpvt->call_idx);
+					ast_debug (1, "[%s] Remote end answered on call idx %d\n", PVT_ID(pvt), cpvt->call_idx);
 					channel_queue_control (cpvt, AST_CONTROL_ANSWER);
 				}
 				else /* if (cpvt->answered) */
 				{
-					ast_debug (1, "[%s] Call idx %d answer\n", pvt->id, cpvt->call_idx);
+					ast_debug (1, "[%s] Call idx %d answer\n", PVT_ID(pvt), cpvt->call_idx);
 					ast_setstate (cpvt->channel, AST_STATE_UP);
 				}
 				break;
 
 			case CALL_STATE_ONHOLD:
 				channel_disactivate(cpvt);
-				ast_debug (1, "[%s] Hold call idx %d\n", pvt->id, cpvt->call_idx);
+				ast_debug (1, "[%s] Hold call idx %d\n", PVT_ID(pvt), cpvt->call_idx);
 				channel_queue_control (cpvt, AST_CONTROL_HOLD);
 				break;
 
 			case CALL_STATE_RELEASED:
 				channel_disactivate(cpvt);
 				/* from +CEND: */
-				ast_debug (1, "[%s] hanging up channel for call idx %d\n", pvt->id, cpvt->call_idx);
+				ast_debug (1, "[%s] hanging up channel for call idx %d\n", PVT_ID(pvt), cpvt->call_idx);
 
 				if (channel_queue_hangup (cpvt, cause))
 				{
-					ast_log (LOG_ERROR, "[%s] Error queueing hangup...\n", pvt->id);
+					ast_log (LOG_ERROR, "[%s] Error queueing hangup...\n", PVT_ID(pvt));
 				}
 				cpvt_free(cpvt);
 				break;
@@ -1090,9 +1090,9 @@ EXPORT_DEF struct ast_channel* channel_new (struct pvt* pvt, int ast_state, cons
 	}
 
 #if ASTERISK_VERSION_NUM >= 10800
-	channel = ast_channel_alloc (1, ast_state, cid_num, pvt->id, NULL, 0, pvt->context, 0, 0, "Datacard/%s-%02u%08lx", pvt->id, call_idx, pvt->channel_instanse);
+	channel = ast_channel_alloc (1, ast_state, cid_num, PVT_ID(pvt), NULL, 0, CONF_SHARED(pvt, context), 0, 0, "Datacard/%s-%02u%08lx", PVT_ID(pvt), call_idx, pvt->channel_instanse);
 #else
-	channel = ast_channel_alloc (1, ast_state, cid_num, pvt->id, 0, 0, pvt->context, 0, "Datacard/%s-%02u%08lx", pvt->id, call_idx, pvt->channel_instanse);
+	channel = ast_channel_alloc (1, ast_state, cid_num, PVT_ID(pvt), 0, 0, CONF_SHARED(pvt, context), 0, "Datacard/%s-%02u%08lx", PVT_ID(pvt), call_idx, pvt->channel_instanse);
 #endif
 	if (!channel)
 	{
@@ -1114,13 +1114,13 @@ EXPORT_DEF struct ast_channel* channel_new (struct pvt* pvt, int ast_state, cons
 		channel->rings = 1;
 	}
 
-	pbx_builtin_setvar_helper (channel, "DATACARD",		pvt->id);
+	pbx_builtin_setvar_helper (channel, "DATACARD",		PVT_ID(pvt));
 	pbx_builtin_setvar_helper (channel, "PROVIDER",		pvt->provider_name);
 	pbx_builtin_setvar_helper (channel, "IMEI",		pvt->imei);
 	pbx_builtin_setvar_helper (channel, "IMSI",		pvt->imsi);
 	pbx_builtin_setvar_helper (channel, "CNUMBER",		pvt->number);
 
-	ast_string_field_set (channel, language, pvt->language);
+	ast_string_field_set (channel, language, CONF_SHARED(pvt, language));
 	ast_jb_configure (channel, &gpublic->jbconf_global);
 
 	ast_module_ref (self_module());
@@ -1236,7 +1236,7 @@ EXPORT_DEF int channel_ast_hangup (struct cpvt * cpvt)
 	return res;
 }
 
-EXPORT_DEF struct ast_channel* channel_local_request (struct pvt* pvt, void* data, const char* cid_name, const char* cid_num, const char *language)
+EXPORT_DEF struct ast_channel* channel_local_request (struct pvt* pvt, void* data, const char* cid_name, const char* cid_num)
 {
 	struct ast_channel*	channel;
 	int			cause = 0;
@@ -1252,13 +1252,13 @@ EXPORT_DEF struct ast_channel* channel_local_request (struct pvt* pvt, void* dat
 	}
 
 	ast_set_callerid (channel, cid_num, cid_name, cid_num);
-	pbx_builtin_setvar_helper (channel, "DATACARD",	pvt->id);
+	pbx_builtin_setvar_helper (channel, "DATACARD",	PVT_ID(pvt));
 	pbx_builtin_setvar_helper (channel, "PROVIDER",	pvt->provider_name);
 	pbx_builtin_setvar_helper (channel, "IMEI",	pvt->imei);
 	pbx_builtin_setvar_helper (channel, "IMSI",	pvt->imsi);
 	pbx_builtin_setvar_helper (channel, "CNUMBER", pvt->number);
 
-	ast_string_field_set (channel, language, language);
+	ast_string_field_set (channel, language, CONF_SHARED(pvt, language));
 
 	return channel;
 }

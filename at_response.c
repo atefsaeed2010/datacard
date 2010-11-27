@@ -131,57 +131,57 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 			case CMD_AT_CSCA:
 			case CMD_AT_CLCC:
 			case CMD_AT_CLIR:
-				ast_debug (1, "[%s] %s sent successfully\n", pvt->id, at_cmd2str (ecmd->cmd));
+				ast_debug (1, "[%s] %s sent successfully\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd));
 				break;
 
 			case CMD_AT_COPS_INIT:
-				ast_debug (1, "[%s] Operator select parameters set\n", pvt->id);
+				ast_debug (1, "[%s] Operator select parameters set\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CREG_INIT:
-				ast_debug (1, "[%s] registration info enabled\n", pvt->id);
+				ast_debug (1, "[%s] registration info enabled\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CREG:
-				ast_debug (1, "[%s] registration query sent\n", pvt->id);
+				ast_debug (1, "[%s] registration query sent\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CNUM:
-				ast_debug (1, "[%s] Subscriber phone number query successed\n", pvt->id);
+				ast_debug (1, "[%s] Subscriber phone number query successed\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CVOICE:
-				ast_debug (1, "[%s] Datacard has voice support\n", pvt->id);
+				ast_debug (1, "[%s] Datacard has voice support\n", PVT_ID(pvt));
 
 				pvt->has_voice = 1;
 				break;
 
 			case CMD_AT_CLIP:
-				ast_debug (1, "[%s] Calling line indication disabled\n", pvt->id);
+				ast_debug (1, "[%s] Calling line indication disabled\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CSSN:
-				ast_debug (1, "[%s] Supplementary Service Notification enabled successful\n", pvt->id);
+				ast_debug (1, "[%s] Supplementary Service Notification enabled successful\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CMGF:
-				pvt->use_pdu = pvt->send_sms_as_pdu;
-				ast_debug (1, "[%s] SMS operation mode set to %s\n", pvt->id, pvt->use_pdu ? "PDU" : "TEXT");
+				pvt->use_pdu = CONF_SHARED(pvt, smsaspdu);
+				ast_debug (1, "[%s] SMS operation mode set to %s\n", PVT_ID(pvt), pvt->use_pdu ? "PDU" : "TEXT");
 				break;
 
 			case CMD_AT_CSCS:
-				ast_debug (1, "[%s] UCS-2 text encoding enabled\n", pvt->id);
+				ast_debug (1, "[%s] UCS-2 text encoding enabled\n", PVT_ID(pvt));
 
 				pvt->use_ucs2_encoding = 1;
 				break;
 
 			case CMD_AT_CPMS:
-				ast_debug (1, "[%s] SMS storage location is established\n", pvt->id);
+				ast_debug (1, "[%s] SMS storage location is established\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CNMI:
-				ast_debug (1, "[%s] SMS new message indication enabled\n", pvt->id);
-				ast_debug (1, "[%s] Datacard has sms support\n", pvt->id);
+				ast_debug (1, "[%s] SMS new message indication enabled\n", PVT_ID(pvt));
+				ast_debug (1, "[%s] Datacard has sms support\n", PVT_ID(pvt));
 
 				pvt->has_sms = 1;
 
@@ -189,7 +189,7 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 				{
 					pvt->timeout = DATA_READ_TIMEOUT;
 					pvt->initialized = 1;
-					ast_verb (3, "Datacard %s initialized and ready\n", pvt->id);
+					ast_verb (3, "Datacard %s initialized and ready\n", PVT_ID(pvt));
 				}
 				break;
 
@@ -204,7 +204,7 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 //				task->cpvt->answered = 1;
 //				task->cpvt->needhangup = 1;
 				CPVT_SET_FLAGS(task->cpvt, CALL_FLAG_NEED_HANGUP);
-				ast_debug (1, "[%s] %s sent successfully for call id %d\n", pvt->id, at_cmd2str (ecmd->cmd), task->cpvt->call_idx);
+				ast_debug (1, "[%s] %s sent successfully for call id %d\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd), task->cpvt->call_idx);
 				break;
 
 			case CMD_AT_CFUN:
@@ -214,70 +214,70 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 				pvt->cwaiting = 0;
 				break;
 			case CMD_AT_DDSETEX:
-				ast_debug (1, "[%s] %s sent successfully\n", pvt->id, at_cmd2str (ecmd->cmd));
+				ast_debug (1, "[%s] %s sent successfully\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd));
 				if (!pvt->initialized)
 				{
 					pvt->timeout = DATA_READ_TIMEOUT;
 					pvt->initialized = 1;
-					ast_verb (3, "Datacard %s initialized and ready\n", pvt->id);
+					ast_verb (3, "Datacard %s initialized and ready\n", PVT_ID(pvt));
 				}
 				break;
 			case CMD_AT_CHUP:
 			case CMD_AT_CHLD_1x:
 //				task->cpvt->needhangup = 0;
 				CPVT_RESET_FLAG(task->cpvt, CALL_FLAG_NEED_HANGUP);
-				ast_debug (1, "[%s] Successful hangup for call idx ?\n", pvt->id);
+				ast_debug (1, "[%s] Successful hangup for call idx ?\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CMGS:
-				ast_debug (1, "[%s] Sending sms message in progress\n", pvt->id);
+				ast_debug (1, "[%s] Sending sms message in progress\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_SMSTEXT:
 				pvt->outgoing_sms = 0;
-				ast_log (LOG_NOTICE, "[%s] Successfully sent sms message\n", pvt->id);
-				ast_debug (1, "[%s] Successfully sent sms message\n", pvt->id);
+				ast_log (LOG_NOTICE, "[%s] Successfully sent sms message\n", PVT_ID(pvt));
+				ast_debug (1, "[%s] Successfully sent sms message\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_DTMF:
-				ast_debug (1, "[%s] DTMF sent successfully for call idx %d\n", pvt->id, task->cpvt->call_idx);
+				ast_debug (1, "[%s] DTMF sent successfully for call idx %d\n", PVT_ID(pvt), task->cpvt->call_idx);
 				break;
 
 			case CMD_AT_CUSD:
-				ast_log (LOG_NOTICE, "[%s] Successfully sent sms USSD\n", pvt->id);
-				ast_debug (1, "[%s] CUSD code sent successfully\n", pvt->id);
+				ast_log (LOG_NOTICE, "[%s] Successfully sent sms USSD\n", PVT_ID(pvt));
+				ast_debug (1, "[%s] CUSD code sent successfully\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_COPS:
-				ast_debug (1, "[%s] Provider query successfully\n", pvt->id);
+				ast_debug (1, "[%s] Provider query successfully\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CMGR:
-				ast_debug (1, "[%s] SMS message see later\n", pvt->id);
+				ast_debug (1, "[%s] SMS message see later\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CMGD:
-				ast_debug (1, "[%s] SMS message deleted successfully\n", pvt->id);
+				ast_debug (1, "[%s] SMS message deleted successfully\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CSQ:
-				ast_debug (1, "[%s] Got signal strength result\n", pvt->id);
+				ast_debug (1, "[%s] Got signal strength result\n", PVT_ID(pvt));
 				break;
 			case CMD_AT_CCWA_SET:
-//				ast_log (LOG_NOTICE, "Call-Waiting successfully enabled or disabled on device %s\n", pvt->id);
+//				ast_log (LOG_NOTICE, "Call-Waiting successfully enabled or disabled on device %s\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CLVL:
 				pvt->volume_sync_step++;
 				if(pvt->volume_sync_step == VOLUME_SYNC_DONE)
 				{
-					ast_debug (1, "[%s] Volume level synchronized\n", pvt->id);
+					ast_debug (1, "[%s] Volume level synchronized\n", PVT_ID(pvt));
 					pvt->volume_sync_step = VOLUME_SYNC_BEGIN;
 				}
 				break;
 
 			default:
-				ast_log (LOG_ERROR, "[%s] Received 'OK' for unhandled command '%s'\n", pvt->id, at_cmd2str (ecmd->cmd));
+				ast_log (LOG_ERROR, "[%s] Received 'OK' for unhandled command '%s'\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd));
 				break;
 		}
 
@@ -285,11 +285,11 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 	}
 	else if (ecmd)
 	{
-		ast_log (LOG_ERROR, "[%s] Received 'OK' when expecting '%s', ignoring\n", pvt->id, at_res2str (ecmd->res));
+		ast_log (LOG_ERROR, "[%s] Received 'OK' when expecting '%s', ignoring\n", PVT_ID(pvt), at_res2str (ecmd->res));
 	}
 	else
 	{
-		ast_log (LOG_ERROR, "[%s] Received unexpected 'OK'\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Received unexpected 'OK'\n", PVT_ID(pvt));
 	}
 
 	return 0;
@@ -322,56 +322,56 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 			case CMD_AT_E:
 			case CMD_AT_U2DIAG:
 			case CMD_AT_CLCC:
-				ast_log (LOG_ERROR, "[%s] Command '%s' failed\n", pvt->id, at_cmd2str (ecmd->cmd));
+				ast_log (LOG_ERROR, "[%s] Command '%s' failed\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd));
 				goto e_return;
 
 			case CMD_AT_CGMI:
-				ast_log (LOG_ERROR, "[%s] Getting manufacturer info failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Getting manufacturer info failed\n", PVT_ID(pvt));
 				goto e_return;
 
 			case CMD_AT_CGMM:
-				ast_log (LOG_ERROR, "[%s] Getting model info failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Getting model info failed\n", PVT_ID(pvt));
 				goto e_return;
 
 			case CMD_AT_CGMR:
-				ast_log (LOG_ERROR, "[%s] Getting firmware info failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Getting firmware info failed\n", PVT_ID(pvt));
 				goto e_return;
 
 			case CMD_AT_CMEE:
-				ast_log (LOG_ERROR, "[%s] Setting error verbosity level failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Setting error verbosity level failed\n", PVT_ID(pvt));
 				goto e_return;
 
 			case CMD_AT_CGSN:
-				ast_log (LOG_ERROR, "[%s] Getting IMEI number failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Getting IMEI number failed\n", PVT_ID(pvt));
 				goto e_return;
 
 			case CMD_AT_CIMI:
-				ast_log (LOG_ERROR, "[%s] Getting IMSI number failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Getting IMSI number failed\n", PVT_ID(pvt));
 				goto e_return;
 
 			case CMD_AT_CPIN:
-				ast_log (LOG_ERROR, "[%s] Error checking PIN state\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error checking PIN state\n", PVT_ID(pvt));
 				goto e_return;
 
 			case CMD_AT_COPS_INIT:
-				ast_log (LOG_ERROR, "[%s] Error setting operator select parameters\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error setting operator select parameters\n", PVT_ID(pvt));
 				goto e_return;
 
 			case CMD_AT_CREG_INIT:
-				ast_log (LOG_ERROR, "[%s] Error enableling registration info\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error enableling registration info\n", PVT_ID(pvt));
 				goto e_return;
 
 			case CMD_AT_CREG:
-				ast_debug (1, "[%s] Error getting registration info\n", pvt->id);
+				ast_debug (1, "[%s] Error getting registration info\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CNUM:
-				ast_log (LOG_ERROR, "[%s] Error checking subscriber phone number\n", pvt->id);
-				ast_verb (3, "Datacard %s needs to be reinitialized. The SIM card is not ready yet\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error checking subscriber phone number\n", PVT_ID(pvt));
+				ast_verb (3, "Datacard %s needs to be reinitialized. The SIM card is not ready yet\n", PVT_ID(pvt));
 				goto e_return;
 
 			case CMD_AT_CVOICE:
-				ast_debug (1, "[%s] Datacard has NO voice support\n", pvt->id);
+				ast_debug (1, "[%s] Datacard has NO voice support\n", PVT_ID(pvt));
 
 				pvt->has_voice = 0;
 
@@ -380,25 +380,25 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 					/* continue initialization in other job at cmd CMD_AT_CMGF */
 					if (at_enque_initialization(task->cpvt, CMD_AT_CMGF))
 					{
-						ast_log (LOG_ERROR, "[%s] Error schedule initialization commands\n", pvt->id);
+						ast_log (LOG_ERROR, "[%s] Error schedule initialization commands\n", PVT_ID(pvt));
 						goto e_return;
 					}
 				}
 				break;
 
 			case CMD_AT_CLIP:
-				ast_log (LOG_ERROR, "[%s] Error enabling calling line indication\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error enabling calling line indication\n", PVT_ID(pvt));
 				goto e_return;
 
 			case CMD_AT_CSSN:
-				ast_log (LOG_ERROR, "[%s] Error Supplementary Service Notification activation failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error Supplementary Service Notification activation failed\n", PVT_ID(pvt));
 				goto e_return;
 
 			case CMD_AT_CMGF:
 			case CMD_AT_CPMS:
 			case CMD_AT_CNMI:
-				ast_debug (1, "[%s] Command '%s' failed\n", pvt->id, at_cmd2str (ecmd->cmd));
-				ast_debug (1, "[%s] No SMS support\n", pvt->id);
+				ast_debug (1, "[%s] Command '%s' failed\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd));
+				ast_debug (1, "[%s] No SMS support\n", PVT_ID(pvt));
 
 				pvt->has_sms = 0;
 
@@ -409,13 +409,13 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 						/* continue initialization in other job at cmd CMD_AT_CSQ */
 						if (at_enque_initialization(task->cpvt, CMD_AT_CSQ))
 						{
-							ast_log (LOG_ERROR, "[%s] Error querying signal strength\n", pvt->id);
+							ast_log (LOG_ERROR, "[%s] Error querying signal strength\n", PVT_ID(pvt));
 							goto e_return;
 						}
 
 						pvt->timeout = DATA_READ_TIMEOUT;
 						pvt->initialized = 1;
-						ast_verb (3, "Datacard %s initialized and ready\n", pvt->id);
+						ast_verb (3, "Datacard %s initialized and ready\n", PVT_ID(pvt));
 					}
 
 					goto e_return;
@@ -423,7 +423,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 				break;
 
 			case CMD_AT_CSCS:
-				ast_debug (1, "[%s] No UCS-2 encoding support\n", pvt->id);
+				ast_debug (1, "[%s] No UCS-2 encoding support\n", PVT_ID(pvt));
 
 				pvt->use_ucs2_encoding = 0;
 				break;
@@ -431,13 +431,13 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 				
 			case CMD_AT_A:
 			case CMD_AT_CHLD_2x:
-				ast_log (LOG_ERROR, "[%s] Answer failed for call idx %d\n", pvt->id, task->cpvt->call_idx);
+				ast_log (LOG_ERROR, "[%s] Answer failed for call idx %d\n", PVT_ID(pvt), task->cpvt->call_idx);
 //				task->cpvt->answered = 0;
 				channel_queue_hangup (task->cpvt, 0);
 				break;
 
 			case CMD_AT_CLIR:
-				ast_log (LOG_ERROR, "[%s] Setting CLIR failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Setting CLIR failed\n", PVT_ID(pvt));
 				break;
 				
 
@@ -446,65 +446,65 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 					break;
 				/* passthru */
 			case CMD_AT_D:
-				ast_log (LOG_ERROR, "[%s] Dial failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Dial failed\n", PVT_ID(pvt));
 				channel_queue_control (task->cpvt, AST_CONTROL_CONGESTION);
 				break;
 
 			case CMD_AT_DDSETEX:
-				ast_log (LOG_ERROR, "[%s] AT^DDSETEX failed\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] AT^DDSETEX failed\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CHUP:
 			case CMD_AT_CHLD_1x:
-				ast_log (LOG_ERROR, "[%s] Error sending hangup for call idx %d\n", pvt->id, task->cpvt->call_idx);
+				ast_log (LOG_ERROR, "[%s] Error sending hangup for call idx %d\n", PVT_ID(pvt), task->cpvt->call_idx);
 				goto e_return;
 
 			case CMD_AT_CMGR:
 				pvt->incoming_sms = 0;
-				ast_log (LOG_ERROR, "[%s] Error reading SMS message\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error reading SMS message\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CMGD:
 				pvt->incoming_sms = 0;
-				ast_log (LOG_ERROR, "[%s] Error deleting SMS message\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error deleting SMS message\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CMGS:
 			case CMD_AT_SMSTEXT:
-				ast_log (LOG_ERROR, "[%s] Error sending SMS message\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error sending SMS message\n", PVT_ID(pvt));
 				pvt->outgoing_sms = 0;
 				break;
 
 			case CMD_AT_DTMF:
-				ast_log (LOG_ERROR, "[%s] Error sending DTMF\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error sending DTMF\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_COPS:
-				ast_debug (1, "[%s] Could not get provider name\n", pvt->id);
+				ast_debug (1, "[%s] Could not get provider name\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CLVL:
-				ast_debug (1, "[%s] Audio level synchronization failed at step %d/%d\n", pvt->id, pvt->volume_sync_step, VOLUME_SYNC_DONE-1);
+				ast_debug (1, "[%s] Audio level synchronization failed at step %d/%d\n", PVT_ID(pvt), pvt->volume_sync_step, VOLUME_SYNC_DONE-1);
 				pvt->volume_sync_step = VOLUME_SYNC_BEGIN;
 				break;
 
 			case CMD_AT_CUSD:
-				ast_log (LOG_ERROR, "[%s] Could not send USSD code\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Could not send USSD code\n", PVT_ID(pvt));
 				break;
 
 			default:
-				ast_log (LOG_ERROR, "[%s] Received 'ERROR' for unhandled command '%s'\n", pvt->id, at_cmd2str (ecmd->cmd));
+				ast_log (LOG_ERROR, "[%s] Received 'ERROR' for unhandled command '%s'\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd));
 				break;
 		}
 		at_queue_handle_result (pvt, res);
 	}
 	else if (ecmd)
 	{
-		ast_log (LOG_ERROR, "[%s] Received 'ERROR' when expecting '%s', ignoring\n", pvt->id, at_res2str (ecmd->res));
+		ast_log (LOG_ERROR, "[%s] Received 'ERROR' when expecting '%s', ignoring\n", PVT_ID(pvt), at_res2str (ecmd->res));
 	}
 	else
 	{
-		ast_log (LOG_ERROR, "[%s] Received unexpected 'ERROR'\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Received unexpected 'ERROR'\n", PVT_ID(pvt));
 	}
 
 	return 0;
@@ -552,7 +552,7 @@ static void request_clcc(struct pvt* pvt)
 {
 	if (at_enque_clcc(&pvt->sys_chan))
 	{
-		ast_log (LOG_ERROR, "[%s] Error enque List Current Calls request\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Error enque List Current Calls request\n", PVT_ID(pvt));
 	}
 }
 
@@ -573,7 +573,7 @@ static int at_response_orig (struct pvt* pvt, const char* str)
 	pvt->last_dialed_cpvt = NULL;
 	if(!cpvt)
 	{
-		ast_log (LOG_ERROR, "[%s] ^ORIG '%s' for unknown ATD\n", pvt->id, str);
+		ast_log (LOG_ERROR, "[%s] ^ORIG '%s' for unknown ATD\n", PVT_ID(pvt), str);
 		return 0;
 	}
 	
@@ -585,11 +585,11 @@ static int at_response_orig (struct pvt* pvt, const char* str)
 
 	if (sscanf (str, "^ORIG:%d,%d", &call_index, &call_type) != 2)
 	{
-		ast_log (LOG_ERROR, "[%s] Error parsing ORIG event '%s'\n", pvt->id, str);
+		ast_log (LOG_ERROR, "[%s] Error parsing ORIG event '%s'\n", PVT_ID(pvt), str);
 		return -1;
 	}
 
-	ast_debug (1, "[%s] ORIG Received call_index: %d call_type %d\n", pvt->id, call_index, call_type);
+	ast_debug (1, "[%s] ORIG Received call_index: %d call_type %d\n", PVT_ID(pvt), call_index, call_type);
 
 	if (call_type == CLCC_CALL_TYPE_VOICE)
 	{
@@ -606,7 +606,7 @@ static int at_response_orig (struct pvt* pvt, const char* str)
 				pvt->volume_sync_step = VOLUME_SYNC_BEGIN;
 				if (at_enque_volsync (cpvt))
 				{
-					ast_log (LOG_ERROR, "[%s] Error synchronize audio level\n", pvt->id);
+					ast_log (LOG_ERROR, "[%s] Error synchronize audio level\n", PVT_ID(pvt));
 				}
 				else
 					pvt->volume_sync_step++;
@@ -617,7 +617,7 @@ static int at_response_orig (struct pvt* pvt, const char* str)
 	}
 	else
 	{
-		ast_log (LOG_ERROR, "[%s] ORIG event for non-voice call type '%d' index %d\n", pvt->id, call_type, call_index);
+		ast_log (LOG_ERROR, "[%s] ORIG event for non-voice call type '%d' index %d\n", PVT_ID(pvt), call_type, call_index);
 // FIXME: and reset call if no-voice, bad call_index !
 	}
 	return 0;
@@ -643,11 +643,11 @@ static int at_response_conf (struct pvt* pvt, const char* str)
 
 	if (sscanf (str, "^CONF:%d", &call_index) != 1)
 	{
-		ast_log (LOG_ERROR, "[%s] Error parsing ORIG event '%s'\n", pvt->id, str);
+		ast_log (LOG_ERROR, "[%s] Error parsing ORIG event '%s'\n", PVT_ID(pvt), str);
 		return -1;
 	}
 
-	ast_debug (1, "[%s] CONF Received call_index %d\n", pvt->id, call_index);
+	ast_debug (1, "[%s] CONF Received call_index %d\n", PVT_ID(pvt), call_index);
 
 	cpvt = pvt_find_cpvt(pvt, call_index);
 	if(cpvt)
@@ -686,11 +686,11 @@ static int at_response_cend (struct pvt* pvt, const char* str)
 
 	if (sscanf (str, "^CEND:%d,%d,%d,%d", &call_index, &duration, &end_status, &cc_cause) != 4)
 	{
-		ast_debug (1, "[%s] Could not parse all CEND parameters\n", pvt->id);
+		ast_debug (1, "[%s] Could not parse all CEND parameters\n", PVT_ID(pvt));
 	}
 
 	ast_debug (1,	"[%s] CEND: call_index %d duration %d end_status %d cc_cause %d Line disconnected\n"
-				, pvt->id, call_index, duration, end_status, cc_cause);
+				, PVT_ID(pvt), call_index, duration, end_status, cc_cause);
 
 	cpvt = pvt_find_cpvt(pvt, call_index);
 	if (cpvt)
@@ -725,7 +725,7 @@ static int at_response_cend (struct pvt* pvt, const char* str)
 	}
 	else
 	{
-		ast_log (LOG_ERROR, "[%s] CEND event for unknown call idx '%d'\n", pvt->id, call_index);
+		ast_log (LOG_ERROR, "[%s] CEND event for unknown call idx '%d'\n", PVT_ID(pvt), call_index);
 	}
 
 	return 0;
@@ -749,12 +749,12 @@ static int at_response_csca (struct pvt* pvt, const char* str)
 	 */
 	if (sscanf (str, "+CSCA: \"%200[+0-9*#]\",%*d", csca) != 1)
 	{
-		ast_debug (1, "[%s] Could not parse all CSCA parameters\n", pvt->id);
+		ast_debug (1, "[%s] Could not parse all CSCA parameters\n", PVT_ID(pvt));
 		return 0;
 	}
 	ast_copy_string (pvt->sms_scenter, csca, sizeof (pvt->sms_scenter));
 
-	ast_debug (1, "[%s] CSCA: %s\n", pvt->id, pvt->sms_scenter);
+	ast_debug (1, "[%s] CSCA: %s\n", PVT_ID(pvt), pvt->sms_scenter);
 	return 0;
 }
 
@@ -784,11 +784,11 @@ static int at_response_conn (struct pvt* pvt, const char* str)
 	 */
 	if (sscanf (str, "^CONN:%d,%d", &call_index, &call_type) != 2)
 	{
-		ast_log (LOG_ERROR, "[%s] Error parsing CONN event '%s'\n", pvt->id, str);
+		ast_log (LOG_ERROR, "[%s] Error parsing CONN event '%s'\n", PVT_ID(pvt), str);
 		return -1;
 	}
 
-	ast_debug (1, "[%s] CONN Received call_index %d call_type %d\n", pvt->id, call_index, call_type);
+	ast_debug (1, "[%s] CONN Received call_index %d call_type %d\n", PVT_ID(pvt), call_index, call_type);
 
 	if (call_type == CLCC_CALL_TYPE_VOICE)
 	{
@@ -809,11 +809,11 @@ static int at_response_conn (struct pvt* pvt, const char* str)
 		else
 		{
 			at_enque_hangup(&pvt->sys_chan, call_index);
-			ast_log (LOG_ERROR, "[%s] CONN event for non-existing call idx %d, hangup!\n", pvt->id, call_index);
+			ast_log (LOG_ERROR, "[%s] CONN event for non-existing call idx %d, hangup!\n", PVT_ID(pvt), call_index);
 		}
 	}
 	else
-		ast_log (LOG_ERROR, "[%s] CONN event for non-voice call type '%d' index %d!\n", pvt->id, call_type, call_index);
+		ast_log (LOG_ERROR, "[%s] CONN event for non-voice call type '%d' index %d!\n", PVT_ID(pvt), call_type, call_index);
 	return 0;
 }
 
@@ -825,11 +825,11 @@ static int start_pbx(struct pvt* pvt, const char * number, int call_idx, call_st
 
 	if (!channel)
 	{
-		ast_log (LOG_ERROR, "[%s] Unable to allocate channel for incoming call\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Unable to allocate channel for incoming call\n", PVT_ID(pvt));
 
 		if (at_enque_hangup (&pvt->sys_chan, call_idx))
 		{
-			ast_log (LOG_ERROR, "[%s] Error sending AT+CHUP command\n", pvt->id);
+			ast_log (LOG_ERROR, "[%s] Error sending AT+CHUP command\n", PVT_ID(pvt));
 		}
 
 		return -1;
@@ -840,7 +840,7 @@ static int start_pbx(struct pvt* pvt, const char * number, int call_idx, call_st
 
 	if (ast_pbx_start (channel))
 	{
-		ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming call\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming call\n", PVT_ID(pvt));
 		channel_ast_hangup (cpvt);
 
 		return -1;
@@ -879,7 +879,7 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 		{
 			if(sscanf(str, "+CLCC:%u,%u,%u,%u,%u,\"%200[+0-9*#]\",%u", &call_idx, &dir, &state, &mode, &mpty, number, &type) == 7)
 			{
-				ast_debug (3, "[%s] CLCC callidx %u dir %u state %u mode %u mpty %u number %s type %u\n",  pvt->id, call_idx, dir, state, mode, mpty, number, type);
+				ast_debug (3, "[%s] CLCC callidx %u dir %u state %u mode %u mpty %u number %s type %u\n",  PVT_ID(pvt), call_idx, dir, state, mode, mpty, number, type);
 				if(mode == CLCC_CALL_TYPE_VOICE && state <= CALL_STATE_WAITING)
 				{
 					cpvt = pvt_find_cpvt(pvt, call_idx);
@@ -902,7 +902,7 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 						}
 						else
 						{
-							ast_log (LOG_ERROR, "[%s] CLCC listed call idx %d with different dir %d/%d\n", pvt->id, cpvt->call_idx, dir, cpvt->dir);
+							ast_log (LOG_ERROR, "[%s] CLCC listed call idx %d with different dir %d/%d\n", PVT_ID(pvt), cpvt->call_idx, dir, cpvt->dir);
 						}
 					}
 					else if(dir == CALL_DIR_INCOMING && (state == CALL_STATE_INCOMING || state == CALL_STATE_WAITING))
@@ -938,7 +938,7 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 			}
 			else
 			{
-				ast_log (LOG_ERROR, "[%s] can't parse CLCC line '%s'\n", pvt->id, str);
+				ast_log (LOG_ERROR, "[%s] can't parse CLCC line '%s'\n", PVT_ID(pvt), str);
 			}
 			p = strchr(str, '\r');
 			if(p)
@@ -960,10 +960,10 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 /* HW BUG 2: when no active call exist not way to enable voice again on activated from hold call
 	call will be activated but no voice
 */
-			ast_debug (1, "[%s] all %u call held, try activate some\n",  pvt->id, all);
+			ast_debug (1, "[%s] all %u call held, try activate some\n",  PVT_ID(pvt), all);
 			if(at_enque_flip_hold(&pvt->sys_chan))
 			{
-				ast_log (LOG_ERROR, "[%s] can't flip active and hold/waiting calls \n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] can't flip active and hold/waiting calls \n", PVT_ID(pvt));
 			}
 		}
 	}
@@ -1006,7 +1006,7 @@ static int at_response_ccwa(struct pvt* pvt, const char* str)
 		if ((class & CCWA_CLASS_VOICE) && (status == CCWA_STATUS_NOT_ACTIVE || status == CCWA_STATUS_ACTIVE))
 		{
 			pvt->has_call_waiting = status == CCWA_STATUS_ACTIVE ? 1 : 0;
-			ast_log (LOG_NOTICE, "Call waiting is %s on device %s\n", status ? "enabled" : "disabled", pvt->id);
+			ast_log (LOG_NOTICE, "Call waiting is %s on device %s\n", status ? "enabled" : "disabled", PVT_ID(pvt));
 		}
 		return 0;
 	}
@@ -1015,7 +1015,7 @@ static int at_response_ccwa(struct pvt* pvt, const char* str)
 	{
 		if (sscanf (str, "+CCWA: \"%*[+0-9*#]\",%*d,%d", &class) == 1)
 		{
-			if (pvt->call_waiting != CALL_WAITING_DISALLOWED && class == CCWA_CLASS_VOICE)
+			if (CONF_SHARED(pvt, call_waiting) != CALL_WAITING_DISALLOWED && class == CCWA_CLASS_VOICE)
 			{
 				pvt->rings++;
 				pvt->cwaiting = 1;
@@ -1023,7 +1023,7 @@ static int at_response_ccwa(struct pvt* pvt, const char* str)
 			}
 		}
 		else
-			ast_log (LOG_ERROR, "[%s] can't parse CCWA line '%s'\n", pvt->id, str);
+			ast_log (LOG_ERROR, "[%s] can't parse CCWA line '%s'\n", PVT_ID(pvt), str);
 	}
 	return 0;
 }
@@ -1051,7 +1051,7 @@ static int at_response_ring (struct pvt* pvt)
 		{
 			if (at_enque_volsync (&pvt->sys_chan))
 			{
-				ast_log (LOG_ERROR, "[%s] Error synchronize audio level\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error synchronize audio level\n", PVT_ID(pvt));
 			}
 			else
 				pvt->volume_sync_step++;
@@ -1076,17 +1076,17 @@ static int at_response_cmti (struct pvt* pvt, const char* str)
 
 	if (index > -1)
 	{
-		ast_debug (1, "[%s] Incoming SMS message\n", pvt->id);
+		ast_debug (1, "[%s] Incoming SMS message\n", PVT_ID(pvt));
 
-		if (pvt->disablesms)
+		if (CONF_SHARED(pvt, disablesms))
 		{
-			ast_log (LOG_WARNING, "[%s] SMS reception has been disabled in the configuration.\n", pvt->id);
+			ast_log (LOG_WARNING, "[%s] SMS reception has been disabled in the configuration.\n", PVT_ID(pvt));
 		}
 		else
 		{
-			if (at_enque_retrive_sms (&pvt->sys_chan, index, pvt->auto_delete_sms))
+			if (at_enque_retrive_sms (&pvt->sys_chan, index, CONF_SHARED(pvt, auto_delete_sms)))
 			{
-				ast_log (LOG_ERROR, "[%s] Error sending CMGR to retrieve SMS message\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error sending CMGR to retrieve SMS message\n", PVT_ID(pvt));
 				return -1;
 			}
 			else
@@ -1097,7 +1097,7 @@ static int at_response_cmti (struct pvt* pvt, const char* str)
 	}
 	else
 	{
-		ast_log (LOG_ERROR, "[%s] Error parsing incoming sms message alert, disconnecting\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Error parsing incoming sms message alert, disconnecting\n", PVT_ID(pvt));
 		return -1;
 	}
 }
@@ -1130,11 +1130,11 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 
 		if (at_parse_cmgr (str, len, &from_number, &text))
 		{
-			ast_log (LOG_ERROR, "[%s] Error parsing SMS message, disconnecting\n", pvt->id);
+			ast_log (LOG_ERROR, "[%s] Error parsing SMS message, disconnecting\n", PVT_ID(pvt));
 			return -1;
 		}
 
-		ast_debug (1, "[%s] Successfully read SMS message\n", pvt->id);
+		ast_debug (1, "[%s] Successfully read SMS message\n", PVT_ID(pvt));
 
 		pvt->incoming_sms = 0;
 
@@ -1147,7 +1147,7 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 			}
 			else
 			{
-				ast_log (LOG_ERROR, "[%s] Error parsing SMS (convert UCS-2 to UTF-8): %s\n", pvt->id, text);
+				ast_log (LOG_ERROR, "[%s] Error parsing SMS (convert UCS-2 to UTF-8): %s\n", PVT_ID(pvt), text);
 			}
 
 			res = hexstr_ucs2_to_utf8 (from_number, strlen (from_number), from_number_utf8_str, sizeof (from_number_utf8_str));
@@ -1157,12 +1157,12 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 			}
 			else
 			{
-				ast_log (LOG_ERROR, "[%s] Error parsing SMS from_number (convert UCS-2 to UTF-8): %s\n", pvt->id, from_number);
+				ast_log (LOG_ERROR, "[%s] Error parsing SMS from_number (convert UCS-2 to UTF-8): %s\n", PVT_ID(pvt), from_number);
 			}
 		}
 
 		ast_base64encode (text_base64, (unsigned char*)text, strlen(text), sizeof(text_base64));
-		ast_verb (1, "[%s] Got SMS from %s: '%s'\n", pvt->id, from_number, text);
+		ast_verb (1, "[%s] Got SMS from %s: '%s'\n", PVT_ID(pvt), from_number, text);
 
 #ifdef __MANAGER__
 		manager_event_new_sms (pvt, from_number, text);
@@ -1172,9 +1172,9 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 #ifdef __MANAGER__
 		struct ast_channel* channel;
 
-		snprintf (channel_name, sizeof (channel_name), "sms@%s", pvt->context);
+		snprintf (channel_name, sizeof (channel_name), "sms@%s", CONF_SHARED(pvt, context));
 
-		channel = channel_local_request (pvt, channel_name, pvt->id, from_number, "en");
+		channel = channel_local_request (pvt, channel_name, PVT_ID(pvt), from_number);
 		if (channel)
 		{
 			pbx_builtin_setvar_helper (channel, "SMS", text);
@@ -1183,19 +1183,19 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 			if (ast_pbx_start (channel))
 			{
 				ast_hangup (channel);
-				ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming sms\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming sms\n", PVT_ID(pvt));
 			}
 		}
 #endif
 	}
 	else if (ecmd)
 	{
-		ast_log (LOG_ERROR, "[%s] Received '+CMGR' when expecting '%s' response to '%s', ignoring\n", pvt->id,
+		ast_log (LOG_ERROR, "[%s] Received '+CMGR' when expecting '%s' response to '%s', ignoring\n", PVT_ID(pvt),
 				at_res2str (ecmd->res), at_cmd2str (ecmd->cmd));
 	}
 	else
 	{
-		ast_log (LOG_ERROR, "[%s] Received unexpected '+CMGR'\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Received unexpected '+CMGR'\n", PVT_ID(pvt));
 	}
 
 	return 0;
@@ -1219,12 +1219,12 @@ static int at_response_sms_prompt (struct pvt* pvt)
 	}
 	else if (ecmd)
 	{
-		ast_log (LOG_ERROR, "[%s] Received sms prompt when expecting '%s' response to '%s', ignoring\n", pvt->id,
+		ast_log (LOG_ERROR, "[%s] Received sms prompt when expecting '%s' response to '%s', ignoring\n", PVT_ID(pvt),
 				at_res2str (ecmd->res), at_cmd2str (ecmd->cmd));
 	}
 	else
 	{
-		ast_log (LOG_ERROR, "[%s] Received unexpected sms prompt\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Received unexpected sms prompt\n", PVT_ID(pvt));
 	}
 
 	return 0;
@@ -1250,7 +1250,7 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 
 	if (at_parse_cusd (str, len, &cusd, &dcs))
 	{
-		ast_verb (1, "[%s] Error parsing CUSD: '%.*s'\n", pvt->id, (int) len, str);
+		ast_verb (1, "[%s] Error parsing CUSD: '%.*s'\n", PVT_ID(pvt), (int) len, str);
 		return 0;
 	}
 
@@ -1263,7 +1263,7 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 		}
 		else
 		{
-			ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert 7bit to ASCII): %s\n", pvt->id, cusd);
+			ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert 7bit to ASCII): %s\n", PVT_ID(pvt), cusd);
 			return -1;
 		}
 	}
@@ -1276,12 +1276,12 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 		}
 		else
 		{
-			ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert UCS-2 to UTF-8): %s\n", pvt->id, cusd);
+			ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert UCS-2 to UTF-8): %s\n", PVT_ID(pvt), cusd);
 			return -1;
 		}
 	}
 
-	ast_verb (1, "[%s] Got USSD response: '%s'\n", pvt->id, cusd);
+	ast_verb (1, "[%s] Got USSD response: '%s'\n", PVT_ID(pvt), cusd);
 	ast_base64encode (text_base64, (unsigned char*)cusd, strlen(cusd), sizeof(text_base64));
 
 #ifdef __MANAGER__
@@ -1292,9 +1292,9 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 #ifdef __MANAGER__
 	struct ast_channel* channel;
 
-	snprintf (channel_name, sizeof (channel_name), "ussd@%s", pvt->context);
+	snprintf (channel_name, sizeof (channel_name), "ussd@%s", CONF_SHARED(pvt, context));
 
-	channel = channel_local_request (pvt, channel_name, pvt->id, "ussd", "en");
+	channel = channel_local_request (pvt, channel_name, PVT_ID(pvt), "ussd");
 	if (channel)
 	{
 		pbx_builtin_setvar_helper (channel, "USSD", cusd);
@@ -1303,7 +1303,7 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 		if (ast_pbx_start (channel))
 		{
 			ast_hangup (channel);
-			ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming ussd\n", pvt->id);
+			ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming ussd\n", PVT_ID(pvt));
 		}
 	}
 #endif
@@ -1334,7 +1334,7 @@ static int at_response_cpin (struct pvt* pvt, char* str, size_t len)
 
 static int at_response_smmemfull (struct pvt* pvt)
 {
-	ast_log (LOG_ERROR, "[%s] SMS storage is full\n", pvt->id);
+	ast_log (LOG_ERROR, "[%s] SMS storage is full\n", PVT_ID(pvt));
 	return 0;
 }
 
@@ -1416,12 +1416,12 @@ static int at_response_creg (struct pvt* pvt, char* str, size_t len)
 
 	if (at_enque_cops (&pvt->sys_chan))
 	{
-		ast_log (LOG_ERROR, "[%s] Error sending query for provider name\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Error sending query for provider name\n", PVT_ID(pvt));
 	}
 
 	if (at_parse_creg (str, len, &d, &pvt->gsm_reg_status, &lac, &ci))
 	{
-		ast_verb (1, "[%s] Error parsing CREG: '%.*s'\n", pvt->id, (int) len, str);
+		ast_verb (1, "[%s] Error parsing CREG: '%.*s'\n", PVT_ID(pvt), (int) len, str);
 		return 0;
 	}
 
@@ -1571,12 +1571,12 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 
 		if (iovcnt == 2)
 		{
-			ast_debug (5, "[%s] iovcnt == 2\n", pvt->id);
+			ast_debug (5, "[%s] iovcnt == 2\n", PVT_ID(pvt));
 			
 			str = alloca(len + 1);
 			if (!str)
 			{
-				ast_debug (1, "[%s] buffer overflow\n", pvt->id);
+				ast_debug (1, "[%s] buffer overflow\n", PVT_ID(pvt));
 				return -1;
 			}
 			memcpy (str,                  iov[0].iov_base, iov[0].iov_len);
@@ -1588,7 +1588,7 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 		}
 		str[len] = '\0';
 
-//		ast_debug (5, "[%s] [%.*s]\n", pvt->id, (int) len, str);
+//		ast_debug (5, "[%s] [%.*s]\n", PVT_ID(pvt), (int) len, str);
 
 		switch (at_res)
 		{
@@ -1667,16 +1667,16 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 				return at_response_ccwa (pvt, str);
 
 			case RES_BUSY:
-				ast_log (LOG_ERROR, "[%s] Receive BUSY\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Receive BUSY\n", PVT_ID(pvt));
 				at_response_busy(pvt, AST_CONTROL_BUSY);
 				break;
 
 			case RES_NO_DIALTONE:
-				ast_log (LOG_ERROR, "[%s] Receive NO DIALTONE\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Receive NO DIALTONE\n", PVT_ID(pvt));
 				at_response_busy(pvt, AST_CONTROL_CONGESTION);
 				break;
 			case RES_NO_CARRIER:
-				ast_log (LOG_ERROR, "[%s] Receive NO CARRIER\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Receive NO CARRIER\n", PVT_ID(pvt));
 				at_response_busy(pvt, AST_CONTROL_CONGESTION);
 				break;
 			case RES_CPIN:
@@ -1692,7 +1692,7 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 				return 0;
 
 			case RES_PARSE_ERROR:
-				ast_log (LOG_ERROR, "[%s] Error parsing result\n", pvt->id);
+				ast_log (LOG_ERROR, "[%s] Error parsing result\n", PVT_ID(pvt));
 				return -1;
 
 			case RES_UNKNOWN:
@@ -1702,29 +1702,29 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 					switch (ecmd->cmd)
 					{
 						case CMD_AT_CGMI:
-							ast_debug (1, "[%s] Got AT_CGMI data (manufacturer info)\n", pvt->id);
+							ast_debug (1, "[%s] Got AT_CGMI data (manufacturer info)\n", PVT_ID(pvt));
 							return at_response_cgmi (pvt, str);
 
 						case CMD_AT_CGMM:
-							ast_debug (1, "[%s] Got AT_CGMM data (model info)\n", pvt->id);
+							ast_debug (1, "[%s] Got AT_CGMM data (model info)\n", PVT_ID(pvt));
 							return at_response_cgmm (pvt, str);
 
 						case CMD_AT_CGMR:
-							ast_debug (1, "[%s] Got AT+CGMR data (firmware info)\n", pvt->id);
+							ast_debug (1, "[%s] Got AT+CGMR data (firmware info)\n", PVT_ID(pvt));
 							return at_response_cgmr (pvt, str);
 
 						case CMD_AT_CGSN:
-							ast_debug (1, "[%s] Got AT+CGSN data (IMEI number)\n", pvt->id);
+							ast_debug (1, "[%s] Got AT+CGSN data (IMEI number)\n", PVT_ID(pvt));
 							return at_response_cgsn (pvt, str);
 
 						case CMD_AT_CIMI:
-							ast_debug (1, "[%s] Got AT+CIMI data (IMSI number)\n", pvt->id);
+							ast_debug (1, "[%s] Got AT+CIMI data (IMSI number)\n", PVT_ID(pvt));
 							return at_response_cimi (pvt, str);
 						default:
 							break;
 					}
 				}
-				ast_debug (1, "[%s] Ignoring unknown result: '%.*s'\n", pvt->id, (int) len, str);
+				ast_debug (1, "[%s] Ignoring unknown result: '%.*s'\n", PVT_ID(pvt), (int) len, str);
 
 				break;
 		}

@@ -62,7 +62,7 @@ static void at_queue_remove (struct pvt * pvt)
 	{
 		PVT_STAT_PUMP(at_tasks,--);
 		ast_debug (4, "[%s] remove task with %u command(s) begin with '%s' expected response '%s' from queue\n", 
-				pvt->id, task->cmdsno, at_cmd2str (task->cmds[0].cmd), 
+				PVT_ID(pvt), task->cmdsno, at_cmd2str (task->cmds[0].cmd), 
 				at_res2str (task->cmds[0].res));
 
 		at_queue_free(task);
@@ -118,7 +118,7 @@ static int at_queue_add (struct cpvt* cpvt, const at_queue_cmd_t* cmds, unsigned
 			PVT_STAT_PUMP(at_cmds, += cmdsno);
 
 			ast_debug (4, "[%s] insert task with %u commands begin with '%s' expected response '%s' %s of queue\n", 
-					pvt->id, e->cmdsno, at_cmd2str (e->cmds[0].cmd), 
+					PVT_ID(pvt), e->cmdsno, at_cmd2str (e->cmds[0].cmd), 
 					at_res2str (e->cmds[0].res), prio ? "after head" : "at tail");
 		}
 		else
@@ -147,7 +147,7 @@ static int at_write (struct pvt* pvt, const char* buf, size_t count)
 	ssize_t	out_count;
 	unsigned errs = 10;
 	
-	ast_debug (5, "[%s] [%.*s]\n", pvt->id, (int) count, buf);
+	ast_debug (5, "[%s] [%.*s]\n", PVT_ID(pvt), (int) count, buf);
 
 	while (count > 0)
 	{
@@ -160,7 +160,7 @@ static int at_write (struct pvt* pvt, const char* buf, size_t count)
 				if(errs != 0)
 					continue;
 			}
-			ast_debug (1, "[%s] write() error: %d\n", pvt->id, errno);
+			ast_debug (1, "[%s] write() error: %d\n", PVT_ID(pvt), errno);
 			return -1;
 		}
 		errs = 10;
@@ -185,7 +185,7 @@ EXPORT_DEF void at_queue_remove_cmd (struct pvt* pvt, at_res_t res)
 		unsigned index = task->cindex;
 		task->cindex++;
 		ast_debug (4, "[%s] remove command '%s' expected response '%s' real '%s' cmd %u/%u flags 0x%02x from queue\n", 
-				pvt->id, at_cmd2str (task->cmds[index].cmd), 
+				PVT_ID(pvt), at_cmd2str (task->cmds[index].cmd), 
 				at_res2str (task->cmds[index].res), at_res2str (res), 
 				task->cindex, task->cmdsno, task->cmds[index].flags);
 		
@@ -217,7 +217,7 @@ static int try_write (struct pvt* pvt)
 		if(cmd->length > 0)
 		{
 			ast_debug (4, "[%s] write command '%s' expected response '%s' length %u\n", 
-					pvt->id, at_cmd2str (cmd->cmd), at_res2str (cmd->res), cmd->length);
+					PVT_ID(pvt), at_cmd2str (cmd->cmd), at_res2str (cmd->res), cmd->length);
 
 			// TODO: add write timeout
 			fail = at_write(pvt, cmd->data, cmd->length);
@@ -231,7 +231,7 @@ static int try_write (struct pvt* pvt)
 			}
 			else
 			{
-				ast_log (LOG_ERROR, "[%s] Error write command '%s' expected response '%s' length %u, cancel\n", pvt->id, at_cmd2str (cmd->cmd), at_res2str (cmd->res), cmd->length);
+				ast_log (LOG_ERROR, "[%s] Error write command '%s' expected response '%s' length %u, cancel\n", PVT_ID(pvt), at_cmd2str (cmd->cmd), at_res2str (cmd->res), cmd->length);
 				at_queue_remove_cmd(pvt, cmd->res + 1);
 			}
 		}
@@ -240,7 +240,7 @@ static int try_write (struct pvt* pvt)
 			/* check expiration */
 			if(ast_tvcmp (ast_tvnow(), cmd->timeout) > 0)
 			{
-				ast_log (LOG_ERROR, "[%s] Error  command '%s' expected response '%s' expiried, cancel\n", pvt->id, at_cmd2str (cmd->cmd), at_res2str (cmd->res));
+				ast_log (LOG_ERROR, "[%s] Error  command '%s' expected response '%s' expiried, cancel\n", PVT_ID(pvt), at_cmd2str (cmd->cmd), at_res2str (cmd->res));
 				at_queue_remove_cmd(pvt, cmd->res + 1);
 				fail = -1;
 			}

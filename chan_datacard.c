@@ -53,28 +53,27 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev: 200 $")
 #include "app.h"
 #include "manager.h"
 #include "channel.h"				/* channel_queue_hangup() */
-
-#define CONFIG_FILE		"datacard.conf"
-#define DEF_DISCOVERY_INT	60
+#include "dc_config.h"				/* dc_uconfig_fill() dc_gconfig_fill() dc_sconfig_fill()  */
 
 typedef struct
 {
-	int			discovery_interval;		/* The device discovery interval */
 	pthread_t		discovery_thread;		/* The discovery thread handler */
 	int			unloading_flag;			/* no need mutex or other locking for protect this variable because no concurent r/w and set non-0 atomically */
-	const struct ast_jb_conf jbconf_default;		/* */
+	struct dc_gconfig	settings;			/*!< global settings */
 } global_state_t;
 
-static global_state_t  globals = {
-	DEF_DISCOVERY_INT,
+static global_state_t globals = {
 	AST_PTHREADT_NULL,
 	0,
 	{
-		.flags			= 0,
-		.max_size		= -1,
-		.resync_threshold	= -1,
-		.impl			= "",
-		.target_extra		= -1,
+		{
+			.flags			= 0,
+			.max_size		= -1,
+			.resync_threshold	= -1,
+			.impl			= "",
+			.target_extra		= -1,
+		},
+		DEFAULT_DISCOVERY_INT
 	}
 };
 
@@ -139,7 +138,7 @@ static int disconnect_datacard (struct pvt* pvt)
 	
 	if (pvt->chansno)
 	{
-		ast_debug (1, "[%s] Datacard disconnected, hanging up owners\n", pvt->id);
+		ast_debug (1, "[%s] Datacard disconnected, hanging up owners\n", PVT_ID(pvt));
 		
 		for(cpvt = pvt->chans.first; cpvt; cpvt = next)
 		{
@@ -181,10 +180,10 @@ static int disconnect_datacard (struct pvt* pvt)
 
 	at_queue_flush(pvt);
 
-	ast_verb (3, "Datacard %s has disconnected\n", pvt->id);
+	ast_verb (3, "Datacard %s has disconnected\n", PVT_ID(pvt));
 
 #ifdef __MANAGER__
-	manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Disconnect\r\nDevice: %s\r\n", pvt->id);
+	manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Disconnect\r\nDevice: %s\r\n", PVT_ID(pvt));
 #endif
 
 	return 1;
@@ -216,7 +215,7 @@ static void* do_monitor_phone (void* data)
 	for (t = 0; at_wait (pvt, &t); t = 0)
 	{
 		iovcnt = at_read (pvt, &rb);
-		ast_debug (4, "[%s] drop %d bytes of pending data before initialization\n", pvt->id, rb_used(&rb));
+		ast_debug (4, "[%s] drop %d bytes of pending data before initialization\n", PVT_ID(pvt), rb_used(&rb));
 		/* drop readed */
 		rb_init (&rb, buf, sizeof (buf));
 		if (iovcnt)
@@ -226,7 +225,7 @@ static void* do_monitor_phone (void* data)
 	/* schedule datacard initilization  */
 	if (at_enque_initialization (&pvt->sys_chan, CMD_AT))
 	{
-		ast_log (LOG_ERROR, "[%s] Error adding initialization commands to queue\n", pvt->id);
+		ast_log (LOG_ERROR, "[%s] Error adding initialization commands to queue\n", PVT_ID(pvt));
 		goto e_cleanup;
 	}
 
@@ -240,7 +239,7 @@ static void* do_monitor_phone (void* data)
 
 		if (device_status (pvt->data_fd) || device_status (pvt->audio_fd))
 		{
-			ast_log (LOG_ERROR, "Lost connection to Datacard %s\n", pvt->id);
+			ast_log (LOG_ERROR, "Lost connection to Datacard %s\n", PVT_ID(pvt));
 			goto e_cleanup;
 		}
 		t = pvt->timeout;
@@ -253,12 +252,12 @@ static void* do_monitor_phone (void* data)
 			ast_mutex_lock (&pvt->lock);
 			if (!pvt->initialized)
 			{
-				ast_debug (1, "[%s] timeout waiting for data, disconnecting\n", pvt->id);
+				ast_debug (1, "[%s] timeout waiting for data, disconnecting\n", PVT_ID(pvt));
 				
 				ecmd = at_queue_head_cmd (pvt);
 				if (ecmd)
 				{
-					ast_debug (1, "[%s] timeout while waiting '%s' in response to '%s'\n", pvt->id,
+					ast_debug (1, "[%s] timeout while waiting '%s' in response to '%s'\n", PVT_ID(pvt),
 							at_res2str (ecmd->res), at_cmd2str (ecmd->cmd));
 				}
 
@@ -295,7 +294,7 @@ static void* do_monitor_phone (void* data)
 e_cleanup:
 	if (!pvt->initialized)
 	{
-		ast_verb (3, "Error initializing Datacard %s\n", pvt->id);
+		ast_verb (3, "Error initializing Datacard %s\n", PVT_ID(pvt));
 	}
 
 	disconnect_datacard (pvt);
@@ -330,19 +329,19 @@ static void* do_discovery (attribute_unused void * data)
 
 			if (!pvt->connected)
 			{
-				ast_verb (3, "Datacard %s trying to connect on %s...\n", pvt->id, pvt->data_tty);
+				ast_verb (3, "Datacard %s trying to connect on %s...\n", PVT_ID(pvt), CONF_UNIQ(pvt, data_tty));
 
-				if ((pvt->data_fd = opentty (pvt->data_tty)) > -1)
+				if ((pvt->data_fd = opentty (CONF_UNIQ(pvt, data_tty))) > -1)
 				{
-					if ((pvt->audio_fd = opentty (pvt->audio_tty)) > -1)
+					if ((pvt->audio_fd = opentty (CONF_UNIQ(pvt, audio_tty))) > -1)
 					{
 						if (start_monitor (pvt))
 						{
 							pvt->connected = 1;
 #ifdef __MANAGER__
-							manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Connect\r\nDevice: %s\r\n", pvt->id);
+							manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Connect\r\nDevice: %s\r\n", PVT_ID(pvt));
 #endif
-							ast_verb (3, "Datacard %s has connected, initializing...\n", pvt->id);
+							ast_verb (3, "Datacard %s has connected, initializing...\n", PVT_ID(pvt));
 						}
 					}
 				}
@@ -355,7 +354,7 @@ static void* do_discovery (attribute_unused void * data)
 		/* Go to sleep (only if we are not unloading) */
 		if (globals.unloading_flag == 0)
 		{
-			sleep (globals.discovery_interval);
+			sleep (globals.settings.discovery_interval);
 		}
 	}
 
@@ -613,26 +612,12 @@ EXPORT_DECL char* rssi2dBm(int rssi, char * buf, unsigned len)
  * \return NULL on error, a pointer to the device that was loaded on success
  */
 
-static struct pvt* load_device (struct ast_config* cfg, const char* cat)
+static struct pvt* load_device (struct ast_config* cfg, const char* cat, const struct dc_sconfig * defaults)
 {
 	struct pvt*		pvt;
-	const char*		audio_tty;
-	const char*		data_tty;
-	struct ast_variable*	v;
-
-	ast_debug (1, "Reading configuration for device %s\n", cat);
-
-	audio_tty = ast_variable_retrieve (cfg, cat, "audio");
-	data_tty  = ast_variable_retrieve (cfg, cat, "data");
-
-	if (ast_strlen_zero (audio_tty) || ast_strlen_zero (data_tty))
-	{
-		ast_log (LOG_ERROR, "Skipping device %s. Missing required audio_tty or data_tty setting\n", cat);
-		return NULL;
-	}
+	int err;
 
 	/* create and initialize our pvt structure */
-
 	pvt = ast_calloc (1, sizeof (*pvt));
 	if (!pvt)
 	{
@@ -640,19 +625,29 @@ static struct pvt* load_device (struct ast_config* cfg, const char* cat)
 		return NULL;
 	}
 
+	ast_debug (1, "Reading configuration for device %s\n", cat);
+
+	err = dc_config_fill(cfg, cat, defaults, &pvt->settings);
+	if(err)
+	{
+		ast_free (pvt);
+		return NULL;
+	}
+
+	if(CONF_SHARED(pvt, disable))
+	{
+		ast_log (LOG_NOTICE, "Skipping device %s i.e. disabled\n", cat);
+		ast_free (pvt);
+		return NULL;
+	}
+	
+	/* initialize pvt */
 	ast_mutex_init (&pvt->lock);
 
 	AST_LIST_HEAD_INIT_NOLOCK (&pvt->at_queue);
 	AST_LIST_HEAD_INIT_NOLOCK (&pvt->chans);
 	pvt->sys_chan.pvt = pvt;
 	pvt->sys_chan.state = CALL_STATE_RELEASED;
-	
-
-	/* populate the pvt structure */
-
-	ast_copy_string (pvt->id,		cat,		sizeof (pvt->id));
-	ast_copy_string (pvt->data_tty,		data_tty,	sizeof (pvt->data_tty));
-	ast_copy_string (pvt->audio_tty,	audio_tty,	sizeof (pvt->audio_tty));
 
 	/* set some defaults */
 
@@ -665,20 +660,8 @@ static struct pvt* load_device (struct ast_config* cfg, const char* cat)
 
 	ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
 	ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
-	ast_copy_string (pvt->context,		"default",	sizeof (pvt->context));
-	ast_copy_string (pvt->language,		"en",		sizeof (pvt->language));
 
-	pvt->reset_datacard		=  1;
-	pvt->u2diag			= -1;
-	pvt->callingpres		= -1;
-	
-	pvt->mindtmfgap			= DEFAULT_MINDTMFGAP;
-	pvt->mindtmfduration		= DEFAULT_MINDTMFDURATION;
-	pvt->mindtmfinterval		= DEFAULT_MINDTMFINTERVAL;
-
-	pvt->call_waiting = CALL_WAITING_AUTO;
 	/* setup the dsp */
-
 	pvt->dsp = ast_dsp_new ();
 	if (!pvt->dsp)
 	{
@@ -690,114 +673,12 @@ static struct pvt* load_device (struct ast_config* cfg, const char* cat)
 	ast_dsp_set_features (pvt->dsp, DSP_FEATURE_DIGIT_DETECT);
 	ast_dsp_set_digitmode (pvt->dsp, DSP_DIGITMODE_DTMF | DSP_DIGITMODE_RELAXDTMF);
 
-	for (v = ast_variable_browse (cfg, cat); v; v = v->next)
-	{
-		if (!strcasecmp (v->name, "context"))
-		{
-			ast_copy_string (pvt->context, v->value, sizeof (pvt->context));
-		}
-		else if (!strcasecmp (v->name, "group"))
-		{
-			pvt->group = (int) strtol (v->value, (char**) NULL, 10);		/* group is set to 0 if invalid */
-		}
-		else if (!strcasecmp (v->name, "rxgain"))
-		{
-			pvt->rxgain = (int) strtol (v->value, (char**) NULL, 10);		/* rxgain is set to 0 if invalid */
-		}
-		else if (!strcasecmp (v->name, "txgain"))
-		{
-			pvt->txgain = (int) strtol (v->value, (char**) NULL, 10);		/* txgain is set to 0 if invalid */
-		}
-		else if (!strcasecmp (v->name, "autodeletesms"))
-		{
-			pvt->auto_delete_sms = ast_true (v->value);				/* auto_delete_sms is set to 0 if invalid */
-
-		}
-		else if (!strcasecmp (v->name, "resetdatacard"))
-		{
-			pvt->reset_datacard = ast_true (v->value);				/* reset_datacard is set to 0 if invalid */
-		}
-		else if (!strcasecmp (v->name, "u2diag"))
-		{
-			errno = 0;
-			pvt->u2diag = (int) strtol (v->value, (char**) NULL, 10);		/* u2diag is set to -1 if invalid */
-			if (pvt->u2diag == 0 && errno == EINVAL)
-			{
-				pvt->u2diag = -1;
-			}
-		}
-		else if (!strcasecmp (v->name, "usecallingpres"))
-		{
-			pvt->usecallingpres = ast_true (v->value);				/* usecallingpres is set to 0 if invalid */
-		}
-		else if (!strcasecmp (v->name, "callingpres"))
-		{
-			pvt->callingpres = ast_parse_caller_presentation (v->value);
-			if (pvt->callingpres == -1)
-			{
-				errno = 0;
-				pvt->callingpres = (int) strtol (v->value, (char**) NULL, 10);	/* callingpres is set to -1 if invalid */
-				if (pvt->callingpres == 0 && errno == EINVAL)
-				{
-					pvt->callingpres = -1;
-				}
-			}
-		}
-		else if (!strcasecmp (v->name, "disablesms"))
-		{
-			pvt->disablesms = ast_true (v->value);				/* disablesms is set to 0 if invalid */
-		}
-		else if (!strcasecmp (v->name, "language"))
-		{
-			ast_copy_string (pvt->language, v->value, sizeof (pvt->language));	/* set channel language */
-		}
-		else if (!strcasecmp (v->name, "smsaspdu"))
-		{
-			pvt->send_sms_as_pdu = ast_true (v->value);			/* send_sms_as_pdu us set to 0 if invalid */
-		}
-		else if (!strcasecmp (v->name, "mindtmfgap"))
-		{
-			errno = 0;
-			pvt->mindtmfgap = (int) strtol (v->value, (char**) NULL, 10);
-			if ((pvt->mindtmfgap == 0 && errno == EINVAL) || pvt->mindtmfgap < 0)
-			{
-				ast_log(LOG_ERROR, "Invalid valie for mindtmfgap '%s', setting default %d\n", v->value, DEFAULT_MINDTMFGAP);
-				pvt->mindtmfgap = DEFAULT_MINDTMFGAP;
-			}
-		}
-		else if (!strcasecmp (v->name, "mindtmfduration"))
-		{
-			errno = 0;
-			pvt->mindtmfduration = (int) strtol (v->value, (char**) NULL, 10);
-			if ((pvt->mindtmfduration == 0 && errno == EINVAL) || pvt->mindtmfduration < 0)
-			{
-				ast_log(LOG_ERROR, "Invalid valie for mindtmfgap '%s', setting default %d\n", v->value, DEFAULT_MINDTMFDURATION);
-				pvt->mindtmfduration = DEFAULT_MINDTMFDURATION;
-			}
-		}
-		else if (!strcasecmp (v->name, "mindtmfinterval"))
-		{
-			errno = 0;
-			pvt->mindtmfinterval = (int) strtol (v->value, (char**) NULL, 10);
-			if ((pvt->mindtmfinterval == 0 && errno == EINVAL) || pvt->mindtmfinterval < 0)
-			{
-				ast_log(LOG_ERROR, "Invalid valie for mindtmfinterval '%s', setting default %d\n", v->value, DEFAULT_MINDTMFINTERVAL);
-				pvt->mindtmfduration = DEFAULT_MINDTMFINTERVAL;
-			}
-		}
-		else if (!strcasecmp (v->name, "callwaiting"))
-		{
-			if(strcasecmp(v->value, "auto"))
-				pvt->call_waiting = ast_true (v->value);
-		}
-	}
-
-	ast_debug (1, "[%s] Loaded device\n", pvt->id);
-	ast_log (LOG_NOTICE, "Loaded device %s\n", pvt->id);
-
 	AST_RWLIST_WRLOCK (&gpublic->devices);
 	AST_RWLIST_INSERT_HEAD (&gpublic->devices, pvt, entry);
 	AST_RWLIST_UNLOCK (&gpublic->devices);
+
+	ast_debug (1, "[%s] Loaded device\n", PVT_ID(pvt));
+	ast_log (LOG_NOTICE, "Loaded device %s\n", PVT_ID(pvt));
 
 	return pvt;
 }
@@ -806,41 +687,28 @@ static int load_config ()
 {
 	struct ast_config*	cfg;
 	const char*		cat;
-	struct ast_variable*	v;
 	struct ast_flags	config_flags = { 0 };
+	struct dc_sconfig	config_defaults;
 
 	if ((cfg = ast_config_load (CONFIG_FILE, config_flags)) == NULL)
 	{
 		return -1;
 	}
 
-	/* parse [general] section */
-	for (v = ast_variable_browse (cfg, "general"); v; v = v->next)
-	{
-		/* handle jb conf */
-		if (!ast_jb_read_conf (&gpublic->jbconf_global, v->name, v->value))
-		{
-			continue;
-		}
+	/* read global config */
+	dc_gconfig_fill(cfg, "general", &globals.settings);
+	
+	/* read defaults */
+	dc_sconfig_fill_defaults(&config_defaults);
+	dc_sconfig_fill(cfg, "defaults", &config_defaults);
 
-		if (!strcasecmp (v->name, "interval"))
-		{
-			errno = 0;
-			globals.discovery_interval = (int) strtol (v->value, (char**) NULL, 10);
-			if (globals.discovery_interval == 0 && errno == EINVAL)
-			{
-				ast_log (LOG_NOTICE, "Error parsing 'interval' in general section, using default value\n");
-				globals.discovery_interval = DEF_DISCOVERY_INT;
-			}
-		}
-	}
 
 	/* now load devices */
 	for (cat = ast_category_browse (cfg, NULL); cat; cat = ast_category_browse (cfg, cat))
 	{
-		if (strcasecmp (cat, "general"))
+		if (strcasecmp (cat, "general") && strcasecmp (cat, "defaults"))
 		{
-			load_device (cfg, cat);
+			load_device (cfg, cat, &config_defaults);
 		}
 	}
 
@@ -859,8 +727,6 @@ static int load_module ()
 	}
 	
 	AST_RWLIST_HEAD_INIT(&gpublic->devices);
-	/* Copy the default jb config over global jbconf */
-	memcpy (&gpublic->jbconf_global, &globals.jbconf_default, sizeof (gpublic->jbconf_global));
 	ast_mutex_init(&gpublic->round_robin_mtx);
 	
 

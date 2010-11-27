@@ -18,7 +18,7 @@ EXPORT_DECL struct ast_channel* channel_new (struct pvt* pvt, int ast_state, con
 EXPORT_DECL int channel_queue_control (struct cpvt * cpvt, enum ast_control_frame_type control);
 EXPORT_DECL int channel_queue_hangup (struct cpvt * cpvt, int hangupcause);
 EXPORT_DECL int channel_ast_hangup (struct cpvt * cpvt);
-EXPORT_DECL struct ast_channel* channel_local_request (struct pvt* pvt, void* data, const char* cid_name, const char* cid_num, const char *language);
+EXPORT_DECL struct ast_channel* channel_local_request (struct pvt* pvt, void* data, const char* cid_name, const char* cid_num);
 
 EXPORT_DECL void channel_change_state(struct cpvt * cpvt, unsigned newstate, int cause);
 

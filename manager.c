@@ -36,8 +36,8 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 	{
 		ast_mutex_lock (&pvt->lock);
 		astman_append (s, "Event: DatacardDeviceEntry\r\n%s", idtext);
-		astman_append (s, "Device: %s\r\n", pvt->id);
-		astman_append (s, "Group: %d\r\n", pvt->group);
+		astman_append (s, "Device: %s\r\n", PVT_ID(pvt));
+		astman_append (s, "Group: %d\r\n", CONF_SHARED(pvt, group));
 		astman_append (s, "GSM Registration Status: %s\r\n", GSM_regstate2str(pvt->gsm_reg_status));
 		astman_append (s, "State: %s\r\n", pvt_str_state(pvt));
 		astman_append (s, "Voice: %s\r\n", (pvt->has_voice) ? "Yes" : "No");
@@ -53,20 +53,20 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 		astman_append (s, "IMSI: %s\r\n", pvt->imsi);
 		astman_append (s, "Number: %s\r\n", pvt->number);
 		astman_append (s, "SMS Service Center: %s\r\n", pvt->sms_scenter);
-		astman_append (s, "Use CallingPres: %s\r\n", pvt->usecallingpres ? "Yes" : "No");
-		astman_append (s, "Default CallingPres: %s\r\n", pvt->callingpres < 0 ? "<Not set>" : ast_describe_caller_presentation (pvt->callingpres));
+		astman_append (s, "Use CallingPres: %s\r\n", CONF_SHARED(pvt, usecallingpres) ? "Yes" : "No");
+		astman_append (s, "Default CallingPres: %s\r\n", CONF_SHARED(pvt, callingpres) < 0 ? "<Not set>" : ast_describe_caller_presentation (CONF_SHARED(pvt, callingpres)));
 		astman_append (s, "Use UCS-2 encoding: %s\r\n", pvt->use_ucs2_encoding ? "Yes" : "No");
 		astman_append (s, "USSD use 7 bit encoding: %s\r\n", pvt->cusd_use_7bit_encoding ? "Yes" : "No");
 		astman_append (s, "USSD use UCS-2 decoding: %s\r\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
 		astman_append (s, "Location area code: %s\r\n", pvt->location_area_code);
 		astman_append (s, "Cell ID: %s\r\n", pvt->cell_id);
-		astman_append (s, "Auto delete SMS: %s\r\n", pvt->auto_delete_sms ? "Yes" : "No");
-		astman_append (s, "Send SMS as PDU: %s\r\n", pvt->send_sms_as_pdu ? "Yes" : "No");
-		astman_append (s, "Disable SMS: %s\r\n", pvt->disablesms ? "Yes" : "No");
-		astman_append (s, "Channel Language: %s\r\n", pvt->language);
-		astman_append (s, "Minimal DTMF Gap: %d\r\n", pvt->mindtmfgap);
-		astman_append (s, "Minimal DTMF Duration: %d\r\n", pvt->mindtmfduration);
-		astman_append (s, "Minimal DTMF Interval: %d\r\n", pvt->mindtmfinterval);
+		astman_append (s, "Auto delete SMS: %s\r\n", CONF_SHARED(pvt, auto_delete_sms) ? "Yes" : "No");
+		astman_append (s, "Send SMS as PDU: %s\r\n", CONF_SHARED(pvt, smsaspdu) ? "Yes" : "No");
+		astman_append (s, "Disable SMS: %s\r\n", CONF_SHARED(pvt, disablesms) ? "Yes" : "No");
+		astman_append (s, "Channel Language: %s\r\n", CONF_SHARED(pvt, language));
+		astman_append (s, "Minimal DTMF Gap: %d\r\n", CONF_SHARED(pvt, mindtmfgap));
+		astman_append (s, "Minimal DTMF Duration: %d\r\n", CONF_SHARED(pvt, mindtmfduration));
+		astman_append (s, "Minimal DTMF Interval: %d\r\n", CONF_SHARED(pvt, mindtmfinterval));
 		astman_append (s, "Call Waiting: %s\r\n", pvt->has_call_waiting ? "Enabled" : "Disabled");
 //		astman_append (s, "Tasks in Queue: %u\r\n", pvt->at_tasks);
 //		astman_append (s, "Commands in Queue: %u\r\n", pvt->at_cmds);
@@ -195,7 +195,7 @@ EXPORT_DEF void manager_event_new_ussd (struct pvt* pvt, char* message)
 		"Device: %s\r\n"
 		"LineCount: %zu\r\n"
 		"%s\r\n",
-		pvt->id, linecount, ast_str_buffer (buf)
+		PVT_ID(pvt), linecount, ast_str_buffer (buf)
 	);
 
 	ast_free (buf);
@@ -214,7 +214,7 @@ EXPORT_DEF void manager_event_new_ussd_base64 (struct pvt* pvt, char* message)
         manager_event (EVENT_FLAG_CALL, "DatacardNewUSSDBase64",
                 "Device: %s\r\n"
                 "Message: %s\r\n",
-                pvt->id, message
+                PVT_ID(pvt), message
         );
 }
 
@@ -252,7 +252,7 @@ EXPORT_DEF void manager_event_new_sms (struct pvt* pvt, char* number, char* mess
 		"From: %s\r\n"
 		"LineCount: %zu\r\n"
 		"%s\r\n",
-		pvt->id, number, linecount, ast_str_buffer (buf)
+		PVT_ID(pvt), number, linecount, ast_str_buffer (buf)
 	);
 
 	ast_free (buf);
@@ -271,7 +271,7 @@ EXPORT_DEF void manager_event_new_sms_base64 (struct pvt* pvt, char* number, cha
 		"Device: %s\r\n"
 		"From: %s\r\n"
 		"Message: %s\r\n",
-		pvt->id, number, message_base64
+		PVT_ID(pvt), number, message_base64
 	);
 }
 

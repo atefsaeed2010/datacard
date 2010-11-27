@@ -3,7 +3,7 @@ PROJS =  chan_datacards.so
 
 chan_datacardm_so_OBJS =  app.o at_command.o at_parse.o at_queue.o at_read.o at_response.o \
 	chan_datacard.o channel.o char_conv.o cli.o helpers.o manager.o \
-	memmem.o ringbuffer.o cpvt.o
+	memmem.o ringbuffer.o cpvt.o dc_config.o
 
 chan_datacards_so_OBJS	= single.o
 
