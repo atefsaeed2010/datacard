@@ -58,3 +58,8 @@ added 24.11.2010
 	done 27.11.2010 at r46 with [defaults]
 
 24) reconfigure on fly
+
+25) implement command "datacard show version"
+
+26) implement command "datacard reinitialize device"
+
