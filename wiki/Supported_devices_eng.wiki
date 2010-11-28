@@ -1,4 +1,4 @@
-#summary <h2>List of supported devices and available features </h2>
+#summary List of supported devices and available features
 #labels Featured
 
 = Introduction =
@@ -6,7 +6,7 @@
 = Details =
 
 
-<table>
+<table border="3">
 <tr>
 <th>Device/Feature</th>
 <th>Voice</th>
