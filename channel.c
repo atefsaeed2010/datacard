@@ -733,7 +733,7 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 			goto e_return;
 		}
 
-		ast_debug (7, "[%s] call idx %d read %d\n", PVT_ID(pvt), cpvt->call_idx, res);
+//		ast_debug (7, "[%s] call idx %d read %u\n", PVT_ID(pvt), cpvt->call_idx, (unsigned)res);
 		PVT_STAT_PUMP(read_bytes, += res);
 		PVT_STAT_PUMP(read_frames, ++);
 		if(res < FRAME_SIZE)
