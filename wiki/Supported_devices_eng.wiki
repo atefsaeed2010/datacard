@@ -1,0 +1,26 @@
+#summary <h2>List of supported devices and available features </h2>
+#labels Featured
+
+= Introduction =
+
+= Details =
+
+
+<table>
+<tr>
+<th>Device/Feature</th>
+<th>Voice</th>
+<th>SMS</th>
+<th>USSD</th>
+</tr>
+
+<tr>
+<td>E1550</td>
+<td>+</td>
+<td>+</td>
+<td>+</td>
+</tr>
+
+</table>
+
+Thanks for pagilm for idea and information
