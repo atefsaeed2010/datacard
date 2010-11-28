@@ -623,6 +623,7 @@ static int at_response_orig (struct pvt* pvt, const char* str)
 	return 0;
 }
 
+#if 0
 /*!
  * \brief Handle ^CONF response
  * \param pvt -- pvt structure
@@ -657,7 +658,7 @@ static int at_response_conf (struct pvt* pvt, const char* str)
 
 	return 0;
 }
-
+#endif /* 0 */
 
 
 /*!
@@ -873,6 +874,8 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 	 * +CLCC:<id1>,<dir>,<stat>,<mode>,<mpty>[,<number>,<type>[,<alpha>[,<priority>]]]\r\n
 	 */
 
+// TODO: place also AST_CONTROL_PROGRESS for dialing 
+//	channel_queue_control (cpvt, AST_CONTROL_PROGRESS);
 	if (pvt->initialized)
 	{
 		for(;;)
@@ -1599,6 +1602,7 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 			case RES_CVOICE:
 			case RES_CMGS:
 			case RES_CPMS:
+			case RES_CONF:
 				return 0;
 
 			case RES_OK:
@@ -1606,8 +1610,6 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 
 			case RES_RSSI:
 				return at_response_rssi (pvt, str);
-			case RES_CONF:
-				return at_response_conf(pvt, str);
 			case RES_MODE:
 				/* An error here is not fatal. Just keep going. */
 				at_response_mode (pvt, str, len);
@@ -1615,6 +1617,8 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 
 			case RES_ORIG:
 				return at_response_orig (pvt, str);
+
+//				return at_response_conf(pvt, str);
 
 			case RES_CEND:
 				return at_response_cend (pvt, str);

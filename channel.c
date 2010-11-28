@@ -1032,7 +1032,6 @@ EXPORT_DEF void channel_change_state(struct cpvt * cpvt, unsigned newstate, int 
 				break;
 
 			case CALL_STATE_ALERTING:
-				/* from ^CONF:idx */
 				channel_queue_control (cpvt, AST_CONTROL_RINGING);
 				ast_setstate (cpvt->channel, AST_STATE_RINGING);
 				break;
