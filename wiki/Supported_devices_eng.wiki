@@ -83,6 +83,7 @@
 <td>?</td>
 <td>One way voice</td>
 </tr>
+
 <tr>
 <td>K3565</td>
 <td>-</td>
@@ -91,19 +92,21 @@
 <td>nbsp&</td>
 </tr>
 
+<tr>
 <td>E160</td>
-<td>?</td>
-<td>?</td>
-<td>?</td>
-<td>test required</td>
-
-<td>E180</td>
 <td>?</td>
 <td>?</td>
 <td>?</td>
 <td>test required</td>
 </tr>
 
+<tr>
+<td>E180</td>
+<td>?</td>
+<td>?</td>
+<td>?</td>
+<td>test required</td>
+</tr>
 </table>
 
 Thanks for pagilm for idea and information
