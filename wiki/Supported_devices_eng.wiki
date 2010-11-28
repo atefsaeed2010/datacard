@@ -6,19 +6,102 @@
 = Details =
 
 
-<table border="3">
+<table border="3" align="center" valign="middle">
 <tr>
 <th>Device/Feature</th>
 <th>Voice</th>
 <th>SMS</th>
 <th>USSD</th>
+<th>Note</th>
 </tr>
 
 <tr>
-<td>E1550</td>
+<td>E155X</td>
 <td>+</td>
 <td>+</td>
 <td>+</td>
+<td>nbsp&</td>
+</tr>
+
+<tr>
+<td>E169</td>
+<td>+</td>
+<td>+</td>
+<td>+</td>
+<td>nbsp&</td>
+</tr>
+
+<tr>
+<td>K3520</td>
+<td>+</td>
+<td>+</td>
+<td>+</td>
+<td>nbsp&</td>
+</tr>
+
+<tr>
+<td>K3765</td>
+<td>+</td>
+<td>+</td>
+<td>+</td>
+<td>nbsp&</td>
+</tr>
+
+<tr>
+<td>K3715</td>
+<td>+</td>
+<td>+</td>
+<td>+</td>
+<td>nbsp&</td>
+</tr>
+<tr>
+<td>E175X</td>
+<td>+</td>
+<td>+</td>
+<td>+</td>
+<td>nbsp&</td>
+</tr>
+
+<tr>
+<td>e220</td>
+<td>-</td>
+<td>+</td>
+<td>+</td>
+<td>nbsp&</td>
+</tr>
+<tr>
+<td>e270</td>
+<td>-</td>
+<td>+</td>
+<td>+</td>
+<td>nbsp&</td>
+</tr>
+<tr>
+<td>E150</td>
+<td>-</td>
+<td>?</td>
+<td>?</td>
+<td>One way voice</td>
+</tr>
+<tr>
+<td>K3565</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>nbsp&</td>
+</tr>
+
+<td>E160</td>
+<td>?</td>
+<td>?</td>
+<td>?</td>
+<td>test required</td>
+
+<td>E180</td>
+<td>?</td>
+<td>?</td>
+<td>?</td>
+<td>test required</td>
 </tr>
 
 </table>
