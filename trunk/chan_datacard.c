@@ -215,7 +215,7 @@ static void* do_monitor_phone (void* data)
 	for (t = 0; at_wait (pvt, &t); t = 0)
 	{
 		iovcnt = at_read (pvt, &rb);
-		ast_debug (4, "[%s] drop %d bytes of pending data before initialization\n", PVT_ID(pvt), rb_used(&rb));
+		ast_debug (4, "[%s] drop %u bytes of pending data before initialization\n", PVT_ID(pvt), (unsigned)rb_used(&rb));
 		/* drop readed */
 		rb_init (&rb, buf, sizeof (buf));
 		if (iovcnt)
