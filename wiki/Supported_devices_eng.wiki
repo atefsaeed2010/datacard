@@ -8,7 +8,7 @@
 
 <table border="3" align="center" valign="middle">
 <tr>
-<th>Device/Feature</th>
+<th>Device\Feature</th>
 <th>Voice</th>
 <th>SMS</th>
 <th>USSD</th>
@@ -20,7 +20,7 @@
 <td>+</td>
 <td>+</td>
 <td>+</td>
-<td>nbsp&</td>
+<td>&nbsp;</td>
 </tr>
 
 <tr>
@@ -28,7 +28,7 @@
 <td>+</td>
 <td>+</td>
 <td>+</td>
-<td>nbsp&</td>
+<td>&nbsp;</td>
 </tr>
 
 <tr>
@@ -36,7 +36,7 @@
 <td>+</td>
 <td>+</td>
 <td>+</td>
-<td>nbsp&</td>
+<td>&nbsp;</td>
 </tr>
 
 <tr>
@@ -44,7 +44,7 @@
 <td>+</td>
 <td>+</td>
 <td>+</td>
-<td>nbsp&</td>
+<td>&nbsp;</td>
 </tr>
 
 <tr>
@@ -52,29 +52,29 @@
 <td>+</td>
 <td>+</td>
 <td>+</td>
-<td>nbsp&</td>
+<td>&nbsp;</td>
 </tr>
 <tr>
 <td>E175X</td>
 <td>+</td>
 <td>+</td>
 <td>+</td>
-<td>nbsp&</td>
+<td>&nbsp;</td>
 </tr>
 
 <tr>
-<td>e220</td>
+<td>E220</td>
 <td>-</td>
 <td>+</td>
 <td>+</td>
-<td>nbsp&</td>
+<td>&nbsp;</td>
 </tr>
 <tr>
-<td>e270</td>
+<td>E270</td>
 <td>-</td>
 <td>+</td>
 <td>+</td>
-<td>nbsp&</td>
+<td>&nbsp;</td>
 </tr>
 <tr>
 <td>E150</td>
@@ -89,7 +89,7 @@
 <td>-</td>
 <td>-</td>
 <td>-</td>
-<td>nbsp&</td>
+<td>&nbsp;</td>
 </tr>
 
 <tr>
