@@ -448,12 +448,35 @@ static int channel_call (struct ast_channel* channel, char* dest, attribute_unus
 }
 
 #/* */
-static void channel_activate(struct cpvt* cpvt)
+static void channel_disactivate(struct cpvt* cpvt)
 {
+	if(cpvt->channel && CPVT_TEST_FLAG(cpvt, CALL_FLAG_ACTIVATED))
+	{
+		ast_channel_set_fd (cpvt->channel, 1, -1);
+		ast_channel_set_fd (cpvt->channel, 0, -1);
+	}
+}
+
+#/* */
+static void channel_activate_onlyone(struct cpvt* cpvt)
+{
+	struct cpvt* cpvt2;
 	struct pvt* pvt = cpvt->pvt;
+	
+	if(CPVT_TEST_FLAG(cpvt, CALL_FLAG_ACTIVATED))
+		return;
+	
+	AST_LIST_TRAVERSE(&pvt->chans, cpvt2, entry)
+	{
+		if(cpvt2 != cpvt)
+		{
+			channel_disactivate(cpvt2);
+		}
+	}
 	
 	if (pvt->audio_fd >= 0)
 	{
+		CPVT_SET_FLAGS(cpvt, CALL_FLAG_ACTIVATED);
 		ast_channel_set_fd (cpvt->channel, 0, pvt->audio_fd);
 		if (pvt->a_timer)
 		{
@@ -467,12 +490,6 @@ static void channel_activate(struct cpvt* cpvt)
 	}
 }
 
-#/* */
-static void channel_disactivate(struct cpvt* cpvt)
-{
-	ast_channel_set_fd (cpvt->channel, 1, -1);
-	ast_channel_set_fd (cpvt->channel, 0, -1);
-}
 
 static int channel_hangup (struct ast_channel* channel)
 {
@@ -702,7 +719,7 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 
 	ast_debug (7, "[%s] read call idx %d state %d audio_fd %d\n", PVT_ID(pvt), cpvt->call_idx, cpvt->state, pvt->audio_fd);
 
-	if (!CPVT_IS_ACTIVE(cpvt) || pvt->audio_fd < 0)
+	if (!CPVT_IS_SOUND_SOURCE(cpvt) || pvt->audio_fd < 0)
 	{
 		goto e_return;
 	}
@@ -1027,17 +1044,19 @@ EXPORT_DEF void channel_change_state(struct cpvt * cpvt, unsigned newstate, int 
 		{
 			case CALL_STATE_DIALING:
 				/* from ^ORIG:idx,y */
+				channel_activate_onlyone(cpvt);
 				channel_queue_control (cpvt, AST_CONTROL_PROGRESS);
 				ast_setstate (cpvt->channel, AST_STATE_DIALING);
 				break;
 
 			case CALL_STATE_ALERTING:
+				channel_activate_onlyone(cpvt);
 				channel_queue_control (cpvt, AST_CONTROL_RINGING);
 				ast_setstate (cpvt->channel, AST_STATE_RINGING);
 				break;
 
 			case CALL_STATE_ACTIVE:
-				channel_activate(cpvt);
+				channel_activate_onlyone(cpvt);
 				if (oldstate == CALL_STATE_ONHOLD)
 				{
 					ast_debug (1, "[%s] Unhold call idx %d\n", PVT_ID(pvt), cpvt->call_idx);

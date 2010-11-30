@@ -28,8 +28,9 @@ typedef enum {
 
 typedef enum {
 	CALL_FLAG_NONE		= 0,
-	CALL_FLAG_HOLD_OTHER	= 1,
-	CALL_FLAG_NEED_HANGUP	= 2,
+	CALL_FLAG_HOLD_OTHER	= 1,				/* external from dial() */
+	CALL_FLAG_NEED_HANGUP	= 2,				/* internal */
+	CALL_FLAG_ACTIVATED	= 4,				/* fds attached to channel */
 } call_flag_t;
 
 
@@ -52,12 +53,13 @@ typedef struct cpvt {
 #define CALL_DIR_INCOMING	1
 } cpvt_t;
 
-#define CPVT_IS_ACTIVE(cpvt)	((cpvt)->state == CALL_STATE_ACTIVE)
-
 #define CPVT_SET_FLAGS(cpvt, flag)	do { (cpvt)->flags |= (flag); } while(0)
 #define CPVT_RESET_FLAG(cpvt, flag)	do { (cpvt)->flags &= ~((int)flag); } while(0)
 #define CPVT_TEST_FLAG(cpvt, flag)	((cpvt)->flags & (flag))
 #define CPVT_TEST_FLAGS(cpvt, flag)	(((cpvt)->flags & (flag)) == (flag))
+
+#define CPVT_IS_ACTIVE(cpvt)		((cpvt)->state == CALL_STATE_ACTIVE)
+#define CPVT_IS_SOUND_SOURCE(cpvt)	((cpvt)->state == CALL_STATE_ACTIVE || (cpvt)->state == CALL_STATE_DIALING || (cpvt)->state == CALL_STATE_ALERTING)
 
 
 EXPORT_DECL struct cpvt * cpvt_alloc(struct pvt * pvt, int call_idx, unsigned dir, call_state_t statem);
