@@ -49,10 +49,6 @@ static int parse_dial_string(char * dialstr, const char** number, int * opts)
 
 		if (!strcasecmp(options, "holdother"))
 			lopts = CALL_FLAG_HOLD_OTHER;
-/*
-		else if (!strcasecmp(options, "conference"))
-			opts = CALL_OPTION_CONFERENCE;
-*/
 		else
 		{
 			ast_log (LOG_WARNING, "Invalid options in chan_datacard\n");
@@ -75,6 +71,9 @@ static int parse_dial_string(char * dialstr, const char** number, int * opts)
 	*opts = lopts;
 	return 0;
 }
+
+// TODO: add check when request 'holdother' what requestor is not on same device
+// TODO: simplify by move common code to functions
 
 #if ASTERISK_VERSION_NUM >= 10800
 static struct ast_channel* channel_request (attribute_unused const char* type, format_t format, attribute_unused const struct ast_channel *requestor, void* data, int* cause)
@@ -157,8 +156,6 @@ badconf:
 	}
 	else if (((dest_dev[0] == 'r') || (dest_dev[0] == 'R')) && ((dest_dev[1] >= '0') && (dest_dev[1] <= '9')))
 	{
-//		if(opts == CALL_OPTION_CONFERENCE)
-//			goto badconf;
 		errno = 0;
 		group = (int) strtol (&dest_dev[1], (char**) NULL, 10);
 		if (errno != EINVAL)
@@ -215,8 +212,6 @@ badconf:
 	}
 	else if (((dest_dev[0] == 'p') || (dest_dev[0] == 'P')) && dest_dev[1] == ':')
 	{
-//		if(opts == CALL_OPTION_CONFERENCE)
-//			goto badconf;
 		ast_mutex_lock (&gpublic->round_robin_mtx);
 
 		/* Generate a list of all availible devices */
@@ -268,8 +263,6 @@ badconf:
 	}
 	else if (((dest_dev[0] == 's') || (dest_dev[0] == 'S')) && dest_dev[1] == ':')
 	{
-//		if(opts == CALL_OPTION_CONFERENCE)
-//			goto badconf;
 		ast_mutex_lock (&gpublic->round_robin_mtx);
 
 		/* Generate a list of all availible devices */
@@ -383,9 +376,9 @@ static int channel_call (struct ast_channel* channel, char* dest, attribute_unus
 	int clir = 0;
 	int opts;
 
-	if(!cpvt->channel)
+	if(!cpvt || !cpvt->channel || !cpvt->pvt)
 	{
-		ast_log (LOG_WARNING, "call on %s w/o tech_pvt\n", channel->name);
+		ast_log (LOG_WARNING, "call on unreferenced %s\n", channel->name);
 		return -1;
 	}
 	pvt = cpvt->pvt;
@@ -496,12 +489,14 @@ static int channel_hangup (struct ast_channel* channel)
 	struct cpvt* cpvt = channel->tech_pvt;
 	struct pvt* pvt;
 
-	if(!cpvt->channel)
+	if(!cpvt || !cpvt->channel || !cpvt->pvt)
 	{
-		ast_log (LOG_WARNING, "call on %s w/o tech_pvt\n", channel->name);
+		ast_log (LOG_WARNING, "call on unreferenced %s\n", channel->name);
 		return 0;
 	}
+	
 	pvt = cpvt->pvt;
+
 
 	ast_debug (1, "[%s] Hanging up call idx %d\n", PVT_ID(pvt), cpvt->call_idx);
 
@@ -526,10 +521,9 @@ static int channel_hangup (struct ast_channel* channel)
 	/* just unlink */
 	channel->tech_pvt = NULL;
 	cpvt->channel = NULL;
-
-	ast_module_unref (self_module());
 	ast_mutex_unlock (&pvt->lock);
 
+	ast_module_unref (self_module());
 	ast_setstate (channel, AST_STATE_DOWN);
 
 	return 0;
@@ -540,9 +534,9 @@ static int channel_answer (struct ast_channel* channel)
 	struct cpvt* cpvt = channel->tech_pvt;
 	struct pvt* pvt;
 
-	if(!cpvt->channel)
+	if(!cpvt || !cpvt->channel || !cpvt->pvt)
 	{
-		ast_log (LOG_WARNING, "call on %s w/o tech_pvt\n", channel->name);
+		ast_log (LOG_WARNING, "call on unreferenced %s\n", channel->name);
 		return 0;
 	}
 	pvt = cpvt->pvt;
@@ -568,9 +562,9 @@ static int channel_digit_begin (struct ast_channel* channel, char digit)
 	struct cpvt* cpvt = channel->tech_pvt;
 	struct pvt* pvt;
 
-	if(!cpvt->channel)
+	if(!cpvt || !cpvt->channel || !cpvt->pvt)
 	{
-		ast_log (LOG_WARNING, "called on %s w/o tech_pvt\n", channel->name);
+		ast_log (LOG_WARNING, "call on unreferenced %s\n", channel->name);
 		return -1;
 	}
 	pvt = cpvt->pvt;
@@ -706,7 +700,7 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 	struct ast_frame*	f = &ast_null_frame;
 	ssize_t			res;
 
-	if(!cpvt->channel)
+	if(!cpvt || !cpvt->channel || !cpvt->pvt)
 	{
 		return f;
 	}
@@ -833,9 +827,9 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 	struct pvt* pvt;
 	size_t count;
 
-	if(!cpvt->channel)
+	if(!cpvt || !cpvt->channel || !cpvt->pvt)
 	{
-		ast_log (LOG_WARNING, "call on %s w/o tech_pvt\n", channel->name);
+		ast_log (LOG_WARNING, "call on unreferenced %s\n", channel->name);
 		return 0;
 	}
 	pvt = cpvt->pvt;
@@ -925,9 +919,9 @@ static int channel_fixup (struct ast_channel* oldchannel, struct ast_channel* ne
 	struct cpvt * cpvt = newchannel->tech_pvt;
 	struct pvt* pvt;
 	
-	if (!cpvt)
+	if (!cpvt || !cpvt->pvt)
 	{
-		ast_debug (1, "fixup failed, no cpvt on newchan\n");
+		ast_log (LOG_WARNING, "call on unreferenced %s\n", newchannel->name);
 		return -1;
 	}
 	pvt = cpvt->pvt;
@@ -942,6 +936,7 @@ static int channel_fixup (struct ast_channel* oldchannel, struct ast_channel* ne
 	return 0;
 }
 
+// FIXME: must modify in conjuction with state on call not whole device
 static int channel_devicestate (void* data)
 {
 	char*	device;
@@ -975,12 +970,9 @@ static int channel_devicestate (void* data)
 
 static int channel_indicate (struct ast_channel* channel, int condition, const void* data, attribute_unused size_t datalen)
 {
-	struct cpvt* cpvt = channel->tech_pvt;
-	struct pvt*	pvt = cpvt->pvt;
-	int	res = 0;
+	int res = 0;
 
-
-	ast_debug (1, "[%s] Requested indication %d\n", PVT_ID(pvt), condition);
+	ast_debug (1, "[%s] Requested indication %d\n", channel->name, condition);
 
 	switch (condition)
 	{
@@ -1009,7 +1001,7 @@ static int channel_indicate (struct ast_channel* channel, int condition, const v
 			break;
 
 		default:
-			ast_log (LOG_WARNING, "[%s] Don't know how to indicate condition %d\n", PVT_ID(pvt), condition);
+			ast_log (LOG_WARNING, "[%s] Don't know how to indicate condition %d\n", channel->name, condition);
 			res = -1;
 			break;
 	}
@@ -1146,7 +1138,7 @@ EXPORT_DEF struct ast_channel* channel_new (struct pvt* pvt, int ast_state, cons
 	return channel;
 }
 
-// hmm ast_queue_control() say no need channel lock
+/* NOTE: bg: hmm ast_queue_control() say no need channel lock, trylock got deadlock up to 30 seconds here */
 EXPORT_DEF int channel_queue_control (struct cpvt * cpvt, enum ast_control_frame_type control)
 {
 /*
@@ -1180,7 +1172,7 @@ EXPORT_DEF int channel_queue_control (struct cpvt * cpvt, enum ast_control_frame
 	return 0;
 }
 
-// hmm ast_queue_hangup() say no need channel lock
+/* NOTE: bg: hmm ast_queue_hangup() say no need channel lock, trylock got deadlock up to 30 seconds here */
 EXPORT_DEF int channel_queue_hangup (struct cpvt * cpvt, int hangupcause)
 {
 /*
@@ -1220,6 +1212,7 @@ EXPORT_DEF int channel_queue_hangup (struct cpvt * cpvt, int hangupcause)
 	return 0;
 }
 
+/* NOTE: bg: hmm ast_hangup() say no need channel lock, trylock got deadlock up to 30 seconds here */
 EXPORT_DEF int channel_ast_hangup (struct cpvt * cpvt)
 {
 	int res = 0;
@@ -1265,7 +1258,7 @@ EXPORT_DEF struct ast_channel* channel_local_request (struct pvt* pvt, void* dat
 	if (!(channel = ast_request ("Local", AST_FORMAT_AUDIO_MASK, data, &cause)))
 #endif
 	{
-		ast_log (LOG_NOTICE, "Unable to request channel Local/%s\n", (char*) data);
+		ast_log (LOG_ERROR, "Unable to request channel Local/%s\n", (char*) data);
 		return channel;
 	}
 
@@ -1285,32 +1278,42 @@ EXPORT_DEF struct ast_channel* channel_local_request (struct pvt* pvt, void* dat
 static int channel_func_read(struct ast_channel* channel, attribute_unused const char* function, char* data, char* buf, size_t len)
 {
 	struct cpvt* cpvt = channel->tech_pvt;
-	char buffer[20];
+	struct pvt* pvt;
 	int ret = 0;
+
+	if(!cpvt || !cpvt->pvt)
+	{
+		ast_log (LOG_WARNING, "call on unreferenced %s\n", channel->name);
+		return -1;
+	}
+	pvt = cpvt->pvt;
 
 	if (!strcasecmp(data, "callstate"))
 	{
-		while (ast_mutex_trylock (&cpvt->pvt->lock))
+		while (ast_mutex_trylock (&pvt->lock))
 		{
 			CHANNEL_DEADLOCK_AVOIDANCE (channel);
 		}
 		call_state_t state = cpvt->state;
-		ast_mutex_unlock(&cpvt->pvt->lock);
+		ast_mutex_unlock(&pvt->lock);
 
 		ast_copy_string(buf, call_state2str(state), len);
 	}
+/*
 	else if (!strcasecmp(data, "calls"))
 	{
-		while (ast_mutex_trylock (&cpvt->pvt->lock))
+		char buffer[20];
+		while (ast_mutex_trylock (&pvt->lock))
 		{
 			CHANNEL_DEADLOCK_AVOIDANCE (channel);
 		}
-		unsigned calls = cpvt->pvt->chansno;
-		ast_mutex_unlock(&cpvt->pvt->lock);
+		unsigned calls = pvt->chansno;
+		ast_mutex_unlock(&pvt->lock);
 
 		snprintf(buffer, sizeof(buffer), "%u", calls);
 		ast_copy_string(buf, buffer, len);
 	}
+*/
 	else
 		ret = -1;
 
@@ -1321,9 +1324,17 @@ static int channel_func_read(struct ast_channel* channel, attribute_unused const
 static int channel_func_write(struct ast_channel* channel, const char* function, char* data, const char* value)
 {
 	struct cpvt* cpvt = channel->tech_pvt;
+	struct pvt* pvt;
 	call_state_t newstate, oldstate;
 	int ret = 0;
-	
+
+	if(!cpvt || !cpvt->pvt)
+	{
+		ast_log (LOG_WARNING, "call on unreferenced %s\n", channel->name);
+		return -1;
+	}
+	pvt = cpvt->pvt;
+
 	if (!strcasecmp(data, "callstate"))
 	{
 		if (!strcasecmp(value, "active"))
