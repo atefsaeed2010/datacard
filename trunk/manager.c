@@ -1,4 +1,8 @@
-#ifdef __MANAGER__ /* no manager, no copyright */
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
+
+#ifdef BUILD_MANAGER /* no manager, no copyright */
 /* 
    Copyright (C) 2009 - 2010
    
@@ -254,7 +258,6 @@ EXPORT_DEF void manager_event_new_sms (struct pvt* pvt, char* number, char* mess
 		"%s\r\n",
 		PVT_ID(pvt), number, linecount, ast_str_buffer (buf)
 	);
-
 	ast_free (buf);
 }
 
@@ -421,4 +424,4 @@ EXPORT_DEF void manager_unregister()
 	}
 }
 
-#endif /* __MANAGER__ */
+#endif /* BUILD_MANAGER */

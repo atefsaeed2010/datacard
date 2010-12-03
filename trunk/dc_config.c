@@ -1,6 +1,9 @@
 /*
    Copyright (C) 2010 bg <bg_one@mail.ru>
 */
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
 
 #include "dc_config.h"
 #include <asterisk/callerid.h>				/* ast_parse_caller_presentation() */
@@ -38,8 +41,8 @@ EXPORT_DEF void dc_sconfig_fill_defaults(struct dc_sconfig * config)
 	/* first set default values */
 	memset(config, 0, sizeof(*config));
 	
-	ast_copy_string (config->context,	"default",	sizeof (config->context));
-	ast_copy_string (config->language,	"en",		sizeof (config->language));
+	ast_copy_string (config->context,	"default",	  sizeof (config->context));
+	ast_copy_string (config->language,	DEFAULT_LANGUAGE, sizeof (config->language));
 	
 	config->u2diag			= -1;
 	config->reset_datacard		=  1;

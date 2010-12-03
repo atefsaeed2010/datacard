@@ -1,0 +1,194 @@
+dnl init
+dnl AC_PREREQ([2.60])
+dnl AC_REVISION($Revision: 1.30 $)
+AC_INIT([chan_datacard],[1.0],[http://code.google.com/p/datacard/issues/list],[chan_datacard],[http://code.google.com/p/datacard])
+PACKAGE_REVISION="202"
+AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_SRCDIR([chan_datacard.c])
+AC_CANONICAL_SYSTEM
+AC_CANONICAL_HOST
+
+dnl Checks for user settings.
+dnl  Set asterisk headers patch
+AC_ARG_ENABLE(
+	[asterisk],
+	AS_HELP_STRING([--enable-asterisk=path], [set asterisk headers location]),
+	[ if test "x$enable_asterisk" = "xyes" -o "x$enable_asterisk" = "xno" ; then  AC_MSG_ERROR([Invalid --enable-asterisk value]); fi ],
+	[ enable_asterisk="../include /usr/include /usr/local/include /opt/local/include" ]
+)
+
+AC_ARG_ENABLE(
+	[debug], 
+	AS_HELP_STRING([--enable-debug], [enable code debugging]),
+	[ if test "x$enable_debug" != "xyes" ; then enable_debug="no" ; fi],
+	[ enable_debug="no"]
+)
+
+dnl  Optionally disable manager.
+AC_ARG_ENABLE(
+	[manager],
+	AS_HELP_STRING([--enable-manager], [enable manager code]),
+	[ if test "x$enable_manager" != "xyes" ; then enable_manager="no" ; fi],
+	[ enable_manager="yes" ]
+)
+
+dnl  Optionally disable applications
+AC_ARG_ENABLE(
+	[apps],
+	AS_HELP_STRING([--enable-apps], [enable applications code]),
+	[ if test "x$enable_apps" != "xyes" ; then enable_apps="no" ; fi],
+	[ enable_apps="no" ]
+)
+
+dnl Checks for programs.
+AC_PROG_CC([gcc cl cc])
+AC_PROG_CPP
+AC_PROG_INSTALL
+
+AC_CHECK_PROG(STRIP,strip,strip)
+if test -z "$STRIP" ; then
+    AC_MSG_ERROR(Cannot find strip)
+fi
+AC_CHECK_PROG(RM,rm,rm)
+if test -z "$RM" ; then
+    AC_MSG_ERROR(Cannot find rm)
+fi
+
+dnl Checks for libraries.
+dnl AC_CHECK_LIB([pthread], [pthread_create])
+dnl AC_CHECK_LIB([iconv], [iconv])
+AC_SEARCH_LIBS([iconv], [c iconv])
+
+dnl Checks for header files.
+AC_CHECK_HEADERS([fcntl.h stdlib.h string.h sys/time.h termios.h iconv.h])
+
+AC_DEFUN([AC_HEADER_FIND], [
+    file=$1
+    for path in $2 ; do
+	AC_MSG_CHECKING([whether $file in $path])
+	if test -f $path/$file ; then
+	    AC_MSG_RESULT([yes])
+	    found="yes"
+	    CPPFLAGS="$CPPFLAGS -I${path}"
+	    AC_DEFINE(HAVE_${file},1)
+	    break;
+	else
+	    AC_MSG_RESULT([no])
+	fi
+    done
+    if test -z "$found" ; then
+	AC_MSG_ERROR(Cannot find "$file")
+    fi
+    ]
+)
+
+AC_HEADER_FIND([asterisk.h], $enable_asterisk)
+
+AC_DEFINE([ICONV_CONST],[],[has iconv() const declaration of input buffer])
+AC_EGREP_HEADER([extern.+iconv\s*\(.+const], iconv.h, [AC_DEFINE([ICONV_CONST],[const])])
+dnl Checking for library options
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_C_INLINE
+AC_TYPE_SIZE_T
+AC_TYPE_SSIZE_T
+AC_TYPE_UINT64_T
+dnl AC_CHECK_TYPE(size_t, unsigned long)
+dnl AC_CHECK_TYPE(ssize_t, long)
+dnl AC_CHECK_TYPE(uint64_t, unsigned long long)
+
+dnl checking compiler options
+AC_DEFUN([AC_CC_OPT], [
+    my_save_cflags="$CFLAGS"
+    CFLAGS="$1"
+    AC_MSG_CHECKING([whether CC supports $1])
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
+    [AC_MSG_RESULT([yes])]
+    [AC_CFLAGS="$AC_CFLAGS $2"],
+    [AC_MSG_RESULT([no])]
+    )
+    CFLAGS="$my_save_cflags"]
+    )
+
+AC_CFLAGS=
+
+my_save_cflags="$CFLAGS"
+CFLAGS=-fvisibility=hidden
+AC_MSG_CHECKING([whether CC supports -fvisibility=hidden])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
+    [AC_MSG_RESULT([yes])]
+    [TARGET="chan_datacard.so"]
+    [AC_CFLAGS="$AC_CFLAGS -fvisibility=hidden"],
+    [AC_MSG_RESULT([no])]
+    [TARGET="chan_datacards.so"]
+    )
+CFLAGS="$my_save_cflags"
+AC_SUBST([TARGET])
+
+AC_CC_OPT([-fPIC],[-fPIC])
+AC_CC_OPT([-Wall],[-Wall])
+AC_CC_OPT([-Wextra],[-Wextra])
+AC_CC_OPT([-MD -MT conftest.o -MF /dev/null -MP],[-MD -MT \$@ -MF .\$(subst /,_,\$@).d -MP])
+
+AC_DEFUN([AC_CHECK_DESTDIR], [
+    if test -z "$DESTDIR" ; then
+	for path in $1 ; do
+	    AC_MSG_CHECKING([whether DESTDIR is $path])
+	    if test -f $path/pbx_config.so ; then
+		AC_MSG_RESULT([yes])
+		found="yes"
+		DESTDIR=$path
+		break;
+	    else
+		AC_MSG_RESULT([no])
+	    fi
+	done
+	if test -z "$found" ; then
+	    AC_MSG_ERROR(DESTDIR is unknown, please explicite set like DESTDIR=/usr/lib/asterisk/modules ./configure)
+	fi
+    fi
+    ])
+
+AC_CHECK_DESTDIR([/usr/lib/asterisk/modules /usr/local/lib/asterisk/modules /opt/local/lib/asterisk/modules])
+
+case "$target_os" in
+    linux*)
+	LDFLAGS="-shared -Xlinker -x"
+	;;
+    freebsd*)
+	LDFLAGS="-shared -Xlinker -x -L/usr/local/lib"
+	;;
+    darwin*)
+	LDFLAGS="-dynamic -bundle -Xlinker -macosx_version_min -Xlinker 10.4 -Xlinker -undefined -Xlinker dynamic_lookup -force_flat_namespace -L/opt/local/lib"
+	[ `/usr/bin/sw_vers -productVersion | cut -c1-4` == "10.6" ] && LDFLAGS="$LDFLAGS /usr/lib/bundle1.o"
+esac
+
+dnl Checks for library functions.
+AC_FUNC_MEMCMP
+AC_CHECK_FUNCS([memchr memmove memset memmem strcasecmp strchr strncasecmp strtol])
+
+dnl Apply options to defines
+if test "x$enable_debug" = "xyes" ; then
+  CFLAGS="$CFLAGS -O0 -g"
+  AC_DEFINE([__DEBUG__], [1], [Build with debugging])
+fi
+
+if test "x$enable_manager" = "xyes" ; then
+  AC_DEFINE([BUILD_MANAGER],[1], [Build Manager extentions])
+fi
+
+if test "x$enable_apps" = "xyes" ; then
+  AC_DEFINE([BUILD_APPLICATIONS],[1],[Build extention applications])
+fi
+
+AC_DEFINE([AST_MODULE],[PACKAGE_NAME],[name of asterisk module])
+AC_DEFINE_UNQUOTED([PACKAGE_REVISION], "$PACKAGE_REVISION",[Revision of package])
+
+AC_SUBST([PACKAGE_TARNAME])
+AC_SUBST([PACKAGE_REVISION])
+AC_SUBST([PACKAGE_VERSION])
+AC_SUBST([DESTDIR])
+AC_SUBST([AC_CFLAGS])
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT

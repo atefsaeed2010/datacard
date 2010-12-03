@@ -78,7 +78,7 @@ typedef struct pvt
 	int			timeout;			/*!< used to set the timeout for data */
 #define DATA_READ_TIMEOUT	10000
 
-	unsigned long		channel_instanse;		/*!< id of channel on this device */
+	unsigned long		channel_instanse;		/*!< number of channels created on this device */
 	unsigned int		rings;				/*!< ring/ccwa  number distributed to at_response_clcc() */
 
 	/* device caps */

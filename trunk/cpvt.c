@@ -1,6 +1,9 @@
 /*
    Copyright (C) 2010 bg <bg_one@mail.ru>
 */
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
 
 #include <asterisk.h>
 #include <asterisk/utils.h>
@@ -16,8 +19,8 @@ EXPORT_DEF struct cpvt * cpvt_alloc(struct pvt * pvt, int call_idx, unsigned dir
 	struct cpvt* cpvt = ast_malloc (sizeof (*cpvt));
 	if(cpvt)
 	{
-		cpvt->entry.next = 0;
-		cpvt->channel = 0;
+		cpvt->entry.next = NULL;
+		cpvt->channel = NULL;
 		cpvt->pvt = pvt;
 		cpvt->call_idx = call_idx;
 		cpvt->dir = dir;
@@ -83,7 +86,7 @@ EXPORT_DEF void cpvt_free(struct cpvt* cpvt)
 	/* drop last_dialed_cpvt if need */
 	if(pvt->last_dialed_cpvt == cpvt)
 		pvt->last_dialed_cpvt = 0;
-	
+
 	ast_free(cpvt);
 }
 

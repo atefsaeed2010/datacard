@@ -6,6 +6,9 @@
    
    Dmitry Vagin <dmitry2004@yandex.ru>
 */
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
 
 #include <iconv.h>			/* iconv_t iconv() */
 #include <string.h>			/* memcpy() */

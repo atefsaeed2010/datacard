@@ -13,6 +13,9 @@
    http://www.makhutov.org
 */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
 
 #include <asterisk.h>
 #include <asterisk/utils.h>

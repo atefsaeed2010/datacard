@@ -6,6 +6,9 @@
    
    Dmitry Vagin <dmitry2004@yandex.ru>
 */
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
 
 #include <asterisk.h>
 #include <asterisk/logger.h>			/* ast_debug() */
@@ -836,13 +839,15 @@ static int start_pbx(struct pvt* pvt, const char * number, int call_idx, call_st
 		return -1;
 	}
 	cpvt = channel->tech_pvt;
-//	cpvt->needchup = 1;
 	CPVT_SET_FLAGS(cpvt, CALL_FLAG_NEED_HANGUP);
 
 	if (ast_pbx_start (channel))
 	{
+		channel->tech_pvt = NULL;
+		cpvt_free(cpvt);
+		
+		ast_hangup (channel);
 		ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming call\n", PVT_ID(pvt));
-		channel_ast_hangup (cpvt);
 
 		return -1;
 	}
@@ -894,6 +899,7 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 							{
 								if(cpvt->channel)
 								{
+									/* FIXME: unprotected channel access */
 									cpvt->channel->rings += pvt->rings;
 									pvt->rings = 0;
 								}
@@ -1167,12 +1173,12 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 		ast_base64encode (text_base64, (unsigned char*)text, strlen(text), sizeof(text_base64));
 		ast_verb (1, "[%s] Got SMS from %s: '%s'\n", PVT_ID(pvt), from_number, text);
 
-#ifdef __MANAGER__
+#ifdef BUILD_MANAGER
 		manager_event_new_sms (pvt, from_number, text);
 		manager_event_new_sms_base64(pvt, from_number, text_base64);
 #endif
 
-#ifdef __MANAGER__
+#ifdef BUILD_MANAGER
 		struct ast_channel* channel;
 
 		snprintf (channel_name, sizeof (channel_name), "sms@%s", CONF_SHARED(pvt, context));
@@ -1250,6 +1256,7 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 	char		cusd_utf8_str[1024];
 	char		text_base64[16384];
 	char		channel_name[1024];
+	struct ast_channel* channel;
 
 	if (at_parse_cusd (str, len, &cusd, &dcs))
 	{
@@ -1287,13 +1294,11 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 	ast_verb (1, "[%s] Got USSD response: '%s'\n", PVT_ID(pvt), cusd);
 	ast_base64encode (text_base64, (unsigned char*)cusd, strlen(cusd), sizeof(text_base64));
 
-#ifdef __MANAGER__
+#ifdef BUILD_MANAGER
 	manager_event_new_ussd (pvt, cusd);
 	manager_event_new_ussd_base64 (pvt, text_base64);
 #endif
 
-#ifdef __MANAGER__
-	struct ast_channel* channel;
 
 	snprintf (channel_name, sizeof (channel_name), "ussd@%s", CONF_SHARED(pvt, context));
 
@@ -1309,7 +1314,6 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 			ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming ussd\n", PVT_ID(pvt));
 		}
 	}
-#endif
 
 	return 0;
 }
