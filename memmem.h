@@ -4,6 +4,10 @@
 #ifndef CHAN_DATACARD_MEMMEM_H_INCLUDED
 #define CHAN_DATACARD_MEMMEM_H_INCLUDED
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
+
 #ifdef HAVE_MEMMEM
 
 #ifndef _GNU_SOURCE
