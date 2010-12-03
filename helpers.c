@@ -6,6 +6,9 @@
    
    Dmitry Vagin <dmitry2004@yandex.ru>
 */
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
 
 #include <asterisk.h>
 #include <asterisk/lock.h>			/* AST_RWLIST_RDLOCK AST_RWLIST_TRAVERSE AST_RWLIST_UNLOCK */

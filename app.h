@@ -1,7 +1,7 @@
 /*
    Copyright (C) 2010 bg <bg_one@mail.ru>
 */
-#ifdef __APP__
+#ifdef BUILD_APPLICATIONS
 #ifndef CHAN_DATACARD_APP_H_INCLUDED
 #define CHAN_DATACARD_APP_H_INCLUDED
 
@@ -11,4 +11,4 @@ EXPORT_DECL void app_register();
 EXPORT_DECL void app_unregister();
 
 #endif /* CHAN_DATACARD_APP_H_INCLUDED */
-#endif /* __APP__ */
+#endif /* BUILD_APPLICATIONS */

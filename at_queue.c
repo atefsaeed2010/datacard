@@ -6,7 +6,9 @@
    
    Dmitry Vagin <dmitry2004@yandex.ru>
 */
-
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
 
 #include <asterisk.h>
 #include <asterisk/utils.h>		/* ast_free() */
@@ -21,16 +23,16 @@
 #/* */
 static void at_queue_free_data(at_queue_cmd_t* cmd)
 {
-	if (cmd->data)
+	if(cmd->data)
 	{
 		if((cmd->flags & ATQ_CMD_FLAG_STATIC) == 0) 
 		{
 			ast_free (cmd->data);
 			cmd->data = NULL;
 		}
-		cmd->length = 0;
-
+		/* right because work with copy of static data */
 	}
+	cmd->length = 0;
 }
 
 /*!

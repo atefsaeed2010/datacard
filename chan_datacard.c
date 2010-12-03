@@ -26,10 +26,13 @@
  *
  * \ingroup channel_drivers
  */
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
 
 
 #include <asterisk.h>
-ASTERISK_FILE_VERSION(__FILE__, "$Rev: 200 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Rev: " PACKAGE_REVISION " $")
 
 #include <asterisk/stringfields.h>		/* AST_DECLARE_STRING_FIELDS for asterisk/manager.h */
 #include <asterisk/manager.h>
@@ -182,7 +185,7 @@ static int disconnect_datacard (struct pvt* pvt)
 
 	ast_verb (3, "Datacard %s has disconnected\n", PVT_ID(pvt));
 
-#ifdef __MANAGER__
+#ifdef BUILD_MANAGER
 	manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Disconnect\r\nDevice: %s\r\n", PVT_ID(pvt));
 #endif
 
@@ -338,7 +341,7 @@ static void* do_discovery (attribute_unused void * data)
 						if (start_monitor (pvt))
 						{
 							pvt->connected = 1;
-#ifdef __MANAGER__
+#ifdef BUILD_MANAGER
 							manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Connect\r\nDevice: %s\r\n", PVT_ID(pvt));
 #endif
 							ast_verb (3, "Datacard %s has connected, initializing...\n", PVT_ID(pvt));
@@ -619,68 +622,64 @@ static struct pvt* load_device (struct ast_config* cfg, const char* cat, const s
 
 	/* create and initialize our pvt structure */
 	pvt = ast_calloc (1, sizeof (*pvt));
-	if (!pvt)
+	if(pvt)
+	{
+		err = dc_config_fill(cfg, cat, defaults, &pvt->settings);
+		if(!err)
+		{
+			if(!CONF_SHARED(pvt, disable))
+			{
+				/* initialize pvt */
+				ast_mutex_init (&pvt->lock);
+
+				AST_LIST_HEAD_INIT_NOLOCK (&pvt->at_queue);
+				AST_LIST_HEAD_INIT_NOLOCK (&pvt->chans);
+				pvt->sys_chan.pvt = pvt;
+				pvt->sys_chan.state = CALL_STATE_RELEASED;
+
+				pvt->monitor_thread		= AST_PTHREADT_NULL;
+				pvt->audio_fd			= -1;
+				pvt->data_fd			= -1;
+				pvt->timeout			= DATA_READ_TIMEOUT;
+				pvt->cusd_use_ucs2_decoding	=  1;
+				pvt->gsm_reg_status		= -1;
+
+				ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
+				ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
+
+				/* setup the dsp */
+				pvt->dsp = ast_dsp_new ();
+				if (pvt->dsp)
+				{
+					ast_dsp_set_features (pvt->dsp, DSP_FEATURE_DIGIT_DETECT);
+					ast_dsp_set_digitmode (pvt->dsp, DSP_DIGITMODE_DTMF | DSP_DIGITMODE_RELAXDTMF);
+
+					AST_RWLIST_WRLOCK (&gpublic->devices);
+					AST_RWLIST_INSERT_HEAD (&gpublic->devices, pvt, entry);
+					AST_RWLIST_UNLOCK (&gpublic->devices);
+
+					ast_debug (1, "[%s] Loaded device\n", PVT_ID(pvt));
+					ast_log (LOG_NOTICE, "Loaded device %s\n", PVT_ID(pvt));
+					return pvt;
+				}
+				else
+				{
+					ast_log(LOG_ERROR, "Skipping device %s. Error setting up dsp for dtmf detection\n", cat);
+				}
+			}
+			else
+			{
+				ast_log (LOG_NOTICE, "Skipping device %s i.e. disabled\n", cat);
+			}
+		}
+		ast_free (pvt);
+	}
+	else
 	{
 		ast_log (LOG_ERROR, "Skipping device %s. Error allocating memory\n", cat);
-		return NULL;
 	}
 
-	ast_debug (1, "Reading configuration for device %s\n", cat);
-
-	err = dc_config_fill(cfg, cat, defaults, &pvt->settings);
-	if(err)
-	{
-		ast_free (pvt);
-		return NULL;
-	}
-
-	if(CONF_SHARED(pvt, disable))
-	{
-		ast_log (LOG_NOTICE, "Skipping device %s i.e. disabled\n", cat);
-		ast_free (pvt);
-		return NULL;
-	}
-	
-	/* initialize pvt */
-	ast_mutex_init (&pvt->lock);
-
-	AST_LIST_HEAD_INIT_NOLOCK (&pvt->at_queue);
-	AST_LIST_HEAD_INIT_NOLOCK (&pvt->chans);
-	pvt->sys_chan.pvt = pvt;
-	pvt->sys_chan.state = CALL_STATE_RELEASED;
-
-	/* set some defaults */
-
-	pvt->monitor_thread		= AST_PTHREADT_NULL;
-	pvt->audio_fd			= -1;
-	pvt->data_fd			= -1;
-	pvt->timeout			= DATA_READ_TIMEOUT;
-	pvt->cusd_use_ucs2_decoding	=  1;
-	pvt->gsm_reg_status		= -1;
-
-	ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
-	ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
-
-	/* setup the dsp */
-	pvt->dsp = ast_dsp_new ();
-	if (!pvt->dsp)
-	{
-		ast_log(LOG_ERROR, "Skipping device %s. Error setting up dsp for dtmf detection\n", cat);
-		ast_free (pvt);
-		return NULL;
-	}
-
-	ast_dsp_set_features (pvt->dsp, DSP_FEATURE_DIGIT_DETECT);
-	ast_dsp_set_digitmode (pvt->dsp, DSP_DIGITMODE_DTMF | DSP_DIGITMODE_RELAXDTMF);
-
-	AST_RWLIST_WRLOCK (&gpublic->devices);
-	AST_RWLIST_INSERT_HEAD (&gpublic->devices, pvt, entry);
-	AST_RWLIST_UNLOCK (&gpublic->devices);
-
-	ast_debug (1, "[%s] Loaded device\n", PVT_ID(pvt));
-	ast_log (LOG_NOTICE, "Loaded device %s\n", PVT_ID(pvt));
-
-	return pvt;
+	return NULL;
 }
 
 static int load_config ()
@@ -752,11 +751,11 @@ static int load_module ()
 
 	cli_register();
 
-#ifdef __APP__
+#ifdef BUILD_APPLICATIONS
 	app_register();
 #endif
 
-#ifdef __MANAGER__
+#ifdef BUILD_MANAGER
 	manager_register();
 #endif
 
@@ -772,11 +771,11 @@ static int unload_module ()
 
 	/* Unregister the CLI & APP & MANAGER */
 
-#ifdef __MANAGER__
+#ifdef BUILD_MANAGER
 	manager_unregister ();
 #endif
 
-#ifdef __APP__
+#ifdef BUILD_APPLICATIONS
 	app_unregister();
 #endif
 
@@ -814,6 +813,7 @@ static int unload_module ()
 
 	ast_mutex_destroy(&gpublic->round_robin_mtx);
 	AST_RWLIST_HEAD_DESTROY(&gpublic->devices);
+
 	ast_free(gpublic);
 	return 0;
 }

@@ -1,7 +1,7 @@
 /*
    Copyright (C) 2010 bg <bg_one@mail.ru>
 */
-#ifdef __MANAGER__
+#ifdef BUILD_MANAGER
 #ifndef CHAN_DATACARD_MANAGER_H_INCLUDED
 #define CHAN_DATACARD_MANAGER_H_INCLUDED
 
@@ -15,4 +15,4 @@ EXPORT_DECL void manager_event_new_sms (struct pvt* pvt, char* number, char* mes
 EXPORT_DECL void manager_event_new_sms_base64 (struct pvt* pvt, char* number, char* message_base64);
 
 #endif /* CHAN_DATACARD_MANAGER_H_INCLUDED */
-#endif /* __MANAGER__ */
+#endif /* BUILD_MANAGER */

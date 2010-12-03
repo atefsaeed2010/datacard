@@ -1,4 +1,8 @@
-#ifdef __APP__
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
+
+#ifdef BUILD_APPLICATIONS
 /* 
    Copyright (C) 2009 - 2010
    
@@ -177,4 +181,4 @@ EXPORT_DEF void app_unregister()
 	}
 }
 
-#endif /* __APP__ */
+#endif /* BUILD_APPLICATIONS */

@@ -6,6 +6,9 @@
    
    Dmitry Vagin <dmitry2004@yandex.ru>
 */
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE			/* vasprintf() in asterisk/utils.h */

@@ -5,23 +5,38 @@ chan_datacardm_so_OBJS =  app.o at_command.o at_parse.o at_queue.o at_read.o at_
 	chan_datacard.o channel.o char_conv.o cli.o helpers.o manager.o \
 	memmem.o ringbuffer.o cpvt.o dc_config.o
 
-chan_datacards_so_OBJS	= single.o
+chan_datacards_so_OBJS = single.o
 
-CC = gcc
-LD = gcc
-STRIP = strip
-RM = rm -f
-CHMOD = chmod
-INSTALL = install
-MAKE_DEPS=-MD -MT $@ -MF .$(subst /,_,$@).d -MP
+SOURCES = app.c at_command.c at_parse.c at_queue.c at_read.c at_response.c \
+chan_datacard.c channel.c char_conv.c cli.c cpvt.c dc_config.c helpers.c \
+manager.c memmem.c ringbuffer.c single.c 
 
-CFLAGS  += -Wextra -fPIC -DAST_MODULE=\"$(PROJM)\" -D_THREAD_SAFE @INCDIR@ @CFLAGS@
-LDFLAGS += @LIBDIR@
+HEADERS = app.h at_command.h at_parse.h at_queue.h at_read.h at_response.h \
+chan_datacard.h channel.h char_conv.h cli.h cpvt.h dc_config.h export.h \
+helpers.h manager.h memmem.h ringbuffer.h
+
+EXTRA_DIST = BUGS COPYRIGHT.txt LICENSE.txt README.txt TODO.txt INSTALL Makefile.in \
+    asteriskforum config.h.in configure.in stamp-h.in etc/* 
+
+BUILD_TOOLS = configure config.sub install-sh config.guess
+
+CC = @CC@
+LD = @CC@
+STRIP = @STRIP@
+RM = @RM@ -fr
+INSTALL = @INSTALL@
+
+# -DAST_MODULE=\"$(PROJM)\" -D_THREAD_SAFE
+CFLAGS  = @CFLAGS@ -I$(srcdir) @CPPFLAGS@ @DEFS@ @AC_CFLAGS@
+LDFLAGS = @LDFLAGS@ 
 LIBS     = @LIBS@
-SOLINK   = @SOLINK@
+DISTNAME = @PACKAGE_TARNAME@-@PACKAGE_VERSION@.r@PACKAGE_REVISION@
 
-all: $(PROJM)
-bundle: $(PROJS)
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+all: @TARGET@
+
 
 install: all
 	$(STRIP) $(PROJM)
@@ -29,7 +44,6 @@ install: all
 
 $(PROJM): $(chan_datacardm_so_OBJS) Makefile
 	$(LD) $(LDFLAGS) $(SOLINK) -o $@ $(chan_datacardm_so_OBJS) $(LIBS)
-	$(CHMOD) 755 $@
 
 $(PROJS): $(chan_datacards_so_OBJS) Makefile
 	$(LD) $(LDFLAGS) $(SOLINK) -o $@ $(chan_datacards_so_OBJS) $(LIBS)
@@ -40,10 +54,26 @@ $(PROJS): $(chan_datacards_so_OBJS) Makefile
 	$(CC) $(CFLAGS) $(MAKE_DEPS) -o $@ -c $<
 
 clean:
-	$(RM) $(PROJM) $(PROJS) *.o *.core .*.d
+	$(RM) $(PROJM) $(PROJS) *.o *.core .*.d autom4te.cache
 
-Makefile: Makefile.in
-	./configure
+dist: $(SOURCES) $(HEADERS) $(EXTRA_DIST) $(BUILD_TOOLS)
+	@mkdir $(DISTNAME)
+	@cp $(SOURCES) $(HEADERS) $(EXTRA_DIST) $(BUILD_TOOLS) $(DISTNAME)
+	tar czf $(DISTNAME).tgz $(DISTNAME) --exclude .svn
+	@$(RM) $(DISTNAME)
+
+${srcdir}/configure: configure.in
+	cd ${srcdir} && autoconf
+
+config.h: stamp-h
+stamp-h: config.h.in config.status
+	./config.status
+
+Makefile: Makefile.in config.status
+	./config.status
+
+config.status: configure
+	./config.status --recheck
 
 ifneq ($(wildcard .*.d),)
    include .*.d

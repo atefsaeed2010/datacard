@@ -6,6 +6,10 @@
    
    Dmitry Vagin <dmitry2004@yandex.ru>
 */
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
+
 #include <asterisk.h>
 #include <asterisk/cli.h>			/* struct ast_cli_entry; struct ast_cli_args */
 #include <asterisk/callerid.h>			/* ast_describe_caller_presentation() */
