@@ -37,7 +37,7 @@ AC_ARG_ENABLE(
 	[apps],
 	AS_HELP_STRING([--enable-apps], [enable applications code]),
 	[ if test "x$enable_apps" != "xyes" ; then enable_apps="no" ; fi],
-	[ enable_apps="no" ]
+	[ enable_apps="yes" ]
 )
 
 dnl Checks for programs.
@@ -182,7 +182,7 @@ if test "x$enable_apps" = "xyes" ; then
   AC_DEFINE([BUILD_APPLICATIONS],[1],[Build extention applications])
 fi
 
-AC_DEFINE([AST_MODULE],[PACKAGE_NAME],[name of asterisk module])
+AC_DEFINE_UNQUOTED([AST_MODULE],"$PACKAGE_NAME",[name of asterisk module])
 AC_DEFINE_UNQUOTED([PACKAGE_REVISION], "$PACKAGE_REVISION",[Revision of package])
 
 AC_SUBST([PACKAGE_TARNAME])
