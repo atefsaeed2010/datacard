@@ -2,12 +2,13 @@ dnl init
 dnl AC_PREREQ([2.60])
 dnl AC_REVISION($Revision: 1.30 $)
 AC_INIT([chan_datacard],[1.0],[http://code.google.com/p/datacard/issues/list],[chan_datacard],[http://code.google.com/p/datacard])
-PACKAGE_REVISION="237"
+PACKAGE_REVISION="239"
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_SRCDIR([chan_datacard.c])
 AC_CANONICAL_SYSTEM
 AC_CANONICAL_HOST
 
+CFLAGS="$CFLAGS -D_GNU_SOURCE"
 dnl Checks for user settings.
 dnl  Set asterisk headers patch
 AC_ARG_ENABLE(
