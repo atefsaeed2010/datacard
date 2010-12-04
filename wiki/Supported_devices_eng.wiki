@@ -5,7 +5,7 @@
 
 At this moment, only *Huawei* modems are supported. Check *Details* for the most up to date list.
 
-If you want to contribute, the best way is to find any stable firmware (or update) that contains the following chains:
+If you want to contribute, the best way is to find (www.dc-files.com) any stable firmware (or update) that contains the following chains:
 
 *^DDSETEX* <br>
 *^CVOICE*
