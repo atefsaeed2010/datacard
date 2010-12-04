@@ -7,7 +7,8 @@
 #include "export.h"		/* EXPORT_DECL EXPORT_DEF */
 #include "dc_config.h"		/* call_waiting_t */
 
-// magic order !!! keep order of this values like in at_cmd2str()
+/* magic order !!! keep order of this values like in at_cmd2str()
+*/
 typedef enum {
 	CMD_UNKNOWN = 0,
 

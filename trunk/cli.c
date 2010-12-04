@@ -5,6 +5,8 @@
    http://www.makhutov.org
    
    Dmitry Vagin <dmitry2004@yandex.ru>
+
+   bg <bg_one@mail.ru>
 */
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -162,7 +164,7 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "  Minimal DTMF Duration   : %d\n", CONF_SHARED(pvt, mindtmfduration));
 		ast_cli (a->fd, "  Minimal DTMF Interval   : %d\n", CONF_SHARED(pvt, mindtmfinterval));
 		ast_cli (a->fd, "  Call Waiting            : %s\n\n", pvt->has_call_waiting ? "Enabled" : "Disabled" );
-// TODO: show call waiting  network setting and local config value
+/* TODO: show call waiting  network setting and local config value */
 		ast_mutex_unlock (&pvt->lock);
 
 		ast_free(statebuf);
@@ -378,9 +380,9 @@ static struct ast_cli_entry cli[] = {
 	AST_CLI_DEFINE (cli_sms,		"Send SMS from the datacard"),
 	AST_CLI_DEFINE (cli_ccwa_set,		"Enable/Disable Call-Waiting on the datacard"),
 	AST_CLI_DEFINE (cli_reset,		"Reset datacard"),
-// TODO: 
-//	AST_CLI_DEFINE (cli_restart,		"Restart datacard"),
-
+/* TODO: 
+	AST_CLI_DEFINE (cli_restart,		"Restart datacard"),
+*/
 };
 
 #/* */

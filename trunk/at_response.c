@@ -5,6 +5,8 @@
    http://www.makhutov.org
    
    Dmitry Vagin <dmitry2004@yandex.ru>
+
+   bg <bg_one@mail.ru>
 */
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -41,12 +43,11 @@ static const at_response_t at_responses_list[] = {
 	{ RES_BOOT,"^BOOT",DEF_STR("^BOOT:") },
 	{ RES_BUSY,"BUSY",DEF_STR("BUSY\r") },
 	{ RES_CEND,"^CEND",DEF_STR("^CEND:") },
-//	{ RES_CLIP,"+CLIP",DEF_STR("+CLIP:") },
 
 	{ RES_CMGR, "+CMGR",DEF_STR("+CMGR:") },
 	{ RES_CMS_ERROR, "+CMS ERROR",DEF_STR("+CMS ERROR:") },
 	{ RES_CMTI, "+CMTI",DEF_STR("+CMTI:") },
-	{ RES_CNUM, "+CNUM",DEF_STR("+CNUM:") },		// and "ERROR+CNUM:"
+	{ RES_CNUM, "+CNUM",DEF_STR("+CNUM:") },		/* and "ERROR+CNUM:" */
 
 	{ RES_CONF,"^CONF",DEF_STR("^CONF:") },
 	{ RES_CONN,"^CONN",DEF_STR("^CONN:") },
@@ -59,7 +60,7 @@ static const at_response_t at_responses_list[] = {
 	{ RES_CSSU,"+CSSU",DEF_STR("+CSSU:") },
 
 	{ RES_CUSD,"+CUSD",DEF_STR("+CUSD:") },
-	{ RES_ERROR,"ERROR",DEF_STR("ERROR\r") },		// and "COMMAND NOT SUPPORT\r"
+	{ RES_ERROR,"ERROR",DEF_STR("ERROR\r") },		/* and "COMMAND NOT SUPPORT\r" */
 	{ RES_MODE,"^MODE",DEF_STR("^MODE:") },
 	{ RES_NO_CARRIER,"NO CARRIER",DEF_STR("NO CARRIER\r") },
 
@@ -81,7 +82,7 @@ static const at_response_t at_responses_list[] = {
 	{ RES_CLCC,"+CLCC", DEF_STR("+CLCC:") },
 	{ RES_CCWA,"+CCWA", DEF_STR("+CCWA:") },
 
-	// duplicated response undef other id
+	/* duplicated response undef other id */
 	{ RES_CNUM, "+CNUM",DEF_STR("ERROR+CNUM:") },
 	{ RES_ERROR,"ERROR",DEF_STR("COMMAND NOT SUPPORT\r") },
 	};
@@ -129,6 +130,7 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 			case CMD_AT_CGSN:
 			case CMD_AT_CIMI:
 			case CMD_AT_CPIN:
+			case CMD_AT_CCWA_SET:
 			case CMD_AT_CCWA_STATUS:
 			case CMD_AT_CHLD_2:
 			case CMD_AT_CSCA:
@@ -203,9 +205,10 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 
 			case CMD_AT_A:
 			case CMD_AT_CHLD_2x:
-/* not work, ^CONN: appear before OK for CHLD_ANSWER */
-//				task->cpvt->answered = 1;
-//				task->cpvt->needhangup = 1;
+/* not work, ^CONN: appear before OK for CHLD_ANSWER 
+				task->cpvt->answered = 1;
+				task->cpvt->needhangup = 1;
+*/
 				CPVT_SET_FLAGS(task->cpvt, CALL_FLAG_NEED_HANGUP);
 				ast_debug (1, "[%s] %s sent successfully for call id %d\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd), task->cpvt->call_idx);
 				break;
@@ -227,7 +230,6 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 				break;
 			case CMD_AT_CHUP:
 			case CMD_AT_CHLD_1x:
-//				task->cpvt->needhangup = 0;
 				CPVT_RESET_FLAG(task->cpvt, CALL_FLAG_NEED_HANGUP);
 				ast_debug (1, "[%s] Successful hangup for call idx ?\n", PVT_ID(pvt));
 				break;
@@ -266,9 +268,6 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 			case CMD_AT_CSQ:
 				ast_debug (1, "[%s] Got signal strength result\n", PVT_ID(pvt));
 				break;
-			case CMD_AT_CCWA_SET:
-//				ast_log (LOG_NOTICE, "Call-Waiting successfully enabled or disabled on device %s\n", PVT_ID(pvt));
-				break;
 
 			case CMD_AT_CLVL:
 				pvt->volume_sync_step++;
@@ -296,11 +295,6 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 	}
 
 	return 0;
-
-//e_return:
-//	at_queue_handle_result (pvt, res);
-
-//	return -1;
 }
 
 /*!
@@ -319,7 +313,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 	{
 		switch (ecmd->cmd)
 		{
-        		/* initilization stuff */
+        		/* critical errors */
 			case CMD_AT:
 			case CMD_AT_Z:
 			case CMD_AT_E:
@@ -328,6 +322,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 				/* mean also disconnected from device */
 				goto e_return;
 
+			/* not critical errors */
 			case CMD_AT_U2DIAG:
 			case CMD_AT_CCWA_SET:
 			case CMD_AT_CCWA_STATUS:
@@ -376,7 +371,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 				break;
 
 			case CMD_AT_CNUM:
-				ast_log (LOG_ERROR, "[%s] Error checking subscriber phone number\n", PVT_ID(pvt));
+				ast_log (LOG_WARNING, "[%s] Error checking subscriber phone number\n", PVT_ID(pvt));
 				ast_verb (3, "Datacard %s needs to be reinitialized. The SIM card is not ready yet\n", PVT_ID(pvt));
 				goto e_return;
 
@@ -442,7 +437,6 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 			case CMD_AT_A:
 			case CMD_AT_CHLD_2x:
 				ast_log (LOG_ERROR, "[%s] Answer failed for call idx %d\n", PVT_ID(pvt), task->cpvt->call_idx);
-//				task->cpvt->answered = 0;
 				channel_queue_hangup (task->cpvt, 0);
 				break;
 
@@ -607,7 +601,8 @@ static int at_response_orig (struct pvt* pvt, const char* str)
 		if(call_index >= MIN_CALL_IDX && call_index <= MAX_CALL_IDX)
 		{
 			/* assign call idx */
-//			cpvt->dir = CALL_DIR_OUTGOING;
+/*			cpvt->dir = CALL_DIR_OUTGOING;
+*/
 			cpvt->call_idx = call_index;
 			channel_change_state(cpvt, CALL_STATE_DIALING, 0);
 /* TODO: move to CONN ? */
@@ -627,8 +622,9 @@ static int at_response_orig (struct pvt* pvt, const char* str)
 	}
 	else
 	{
+/* FIXME: and reset call if no-voice, bad call_index !
+*/
 		ast_log (LOG_ERROR, "[%s] ORIG event for non-voice call type '%d' index %d\n", PVT_ID(pvt), call_type, call_index);
-// FIXME: and reset call if no-voice, bad call_index !
 	}
 	return 0;
 }
@@ -730,7 +726,6 @@ static int at_response_cend (struct pvt* pvt, const char* str)
 				default:;
 			}
 		}
-//		cpvt->needhangup = 0;
 		CPVT_RESET_FLAG(cpvt, CALL_FLAG_NEED_HANGUP);
 		channel_change_state(cpvt, CALL_STATE_RELEASED, cc_cause);
 	}
@@ -806,7 +801,8 @@ static int at_response_conn (struct pvt* pvt, const char* str)
 		cpvt = pvt_find_cpvt(pvt, call_index);
 		if(cpvt)
 		{
-// FIXME: delay until CLCC handle; as is create time when both channels in active state and read/write one device
+/* FIXME: delay until CLCC handle; as is create time when both channels in active state and read/write one device
+*/
 			channel_change_state(cpvt, CALL_STATE_ACTIVE, 0);
 			if (cpvt->dir == CALL_DIR_OUTGOING)
 			{
@@ -886,8 +882,6 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 	 * +CLCC:<id1>,<dir>,<stat>,<mode>,<mpty>[,<number>,<type>[,<alpha>[,<priority>]]]\r\n
 	 */
 
-// TODO: place also AST_CONTROL_PROGRESS for dialing 
-//	channel_queue_control (cpvt, AST_CONTROL_PROGRESS);
 	if (pvt->initialized)
 	{
 		for(;;)
@@ -931,8 +925,9 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 					{
 						case CALL_STATE_WAITING:
 							pvt->cwaiting = 1;
-//							pvt->ring = 0;
-//							pvt->dialing = 0;
+/*							pvt->ring = 0;
+							pvt->dialing = 0;
+*/
 							break;
 						case CALL_STATE_ONHOLD:
 							held++;
@@ -1228,7 +1223,6 @@ static int at_response_sms_prompt (struct pvt* pvt)
 {
 	const struct at_queue_cmd* ecmd;
 
-// HERE
 	if ((ecmd = at_queue_head_cmd (pvt)) && ecmd->res == RES_SMS_PROMPT)
 	{
 		at_queue_handle_result (pvt, RES_SMS_PROMPT);
@@ -1558,7 +1552,6 @@ static void at_response_busy(struct pvt* pvt, enum ast_control_frame_type contro
 
 	if(cpvt)
 	{
-//		cpvt->needchup = 1;
 		CPVT_SET_FLAGS(cpvt, CALL_FLAG_NEED_HANGUP);
 		channel_queue_control (cpvt, control);
 	}
@@ -1575,13 +1568,11 @@ static void at_response_busy(struct pvt* pvt, enum ast_control_frame_type contro
 
 int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_t at_res)
 {
-//	char		parse_buf[1024];
 	char*		str;
 	size_t		len;
 	const struct at_queue_cmd*	ecmd;
 
-//	if (iovcnt > 0)
-//	{
+	{
 		len = iov[0].iov_len + iov[1].iov_len - 1;
 
 		if (iovcnt == 2)
@@ -1603,7 +1594,8 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 		}
 		str[len] = '\0';
 
-//		ast_debug (5, "[%s] [%.*s]\n", PVT_ID(pvt), (int) len, str);
+/*		ast_debug (5, "[%s] [%.*s]\n", PVT_ID(pvt), (int) len, str);
+*/
 
 		switch (at_res)
 		{
@@ -1629,8 +1621,6 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 
 			case RES_ORIG:
 				return at_response_orig (pvt, str);
-
-//				return at_response_conf(pvt, str);
 
 			case RES_CEND:
 				return at_response_cend (pvt, str);
@@ -1744,7 +1734,7 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 
 				break;
 		}
-//	}
+	}
 
 	return 0;
 }

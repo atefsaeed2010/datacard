@@ -69,7 +69,7 @@ EXPORT_DEF int rb_memcmp (const struct ringbuffer* rb, const char* mem, size_t l
 	return -1;
 }
 
-// ============================ READ ============================= 
+/* ============================ READ ============================= */
 EXPORT_DEF int rb_read_all_iov (const struct ringbuffer* rb, struct iovec* iov)
 {
 	if (rb->used > 0)
@@ -330,7 +330,7 @@ static size_t rb_read (struct ringbuffer* rb, char* buf, size_t len)
 }
 */
 
-// ============================ WRITE ============================ 
+/* ============================ WRITE ============================ */
 
 EXPORT_DEF int rb_write_iov (const struct ringbuffer* rb, struct iovec* iov)
 {

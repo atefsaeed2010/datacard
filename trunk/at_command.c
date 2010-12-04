@@ -5,6 +5,8 @@
    http://www.makhutov.org
    
    Dmitry Vagin <dmitry2004@yandex.ru>
+
+   bg <bg_one@mail.ru>
 */
 
 /*
@@ -419,7 +421,7 @@ static int build_pdu(struct pvt* pvt, char* buffer, unsigned length, const char*
 		ast_log (LOG_ERROR, "[%s] Error converting SMS to UCS-2: '%s'\n", PVT_ID(pvt), msg);
 		return -2;
 	}
-	// TODO: check message limit in 178 octet of TPDU (w/o SCA)
+	/* TODO: check message limit in 178 octet of TPDU (w/o SCA) */
 	tmp = buffer[len + 8];
 	len += snprintf(buffer + len, length - len, "%02X%02X%02X%02X", SMS_TP_PID, SMS_TP_DCS, SMS_VALIDITY, data_len / 2);
 	buffer[len] = tmp;
@@ -459,7 +461,8 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* number, const char* 
 	if(pvt->use_pdu)
 	{
 		at_cmd[0].length = 8;
-//		res = build_pdu(pvt, pdu_buf, sizeof(pdu_buf), pvt->sms_scenter, number, msg, &sca_len);
+/*		res = build_pdu(pvt, pdu_buf, sizeof(pdu_buf), pvt->sms_scenter, number, msg, &sca_len);
+*/
 		res = build_pdu(pvt, pdu_buf, sizeof(pdu_buf), "\x00", number, msg, &sca_len);
 		if(res <= 0)
 			return res;
@@ -470,8 +473,9 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* number, const char* 
 		buf[at_cmd[0].length++] = '\r';
 		buf[at_cmd[0].length] = '\0';
 
-//		ast_debug (5, "[%s] PDU Head '%s'\n", PVT_ID(pvt), buf);
-//		ast_debug (5, "[%s] PDU Body '%s'\n", PVT_ID(pvt), pdu_buf);
+/*		ast_debug (5, "[%s] PDU Head '%s'\n", PVT_ID(pvt), buf);
+		ast_debug (5, "[%s] PDU Body '%s'\n", PVT_ID(pvt), pdu_buf);
+*/
 	}
 	else
 	{
@@ -555,7 +559,7 @@ EXPORT_DEF int at_enque_cusd (struct cpvt* cpvt, const char* code)
 		};
 	static const char cmd[] = "AT+CUSD=1,\"";
 	static const char cmd_end[] = "\",15\r";
-	at_queue_cmd_t at_cmd = ATQ_CMD_DECLARE_DYN(CMD_AT_CUSD);	// TODO: may be increase timeout ?
+	at_queue_cmd_t at_cmd = ATQ_CMD_DECLARE_DYN(CMD_AT_CUSD);	/* TODO: may be increase timeout ? */
 	
 	const struct converter * coder;
 	ssize_t res;
@@ -720,7 +724,7 @@ EXPORT_DEF int at_enque_dial(struct cpvt* cpvt, const char * number, int clir)
 	ATQ_CMD_INIT_DYNI(cmds[cmdsno], CMD_AT_D);
 	cmdsno++;
 
-// on failed ATD this up held call
+/* on failed ATD this up held call */
 	ATQ_CMD_INIT_ST(cmds[cmdsno], CMD_AT_CLCC, cmd_clcc);
 	cmdsno++;
 
@@ -753,7 +757,7 @@ EXPORT_DEF int at_enque_answer(struct cpvt* cpvt)
 	
 	if(cpvt->state == CALL_STATE_INCOMING)
 	{
-// FIXME: channel number?
+/* FIXME: channel number? */
 		cmd1 = "ATA\r";
 	}
 	else if(cpvt->state == CALL_STATE_WAITING)

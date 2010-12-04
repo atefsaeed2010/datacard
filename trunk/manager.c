@@ -10,6 +10,8 @@
    http://www.makhutov.org
    
    Dmitry Vagin <dmitry2004@yandex.ru>
+
+   bg <bg_one@mail.ru>
 */
 
 #include <asterisk.h>
@@ -72,8 +74,9 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 		astman_append (s, "Minimal DTMF Duration: %d\r\n", CONF_SHARED(pvt, mindtmfduration));
 		astman_append (s, "Minimal DTMF Interval: %d\r\n", CONF_SHARED(pvt, mindtmfinterval));
 		astman_append (s, "Call Waiting: %s\r\n", pvt->has_call_waiting ? "Enabled" : "Disabled");
-//		astman_append (s, "Tasks in Queue: %u\r\n", pvt->at_tasks);
-//		astman_append (s, "Commands in Queue: %u\r\n", pvt->at_cmds);
+/*		astman_append (s, "Tasks in Queue: %u\r\n", pvt->at_tasks);
+		astman_append (s, "Commands in Queue: %u\r\n", pvt->at_cmds);
+*/
 		astman_append (s, "\r\n");
 		ast_mutex_unlock (&pvt->lock);
 		count++;

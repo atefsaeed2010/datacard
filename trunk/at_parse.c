@@ -5,6 +5,8 @@
    http://www.makhutov.org
    
    Dmitry Vagin <dmitry2004@yandex.ru>
+
+   bg <bg_one@mail.ru>
 */
 #ifdef HAVE_CONFIG_H
 #include <config.h>

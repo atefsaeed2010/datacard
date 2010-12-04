@@ -23,6 +23,7 @@
  * \author Artem Makhutov <artem@makhutov.org>
  * \author Dave Bowerman <david.bowerman@gmail.com>
  * \author Dmitry Vagin <dmitry2004@yandex.ru>
+ * \author B      G <bg@mail.ru>
  *
  * \ingroup channel_drivers
  */
@@ -137,7 +138,6 @@ static int disconnect_datacard (struct pvt* pvt)
 		for(cpvt = pvt->chans.first; cpvt; cpvt = next)
 		{
 			next = cpvt->entry.next;
-//			cpvt->needhangup = 0;
 			CPVT_RESET_FLAG(cpvt, CALL_FLAG_NEED_HANGUP);
 			channel_queue_hangup (cpvt, 0);
 		}
@@ -226,7 +226,7 @@ static void* do_monitor_phone (void* data)
 	ast_mutex_unlock (&pvt->lock);
 
 
-	// TODO: also check if voice write failed with ENOENT?
+	/* TODO: also check if voice write failed with ENOENT? */
 	while (globals.unloading_flag == 0)
 	{
 		ast_mutex_lock (&pvt->lock);
@@ -428,7 +428,7 @@ EXPORT_DEF int is_dial_possible(const struct pvt * pvt, int opts, const struct c
 				case CALL_STATE_DIALING:
 				case CALL_STATE_ALERTING:
 				case CALL_STATE_INCOMING:
-				case CALL_STATE_WAITING:		// TODO: check its possible to ATD; at moments when +CCWA: ?
+				case CALL_STATE_WAITING:
 				case CALL_STATE_INIT:
 					return 0;
 
