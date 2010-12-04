@@ -127,6 +127,7 @@ typedef struct pvt
 	pvt_config_t		settings;			/*!< all device settings from config file */
 	pvt_stat_t		stat;				/*!< various statistics */
 } pvt_t;
+#define CONF_GLOBAL(name)	(gpublic->global_settings.name)
 #define CONF_SHARED(pvt, name)	((pvt)->settings.shared.name)
 #define CONF_UNIQ(pvt, name)	((pvt)->settings.unique.name)
 #define PVT_ID(pvt)		((pvt)->settings.unique.id)
@@ -134,9 +135,9 @@ typedef struct pvt
 typedef struct public_state
 {
 	AST_RWLIST_HEAD(devices, pvt)	devices;
-	struct ast_jb_conf 		jbconf_global;		/*! Global jitterbuffer configuration - by default, jb is disabled */
 	ast_mutex_t			round_robin_mtx;
 	struct pvt*			round_robin[256];
+	struct dc_gconfig		global_settings;
 } public_state_t;
 
 EXPORT_DECL public_state_t * gpublic;

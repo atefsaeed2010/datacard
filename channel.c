@@ -1126,7 +1126,7 @@ EXPORT_DEF struct ast_channel* channel_new (struct pvt* pvt, int ast_state, cons
 			pbx_builtin_setvar_helper (channel, "CNUMBER",		pvt->number);
 
 			ast_string_field_set (channel, language, CONF_SHARED(pvt, language));
-			ast_jb_configure (channel, &gpublic->jbconf_global);
+			ast_jb_configure (channel, &CONF_GLOBAL(jbconf));
 
 			ast_module_ref (self_module());
 

@@ -8,6 +8,15 @@
 #include "dc_config.h"
 #include <asterisk/callerid.h>				/* ast_parse_caller_presentation() */
 
+static struct ast_jb_conf jbconf_default = 
+{
+	.flags			= 0,
+	.max_size		= -1,
+	.resync_threshold	= -1,
+	.impl			= "",
+	.target_extra		= -1,
+};
+
 #/* assume config is zerofill */
 static int dc_uconfig_fill(struct ast_config * cfg, const char * cat, struct dc_uconfig * config)
 {
@@ -173,8 +182,8 @@ EXPORT_DEF void dc_gconfig_fill(struct ast_config * cfg, const char * cat, struc
 	int tmp;
 
 	/* set default values */
-//	memcpy(&config->jbconf, &jbconf_default, sizeof(config->jbconf));
-//	config->discovery_interval = DEFAULT_DISCOVERY_INT;
+	memcpy(&config->jbconf, &jbconf_default, sizeof(config->jbconf));
+	config->discovery_interval = DEFAULT_DISCOVERY_INT;
 
 	for (v = ast_variable_browse (cfg, cat); v; v = v->next)
 	{
