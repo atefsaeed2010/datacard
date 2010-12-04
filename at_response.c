@@ -325,6 +325,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 			case CMD_AT_E:
 			case CMD_AT_U2DIAG:
 			case CMD_AT_CLCC:
+			case CMD_AT_CCWA_STATUS:
 				ast_log (LOG_ERROR, "[%s] Command '%s' failed\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd));
 				goto e_return;
 
