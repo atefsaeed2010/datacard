@@ -3,10 +3,21 @@
 
 = Introduction =
 
+At this moment, only *Huawei* modems are supported. Check *Details* for the most up to date list.
+
+If you want to contribute, the best way is to find any stable firmware (or update) that contains the following chains:
+
+*^DDSETEX* <br>
+*^CVOICE*
+
+Open the firmware file with any text editor and look for the mentioned text. If found, that means the modem is voice capable. The next step is to check if voice is enabled or not. A good solution is to download dc-unlocker client for that purpose. 
+
+
 = Details =
 
 
-<table border="3" align="center" valign="middle">
+<table border="3" align="left" valign="middle">
+<tbody>
 <tr>
 <th>Device\Feature</th>
 <th>Voice</th>
@@ -107,6 +118,8 @@
 <td>?</td>
 <td>test required</td>
 </tr>
+</tbody>
 </table>
-
-Thanks Paco Gil for idea and information
+<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+== Credits ==
+Thanks to Paco for the idea and information
