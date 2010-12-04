@@ -32,7 +32,7 @@
  */
 
 #include "memmem.h"
-#include <string.h>			/* memchr() memcmp() */
+#include <string.h>			/* memchr() memcmp() NULL */
 
 /*
  * Find the first occurrence of the byte string s in byte string l.

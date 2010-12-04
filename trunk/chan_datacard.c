@@ -62,22 +62,13 @@ typedef struct
 {
 	pthread_t		discovery_thread;		/* The discovery thread handler */
 	int			unloading_flag;			/* no need mutex or other locking for protect this variable because no concurent r/w and set non-0 atomically */
-	struct dc_gconfig	settings;			/*!< global settings */
 } global_state_t;
 
-static global_state_t globals = {
+
+static global_state_t globals = 
+{
 	AST_PTHREADT_NULL,
 	0,
-	{
-		{
-			.flags			= 0,
-			.max_size		= -1,
-			.resync_threshold	= -1,
-			.impl			= "",
-			.target_extra		= -1,
-		},
-		DEFAULT_DISCOVERY_INT
-	}
 };
 
 EXPORT_DEF public_state_t * gpublic;
@@ -357,7 +348,7 @@ static void* do_discovery (attribute_unused void * data)
 		/* Go to sleep (only if we are not unloading) */
 		if (globals.unloading_flag == 0)
 		{
-			sleep (globals.settings.discovery_interval);
+			sleep (CONF_GLOBAL(discovery_interval));
 		}
 	}
 
@@ -695,7 +686,7 @@ static int load_config ()
 	}
 
 	/* read global config */
-	dc_gconfig_fill(cfg, "general", &globals.settings);
+	dc_gconfig_fill(cfg, "general", &gpublic->global_settings);
 	
 	/* read defaults */
 	dc_sconfig_fill_defaults(&config_defaults);

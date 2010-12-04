@@ -50,7 +50,7 @@ typedef struct dc_sconfig
 /* Global settings */
 typedef struct dc_gconfig
 {
-	struct ast_jb_conf	jbconf;				/*!< */
+	struct ast_jb_conf	jbconf;				/*!< jitter buffer settings, disabled by default */
 	int			discovery_interval;		/*!< The device discovery interval */
 #define DEFAULT_DISCOVERY_INT	60
 } dc_gconfig_t;
