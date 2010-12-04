@@ -323,11 +323,17 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 			case CMD_AT:
 			case CMD_AT_Z:
 			case CMD_AT_E:
-			case CMD_AT_U2DIAG:
 			case CMD_AT_CLCC:
+				ast_log (LOG_ERROR, "[%s] Command '%s' failed\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd));
+				/* mean also disconnected from device */
+				goto e_return;
+
+			case CMD_AT_U2DIAG:
+			case CMD_AT_CCWA_SET:
 			case CMD_AT_CCWA_STATUS:
 				ast_log (LOG_ERROR, "[%s] Command '%s' failed\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd));
-				goto e_return;
+				/* mean ignore error */
+				break;
 
 			case CMD_AT_CGMI:
 				ast_log (LOG_ERROR, "[%s] Getting manufacturer info failed\n", PVT_ID(pvt));
