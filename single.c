@@ -1,3 +1,6 @@
+/*
+   Copyright (C) 2010 bg <bg_one@mail.ru>
+*/
 #define BUILD_SINGLE
 
 #include "app.c"

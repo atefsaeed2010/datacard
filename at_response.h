@@ -20,7 +20,6 @@ typedef enum {
 	RES_BOOT,
 	RES_BUSY,
 	RES_CEND,
-//	RES_CLIP,
 	
 	RES_CMGR,
 	RES_CMS_ERROR,

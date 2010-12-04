@@ -55,7 +55,6 @@ EXPORT_DEF void cpvt_free(struct cpvt* cpvt)
 {
 	pvt_t * pvt = cpvt->pvt;
 	struct cpvt * found;
-//	struct at_queue_task * task;
 
 	ast_debug (3, "[%s] destroy cpvt for call_idx %d dir %d state '%s' flags %d has%s channel\n",  PVT_ID(pvt), cpvt->call_idx, cpvt->dir, call_state2str(cpvt->state), cpvt->flags, cpvt->channel ? "" : "'t");
 	AST_LIST_TRAVERSE_SAFE_BEGIN(&pvt->chans, found, entry) {

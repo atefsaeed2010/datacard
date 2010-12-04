@@ -5,6 +5,8 @@
    http://www.makhutov.org
    
    Dmitry Vagin <dmitry2004@yandex.ru>
+
+   bg <bg_one@mail.ru>
 */
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -89,8 +91,6 @@ static at_queue_cmd_t* at_queue_head_cmd_nc (const struct pvt* pvt)
  * \param prio -- priority 0 mean put at tail
  * \return 0 on success
  */
-
-// TODO: add high priority - insert at begining of queue
 #/* */
 static int at_queue_add (struct cpvt* cpvt, const at_queue_cmd_t* cmds, unsigned cmdsno, int prio)
 {
@@ -126,7 +126,6 @@ static int at_queue_add (struct cpvt* cpvt, const at_queue_cmd_t* cmds, unsigned
 		else
 			return -1;
 	}
-	// else complain
 	return 0;
 }
 
@@ -221,7 +220,6 @@ static int try_write (struct pvt* pvt)
 			ast_debug (4, "[%s] write command '%s' expected response '%s' length %u\n", 
 					PVT_ID(pvt), at_cmd2str (cmd->cmd), at_res2str (cmd->res), cmd->length);
 
-			// TODO: add write timeout
 			fail = at_write(pvt, cmd->data, cmd->length);
 			if(!fail)
 			{

@@ -5,6 +5,8 @@
    http://www.makhutov.org
    
    Dmitry Vagin <dmitry2004@yandex.ru>
+
+   bg <bg_one@mail.ru>
 */
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -16,8 +18,6 @@
 
 #include "chan_datacard.h"			/* devices */
 #include "at_command.h"
-
-//int unrefssizecount;
 
 #/* */
 EXPORT_DEF struct pvt* find_device (const char* name)
@@ -140,7 +140,8 @@ EXPORT_DEF const char* send_reset(const char* dev_name, int * status)
 #/* */
 EXPORT_DEF const char* send_ccwa_set(const char* dev_name, call_waiting_t enable, int * status)
 {
-// FIXME: 64bit compiler complain here
+/* FIXME: 64bit compiler complain here
+*/
 	return send2(dev_name, status, 1, (at_cmd_f)at_enque_set_ccwa, (const char*)enable, 
 			NULL, "Error adding CCWA commands to queue", 
 			"Call-Waiting commands queued for execute");
@@ -153,7 +154,8 @@ EXPORT_DEF const char* send_at_command(const char* dev_name, const char* command
 			NULL, "Error adding command", "Command queued for execute");
 }
 
-// TODO: use also for SMS and USSD?
+/* TODO: use also for SMS and USSD?
+*/
 #/* */
 EXPORT_DEF int is_valid_phone_number(const char* number)
 {

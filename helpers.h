@@ -9,9 +9,6 @@
 
 #define ITEMS_OF(x)				(sizeof(x)/sizeof((x)[0]))
 #define STRLEN(string)				(sizeof(string)-1)
-//#define UNUSED_ARG(x)
-//extern int unrefssizecount;
-//#define UNUSED_ARG(x)				unrefssizecount += sizeof(x)
 
 #ifndef MIN
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))

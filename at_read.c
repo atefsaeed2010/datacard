@@ -5,6 +5,8 @@
    http://www.makhutov.org
    
    Dmitry Vagin <dmitry2004@yandex.ru>
+
+   bg <bg_one@mail.ru>
 */
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -112,11 +114,13 @@ EXPORT_DEF int at_read_result_iov (struct pvt* pvt, struct ringbuffer* rb, struc
 	int	res;
 	size_t	s;
 
-// FIXME: +CME ERROR:
+/* FIXME: +CME ERROR:
+*/
 	s = rb_used (rb);
 	if (s > 0)
 	{
-//		ast_debug (5, "[%s] d_read_result %d len %d input [%.*s]\n", PVT_ID(pvt), pvt->d_read_result, s, MIN(s, rb->size - rb->read), (char*)rb->buffer + rb->read);
+/*		ast_debug (5, "[%s] d_read_result %d len %d input [%.*s]\n", PVT_ID(pvt), pvt->d_read_result, s, MIN(s, rb->size - rb->read), (char*)rb->buffer + rb->read);
+*/
 		
 		if (pvt->d_read_result == 0)
 		{
@@ -233,7 +237,8 @@ EXPORT_DEF at_res_t at_read_result_classification (struct ringbuffer * rb, unsig
 	
 	rb_read_upd (rb, len);
 
-//	ast_debug (5, "receive result '%s'\n", at_res2str (at_res));
+/*	ast_debug (5, "receive result '%s'\n", at_res2str (at_res));
+*/
 
 	return at_res;
 }

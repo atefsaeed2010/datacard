@@ -5,6 +5,8 @@
    http://www.makhutov.org
    
    Dmitry Vagin <dmitry2004@yandex.ru>
+
+   bg <bg_one@mail.ru>
 */
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -75,8 +77,9 @@ static int parse_dial_string(char * dialstr, const char** number, int * opts)
 	return 0;
 }
 
-// TODO: add check when request 'holdother' what requestor is not on same device
-// TODO: simplify by move common code to functions
+/* TODO: add check when request 'holdother' what requestor is not on same device 
+   TODO: simplify by move common code to functions
+*/
 #if ASTERISK_VERSION_NUM >= 10800
 static struct ast_channel* channel_request (attribute_unused const char* type, format_t format, attribute_unused const struct ast_channel *requestor, void* data, int* cause)
 #else
@@ -476,11 +479,13 @@ static void channel_activate_onlyone(struct cpvt* cpvt)
 		if (pvt->a_timer)
 		{
 			ast_channel_set_fd (cpvt->channel, 1, ast_timer_fd (pvt->a_timer));
-//			if (PVT_SINGLE_CHAN(pvt))
-//			{
+/*			if (PVT_SINGLE_CHAN(pvt))
+			{
+*/
 				ast_timer_set_rate (pvt->a_timer, 50);
-//				ast_debug (3, "[%s] Timer set\n", PVT_ID(pvt));
-//			}
+/*				ast_debug (3, "[%s] Timer set\n", PVT_ID(pvt));
+			}
+*/
 		}
 	}
 }
@@ -739,7 +744,8 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 			goto e_return;
 		}
 
-//		ast_debug (7, "[%s] call idx %d read %u\n", PVT_ID(pvt), cpvt->call_idx, (unsigned)res);
+/*		ast_debug (7, "[%s] call idx %d read %u\n", PVT_ID(pvt), cpvt->call_idx, (unsigned)res);
+*/
 		PVT_STAT_PUMP(read_bytes, += res);
 		PVT_STAT_PUMP(read_frames, ++);
 		if(res < FRAME_SIZE)
@@ -893,7 +899,8 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 			iov_write(pvt, pvt->audio_fd, iov, iovcnt);
 		}
 
-//		if (f->datalen != 320)
+/*		if (f->datalen != 320)
+*/
 		{
 			ast_debug (7, "[%s] Write frame: samples = %d, data lenght = %d byte\n", PVT_ID(pvt), f->samples, f->datalen);
 		}
@@ -931,7 +938,7 @@ static int channel_fixup (struct ast_channel* oldchannel, struct ast_channel* ne
 	return 0;
 }
 
-// FIXME: must modify in conjuction with state on call not whole device
+/* FIXME: must modify in conjuction with state on call not whole device? */
 static int channel_devicestate (void* data)
 {
 	char*	device;
@@ -1006,7 +1013,7 @@ static int channel_indicate (struct ast_channel* channel, int condition, const v
 
 
 #/* NOTE: called from device level with locked pvt */
-// FIXME: protection for cpvt->channel if exists
+/* FIXME: protection for cpvt->channel if exists */
 EXPORT_DEF void channel_change_state(struct cpvt * cpvt, unsigned newstate, int cause)
 {
 	struct pvt* pvt;
@@ -1074,7 +1081,6 @@ EXPORT_DEF void channel_change_state(struct cpvt * cpvt, unsigned newstate, int 
 			case CALL_STATE_RELEASED:
 				channel_disactivate(cpvt);
 				/* from +CEND: */
-//				ast_debug (1, "[%s] hanging up channel for call idx %d\n", PVT_ID(pvt), cpvt->call_idx);
 
 				if (channel_queue_hangup (cpvt, cause))
 				{
@@ -1326,7 +1332,7 @@ static int channel_func_write(struct ast_channel* channel, const char* function,
 		{
 			if(at_enque_activate(cpvt))
 			{
-				// TODO: handle error
+				/* TODO: handle error */
 				ast_log(LOG_ERROR, "Error state to active for call idx %d in %s(callstate).", cpvt->call_idx, function);
 			}
 		}
