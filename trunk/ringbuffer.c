@@ -12,6 +12,7 @@
 
 #include "memmem.h"
 #include <sys/uio.h>			/* struct iovec */
+#include <string.h>			/* memchr() */
 
 #include "ringbuffer.h"
 

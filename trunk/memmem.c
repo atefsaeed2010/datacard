@@ -31,8 +31,8 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#include <string.h>
+#include "memmem.h"
+#include <string.h>			/* memchr() memcmp() */
 
 /*
  * Find the first occurrence of the byte string s in byte string l.
