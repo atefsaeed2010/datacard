@@ -12,7 +12,7 @@
 #define CONFIG_FILE		"datacard.conf"
 
 typedef enum {
-	CALL_WAITING_DISALLOWED	= 0,
+	CALL_WAITING_DISALLOWED = 0,
 	CALL_WAITING_ALLOWED,
 	CALL_WAITING_AUTO
 } call_waiting_t;

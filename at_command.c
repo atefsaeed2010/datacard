@@ -29,7 +29,6 @@
 static const char cmd_chld2[] = "AT+CHLD=2\r";
 static const char cmd_clcc[] = "AT+CLCC\r";
 static const char cmd_ddsetex2[] = "AT^DDSETEX=2\r";
-static const char cmd_ccwa_set[] = "AT+CCWA=%d,%d,%d\r";
 
 /*!
  * \brief Format and fill generic command
@@ -209,7 +208,6 @@ EXPORT_DEF int at_enque_initialization(struct cpvt* cpvt, at_cmd_t from_command)
 	static const char cmd22[] = "AT+CPMS=\"ME\",\"ME\",\"ME\"\r";
 	static const char cmd23[] = "AT+CNMI=2,1,0,0,0\r";
 	static const char cmd24[] = "AT+CSQ\r";
-	static const char cmd25[] = "AT+CCWA=1,2,1\r";
 
 	static const at_queue_cmd_t st_cmds[] = {
 		ATQ_CMD_DECLARE_ST(CMD_AT, cmd1),
@@ -240,12 +238,9 @@ EXPORT_DEF int at_enque_initialization(struct cpvt* cpvt, at_cmd_t from_command)
 		ATQ_CMD_DECLARE_STI(CMD_AT_CSCS, cmd21),	/* UCS-2 text encoding */
 
 		ATQ_CMD_DECLARE_ST(CMD_AT_CPMS, cmd22),		/* SMS Storage Selection */
-			    /* pvt->initialized = 1 after successful of CMD_AT_CNMI */
+			/* pvt->initialized = 1 after successful of CMD_AT_CNMI */
 		ATQ_CMD_DECLARE_ST(CMD_AT_CNMI, cmd23),		/* New SMS Notification Setting +CNMI=[<mode>[,<mt>[,<bm>[,<ds>[,<bfr>]]]]] */
 		ATQ_CMD_DECLARE_ST(CMD_AT_CSQ, cmd24),		/* Query Signal quality */
-		ATQ_CMD_DECLARE_DYNI(CMD_AT_CCWA_SET),		/* Set Call-Waiting */
-/* place last see at_enque_set_ccwa() */
-		ATQ_CMD_DECLARE_STI(CMD_AT_CCWA_STATUS, cmd25),	/* Query CCWA Status for Voice Call */
 		};
 	unsigned in, out;
 	int begin = -1;
@@ -288,13 +283,6 @@ EXPORT_DEF int at_enque_initialization(struct cpvt* cpvt, at_cmd_t from_command)
 			if(err)
 				goto failure;
 			ptmp2 = cmds[out].data;
-		}
-		else if(cmds[out].cmd == CMD_AT_CCWA_SET)
-		{
-			err = CONF_SHARED(pvt, call_waiting) == CALL_WAITING_ALLOWED ? 1 : 0;
-			err = at_fill_generic_cmd(&cmds[out], cmd_ccwa_set, err, err, CCWA_CLASS_VOICE);
-			if(err)
-				goto failure;
 		}
 		if(cmds[out].cmd == from_command)
 			begin = out;
@@ -643,17 +631,34 @@ EXPORT_DEF int at_enque_dtmf (struct cpvt* cpvt, char digit)
  * \return 0 on success
  */
 
-EXPORT_DEF int at_enque_set_ccwa (struct cpvt* cpvt, int enable)
+EXPORT_DEF int at_enque_set_ccwa (struct cpvt* cpvt, call_waiting_t call_waiting)
 {
+	static const char cmd_ccwa_get[] = "AT+CCWA=1,2,1\r";
+	static const char cmd_ccwa_set[] = "AT+CCWA=%d,%d,%d\r";
 	int err;
-	if(enable)
-		enable = 1;
-	CONF_SHARED(cpvt->pvt, call_waiting) = enable;
+	at_queue_cmd_t cmds[] = {
+		ATQ_CMD_DECLARE_DYNI(CMD_AT_CCWA_SET),			/* Set Call-Waiting On/Off */
+		ATQ_CMD_DECLARE_ST(CMD_AT_CCWA_STATUS, cmd_ccwa_get),	/* Query CCWA Status for Voice Call */
+		
+	};
+	at_queue_cmd_t * pcmd = cmds;
+	unsigned count = ITEMS_OF(cmds);
+	
+	if(call_waiting == CALL_WAITING_DISALLOWED || call_waiting == CALL_WAITING_ALLOWED)
+	{
+		err = call_waiting == CALL_WAITING_ALLOWED ? 1 : 0;
+		err = at_fill_generic_cmd(&cmds[0], cmd_ccwa_set, err, err, CCWA_CLASS_VOICE);
+		if(err)
+		    return err;
+	}
+	else
+	{
+		pcmd++;
+		count--;
+	}
+	CONF_SHARED(cpvt->pvt, call_waiting) = call_waiting;
 
-	err = at_enque_generic(cpvt, CMD_AT_CCWA_SET, 0, cmd_ccwa_set, enable, enable, CCWA_CLASS_VOICE);
-	if(err == 0)
-		err = at_enque_initialization(cpvt, CMD_AT_CCWA_STATUS);
-	return err;
+	return at_queue_insert(cpvt, pcmd, count, 0);
 }
 
 /*!

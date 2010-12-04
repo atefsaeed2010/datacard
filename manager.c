@@ -288,7 +288,7 @@ static int manager_ccwa_set (struct mansession* s, const struct message* m)
 	char		buf[256];
 	const char*	msg;
 	int		status;
-	int		enable;
+	call_waiting_t	enable;
 
 	if (ast_strlen_zero (device))
 	{
@@ -297,9 +297,9 @@ static int manager_ccwa_set (struct mansession* s, const struct message* m)
 	}
 
 	if (strcmp("enable", value) == 0)
-		enable = 1;
+		enable = CALL_WAITING_ALLOWED;
 	else if (strcmp("disable", value) == 0)
-		enable = 0;
+		enable = CALL_WAITING_DISALLOWED;
 	else
 	{
 		astman_send_error (s, m, "Invalid Value");
