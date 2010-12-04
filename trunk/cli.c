@@ -298,7 +298,7 @@ static char* cli_ccwa_set (struct ast_cli_entry* e, int cmd, struct ast_cli_args
 {
 	static const char * const choices[] = { "enable", "disable", NULL };
 	const char * msg;
-	int enable;
+	call_waiting_t enable;
 	
 	switch (cmd)
 	{
@@ -326,9 +326,9 @@ static char* cli_ccwa_set (struct ast_cli_entry* e, int cmd, struct ast_cli_args
 		return CLI_SHOWUSAGE;
 	}
 	if (strcmp("disable", a->argv[2]) == 0)
-		enable = 0;
+		enable = CALL_WAITING_DISALLOWED;
 	else if (strcmp("enable", a->argv[2]) == 0)
-		enable = 1;
+		enable = CALL_WAITING_ALLOWED;
 	else
 		return CLI_SHOWUSAGE;
 

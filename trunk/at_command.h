@@ -5,6 +5,7 @@
 #define CHAN_DATACARD_AT_SEND_H_INCLUDED
 
 #include "export.h"		/* EXPORT_DECL EXPORT_DEF */
+#include "dc_config.h"		/* call_waiting_t */
 
 // magic order !!! keep order of this values like in at_cmd2str()
 typedef enum {
@@ -78,7 +79,7 @@ EXPORT_DECL int at_enque_cops (struct cpvt* cpvt);
 EXPORT_DECL int at_enque_sms (struct cpvt* cpvt, const char* number, const char* msg);
 EXPORT_DECL int at_enque_cusd (struct cpvt* cpvt, const char* code);
 EXPORT_DECL int at_enque_dtmf (struct cpvt* cpvt, char digit);
-EXPORT_DECL int at_enque_set_ccwa (struct cpvt* cpvt, int enable);
+EXPORT_DECL int at_enque_set_ccwa (struct cpvt* cpvt, call_waiting_t call_waiting);
 EXPORT_DECL int at_enque_reset (struct cpvt* cpvt);
 EXPORT_DECL int at_enque_dial(struct cpvt* cpvt, const char * number, int clir);
 EXPORT_DECL int at_enque_answer(struct cpvt* cpvt);

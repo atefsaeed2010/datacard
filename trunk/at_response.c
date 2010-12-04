@@ -362,7 +362,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 				goto e_return;
 
 			case CMD_AT_CREG_INIT:
-				ast_log (LOG_ERROR, "[%s] Error enableling registration info\n", PVT_ID(pvt));
+				ast_log (LOG_ERROR, "[%s] Error enabling registration info\n", PVT_ID(pvt));
 				goto e_return;
 
 			case CMD_AT_CREG:
@@ -1436,6 +1436,7 @@ static int at_response_creg (struct pvt* pvt, char* str, size_t len)
 	if (d)
 	{
 		pvt->gsm_registered = 1;
+		at_enque_set_ccwa(&pvt->sys_chan, CONF_SHARED(pvt, call_waiting));
 	}
 	else
 	{

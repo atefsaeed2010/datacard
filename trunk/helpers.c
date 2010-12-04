@@ -138,12 +138,12 @@ EXPORT_DEF const char* send_reset(const char* dev_name, int * status)
 }
 
 #/* */
-EXPORT_DEF const char* send_ccwa_set(const char* dev_name, int enable, int * status)
+EXPORT_DEF const char* send_ccwa_set(const char* dev_name, call_waiting_t enable, int * status)
 {
 // FIXME: 64bit compiler complain here
 	return send2(dev_name, status, 1, (at_cmd_f)at_enque_set_ccwa, (const char*)enable, 
-			NULL, "Error adding CCWA command to queue", 
-			"Call-Waiting command queued for execute");
+			NULL, "Error adding CCWA commands to queue", 
+			"Call-Waiting commands queued for execute");
 }
 
 #/* */
