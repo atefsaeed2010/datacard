@@ -5,6 +5,8 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <errno.h>			/* EINVAL ENOMEM E2BIG */
+
 #include "pdu.h"
 #include "helpers.h"			/* dial_digit_code() */
 #include "char_conv.h"			/* utf8_to_hexstr_ucs2() */
@@ -200,7 +202,7 @@ static int store_number(char* buffer, const char* number, unsigned length)
  * \param valid_minutes -- Validity period
  * \param srr -- Status Report Request
  * \param sca_len -- pointer where length of SCA header (in bytes) will be stored
- * \return number of bytes written to buffer w/o trailing 0x1A or 0, -1 if buffer too short, -2 on iconv recode errors
+ * \return number of bytes written to buffer w/o trailing 0x1A or 0, -ENOMEM if buffer too short, -EINVAL on iconv recode errors, -E2BIG if message too long
  */
 EXPORT_DEF int build_pdu(char* buffer, unsigned length, const char* csca, const char* dst, const char* msg, unsigned valid_minutes, int srr, int* sca_len)
 {
@@ -220,13 +222,17 @@ EXPORT_DEF int build_pdu(char* buffer, unsigned length, const char* csca, const 
 		dst++;
 
 	/* count length of strings */
+	unsigned msg_len = strlen(msg);
+	if(msg_len > 70)
+	{
+		return -E2BIG;
+	}
 	unsigned csa_len = strlen(csca);
 	unsigned dst_len = strlen(dst);
-	unsigned msg_len = strlen(msg);
 
 	/* check buffer has enougth space */
 	if(length < ((csa_len == 0 ? 2 : 4 + ROUND_UP2(csa_len)) + 8 + ROUND_UP2(dst_len) + 8 + msg_len * 4 + 4))
-		return -1;
+		return -ENOMEM;
 
 	/* SCA Length */
 	/* Type-of-address of the SMSC */
@@ -264,7 +270,7 @@ EXPORT_DEF int build_pdu(char* buffer, unsigned length, const char* csca, const 
 	data_len = utf8_to_hexstr_ucs2(msg, msg_len, buffer + len + 8, length - len - 11);
 	if(data_len < 0)
 	{
-		return -2;
+		return -EINVAL;
 	}
 	/* TODO: check message limit in 178 octet of TPDU (w/o SCA) */
 	tmp = buffer[len + 8];

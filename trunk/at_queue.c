@@ -240,7 +240,7 @@ static int try_write (struct pvt* pvt)
 			/* check expiration */
 			if(ast_tvcmp (ast_tvnow(), cmd->timeout) > 0)
 			{
-				ast_log (LOG_ERROR, "[%s] Error  command '%s' expected response '%s' expiried, cancel\n", PVT_ID(pvt), at_cmd2str (cmd->cmd), at_res2str (cmd->res));
+				ast_log (LOG_ERROR, "[%s] Error  command '%s' expected response '%s' expired, cancel\n", PVT_ID(pvt), at_cmd2str (cmd->cmd), at_res2str (cmd->res));
 				at_queue_remove_cmd(pvt, cmd->res + 1);
 				fail = -1;
 			}

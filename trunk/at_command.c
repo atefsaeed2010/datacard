@@ -341,11 +341,17 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 
 	if(pvt->use_pdu)
 	{
-//		at_cmd[0].length = 8;
 /*		res = build_pdu(pdu_buf, sizeof(pdu_buf), pvt->sms_scenter, destination, msg, 3*24*60, 0, &sca_len);*/
 		res = build_pdu(pdu_buf, sizeof(pdu_buf), "", destination, msg, 3*24*60, 0, &sca_len);
-		if(res <= 0)
+		if(res <= 0) 
+		{
+			if(res == -E2BIG)
+			{
+			ast_verb (3, "SMS Message too long, PDU has limit 70 symbols\n");
+			ast_log (LOG_WARNING, "[%s] SMS Message too long, PDU has limit 70 symbols\n", PVT_ID(pvt));
+			}
 			return res;
+		}
 		if(res > (int)(sizeof(pdu_buf) - 2))
 			return -1;
 		pdu_buf[res] = 0x1A;
@@ -366,7 +372,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 		res = utf8_to_hexstr_ucs2 (destination, strlen (destination), buf + at_cmd[0].length, sizeof(buf) - at_cmd[0].length - 3);
 		if(res <= 0)
 		{
-			ast_log (LOG_ERROR, "[%s] Error converting SMS number to UCS-2: %s\n", PVT_ID(pvt), destination);
+			ast_log (LOG_ERROR, "[%s] Error converting SMS number to UCS-2\n", PVT_ID(pvt));
 			return -4;
 		}
 		at_cmd[0].length += res;
