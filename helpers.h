@@ -24,6 +24,7 @@ EXPORT_DECL const char* send_reset(const char* dev_name, int * status);
 EXPORT_DECL const char* send_ccwa_set(const char* dev_name, call_waiting_t enable, int * status);
 EXPORT_DECL const char* send_at_command(const char* dev_name, const char* command);
 EXPORT_DECL int is_valid_phone_number(const char* number);
+EXPORT_DECL char dial_digit_code(char digit);
 
 
 

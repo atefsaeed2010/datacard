@@ -56,7 +56,6 @@ typedef enum {
 	CMD_AT_DDSETEX,
 	CMD_AT_DTMF,
 	CMD_AT_E,
-	CMD_AT_SMS_TEXT,
 
 	CMD_AT_U2DIAG,
 	CMD_AT_Z,

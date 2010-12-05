@@ -36,6 +36,7 @@ static ssize_t convert_string (const char* in, size_t in_length, char* out, size
 	res = iconv (cd, &in_ptr, &in_bytesleft, &out_ptr, &out_bytesleft);
 	if (res < 0)
 	{
+		iconv_close (cd);
 		return -3;
 	}
 
@@ -125,7 +126,7 @@ EXPORT_DEF ssize_t utf8_to_hexstr_ucs2 (const char* in, size_t in_length, char* 
 	char	buf[out_size];
 	ssize_t	res;
 
-	if (out_size - 1 < in_length * 2)
+	if (out_size - 1 < in_length * 4)
 	{
 		return -1;
 	}
