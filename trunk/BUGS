@@ -6,8 +6,5 @@ Known bugs
 
 3) Terminate held call locally break voice on all active
 
-
 4) Issue AT+CHLD=1x command before receiving ^CONF:call_idx after successfull ATDnum; 
 kill device. Device not responding on commands but still sending ^BOOT: and ^RSSI: URCs
-
-5) Cut early media

@@ -156,40 +156,53 @@ EXPORT_DEF const char* send_at_command(const char* dev_name, const char* command
 
 /* TODO: use also for SMS and USSD?
 */
+
+#/* get digit code, 0 if invalid  */
+EXPORT_DEF char dial_digit_code(char digit)
+{
+	switch(digit)
+	{
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+			break;
+		case '*':
+			digit = 'A';
+			break;
+		case '#':
+			digit = 'B';
+			break;
+		case 'a':
+		case 'A':
+			digit = 'C';
+			break;
+		case 'b':
+		case 'B':
+			digit = 'D';
+			break;
+		case 'c':
+		case 'C':
+			digit = 'E';
+			break;
+		default:
+			return 0;
+	}
+	return digit;
+}
+
 #/* */
 EXPORT_DEF int is_valid_phone_number(const char* number)
 {
-	for(; number[0]; number++)
-	{
-		switch(number[0])
-		{
-			case '0':
-			case '1':
-			case '2':
-			case '3':
-			case '4':
-			case '5':
-			case '6':
-			case '7':
-			case '8':
-			case '9':
-			case '*':
-			case '#':
-			case '+':
-			case 'A':
-			case 'B':
-			case 'C':
-/*
-			case 'a':
-			case 'b':
-			case 'c':
-*/
-				;
-				break;
-			default:
-				return 0;
-		}
-	}
-	
+	for(; *number; number++)
+		if(dial_digit_code(*number) == 0)
+			return 0;
+
 	return 1;
 }

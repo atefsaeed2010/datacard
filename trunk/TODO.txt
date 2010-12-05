@@ -19,8 +19,10 @@ added 20.11.2010
 
 8) LED control
 
-9) SMS send/receive in Unicode
+9) SMS receive in Unicode
 	send in PDU added at 27.11.2010 r45
+	send in UCS-2 added at 05.12.2010 r72
+
 10) Automatic device discovery by IMEI or IMSI
 
 11) Complete fix of DTMF duplication
@@ -36,7 +38,8 @@ added 24.11.2010
 
 15) Do a lot of testing with the channel driver
 
-16) Test sending SMS with a new line character in it
+	16) Test sending SMS with a new line character in it
+		done at 05.12.2010
 
 17) Find a way how to proper detect remote side alerting
 
@@ -55,7 +58,7 @@ added 24.11.2010
 	done 27.11.2010 at r46 with [defaults]
 
     24) [global] with template settings
-	done 27.11.2010 at r46 with [defaults]
+	done 27.11.2010 at r46 with [defaults]. Also available asterisk template feature for config files
 
 24) reconfigure on fly
 

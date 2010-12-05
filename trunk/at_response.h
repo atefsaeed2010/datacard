@@ -9,8 +9,6 @@
 struct pvt;
 struct iovec;
 
-#define NUMBER_TYPE_INTERNATIONAL	145
-
 /* magic order!!! keep this enum order same as in at_responses_list */
 typedef enum {
 	RES_PARSE_ERROR = -1,

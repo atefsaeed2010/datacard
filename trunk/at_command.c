@@ -27,6 +27,7 @@
 #include "at_queue.h"
 #include "char_conv.h"			/* char_to_hexstr_7bit() */
 #include "chan_datacard.h"		/* struct pvt */
+#include "pdu.h"			/* build_pdu() */
 
 static const char cmd_chld2[] = "AT+CHLD=2\r";
 static const char cmd_clcc[] = "AT+CLCC\r";
@@ -155,7 +156,6 @@ EXPORT_DEF const char* at_cmd2str (at_cmd_t cmd)
 		"AT^DDSETEX",
 		"AT^DTMF",
 		"ATE",
-		"SMS TEXT",
 
 		"AT^U2DIAG",
 		"ATZ",
@@ -213,14 +213,14 @@ EXPORT_DEF int at_enque_initialization(struct cpvt* cpvt, at_cmd_t from_command)
 
 	static const at_queue_cmd_t st_cmds[] = {
 		ATQ_CMD_DECLARE_ST(CMD_AT, cmd1),
-		ATQ_CMD_DECLARE_ST(CMD_AT_Z, cmd2),		/* optional  reload configuration */
+		ATQ_CMD_DECLARE_ST(CMD_AT_Z, cmd2),		/* optional,  reload configuration */
 		ATQ_CMD_DECLARE_ST(CMD_AT_E, cmd3),		/* disable echo */
-		ATQ_CMD_DECLARE_DYN(CMD_AT_U2DIAG),		/* optional Enable or disable some devices */
+		ATQ_CMD_DECLARE_DYN(CMD_AT_U2DIAG),		/* optional, Enable or disable some devices */
 		ATQ_CMD_DECLARE_ST(CMD_AT_CGMI, cmd5),		/* Getting manufacturer info */
 
 		ATQ_CMD_DECLARE_ST(CMD_AT_CGMM, cmd7),		/* Get Product name */
-		ATQ_CMD_DECLARE_ST(CMD_AT_CGMR, cmd8),		/* set MS Error Report to 'ERROR' only  TODO: change to 1 or 2 and add support in response handlers */
-		ATQ_CMD_DECLARE_ST(CMD_AT_CMEE, cmd9),
+		ATQ_CMD_DECLARE_ST(CMD_AT_CGMR, cmd8),		/* Get software version */
+		ATQ_CMD_DECLARE_ST(CMD_AT_CMEE, cmd9),		/* set MS Error Report to 'ERROR' only  TODO: change to 1 or 2 and add support in response handlers */
 
 		ATQ_CMD_DECLARE_ST(CMD_AT_CGSN, cmd10),		/* IMEI Read */
 		ATQ_CMD_DECLARE_ST(CMD_AT_CIMI, cmd11),		/* IMSI Read */
@@ -235,7 +235,7 @@ EXPORT_DEF int at_enque_initialization(struct cpvt* cpvt, at_cmd_t from_command)
 		ATQ_CMD_DECLARE_ST(CMD_AT_CSCA, cmd6),		/* Get SMS Service center address */
 		ATQ_CMD_DECLARE_ST(CMD_AT_CLIP, cmd18),		/* disable  Calling line identification presentation in unsolicited response +CLIP: <number>,<type>[,<subaddr>,<satype>[,[<alpha>][,<CLI validitity>]] */
 		ATQ_CMD_DECLARE_ST(CMD_AT_CSSN, cmd19),		/* activate Supplementary Service Notification with CSSI and CSSU */
-		ATQ_CMD_DECLARE_DYN(CMD_AT_CMGF),		/* SMS Format Setting */
+		ATQ_CMD_DECLARE_DYN(CMD_AT_CMGF),		/* Set Message Format */
 
 		ATQ_CMD_DECLARE_STI(CMD_AT_CSCS, cmd21),	/* UCS-2 text encoding */
 
@@ -316,127 +316,8 @@ EXPORT_DEF int at_enque_cops (struct cpvt* cpvt)
 	return at_queue_insert_const(cpvt, &at_cmd, 1, 0);
 }
 
+
 /* SMS sending */
-/*!
- * \brief Store number in PDU 
- * \param buffer -- pointer to place where number will be stored
- * \param number -- phone number w/o leading '+'
- * \param length -- length of number
- * \return number of bytes written to buffer
- */
-static int store_number(char* buffer, const char* number, unsigned length)
-{
-	int i;
-	for(i = 0; length > 1; length -=2, i +=2)
-	{
-		buffer[i] = number[i + 1];
-		buffer[i + 1] = number[i];
-	}
-	
-	if(length)
-	{
-		buffer[i] = 'F';
-		buffer[i+1] = number[i];
-		i += 2;
-	}
-	return i;
-}
-
-#define ROUND_UP2(x)		(((x) + 1) & (0xFFFFFFFF << 1))
-
-#define SMS_TP_FIRST	0x31
-#define SMS_REF		0x00
-#define SMS_TP_PID	0x00
-#define SMS_TP_DCS	0x80
-#define SMS_VALIDITY	0xFF
-
-/*!
- * \brief Build PDU text for SMS
- * \param pvt -- pvt structure
- * \param buffer -- pointer to place where PDU will be stored
- * \param length -- length of buffer
- * \param csca -- number of SMS center may be with leading '+'
- * \param dst -- destination number for SMS may be with leading '+'
- * \param msg -- SMS message in utf-8
- * \param sca_len -- pointer where length of SCA header will be stored
- * \return number of bytes written to buffer, -1 if buffer to short, -2 on iconv recode errors
- */
-static int build_pdu(struct pvt* pvt, char* buffer, unsigned length, const char* csca, const char* dst, const char* msg, int* sca_len)
-{
-	char tmp;
-	int len = 0;
-	int data_len;
-
-	int csca_toa = NUMBER_TYPE_INTERNATIONAL;
-	int dst_toa = NUMBER_TYPE_INTERNATIONAL;
-	
-	/* TODO: check numbers */
-	if(csca[0] == '+')
-		csca++;
-
-	if(dst[0] == '+') 
-		dst++;
-
-	unsigned csa_len = strlen(csca);
-	unsigned dst_len = strlen(dst);
-	unsigned msg_len = strlen(msg);
-	
-	/* check buffer has enougth space */
-	if(length < ((csa_len == 0 ? 2 : 4 + ROUND_UP2(csa_len)) + 8 + ROUND_UP2(dst_len) + 8 + msg_len * 4 + 4))
-		return -1;
-		
-
-	/* Length of SMSC information */
-	/* Type-of-address of the SMSC */
-	/* Address of SMSC */
-	if(csa_len)
-	{
-		len += snprintf(buffer + len, length - len, "%02X%02X", 1 + ((csa_len + 1) / 2), csca_toa);
-		len += store_number(buffer + len, csca, csa_len);
-		*sca_len = len;
-	}
-	else
-	{
-		buffer[len++] = '0';
-		buffer[len++] = '0';
-		*sca_len = 2;
-	}
-	/* First octet of the SMS-SUBMIT message */
-	/* TP-Message-Reference. The "00" value here lets the phone set the message reference number itself */
-	/* Address-Length */
-	/* Type-of-address of the sender number */
-	len += snprintf(buffer + len, length - len, "%02X%02X%02X%02X", SMS_TP_FIRST, SMS_REF, dst_len, dst_toa);
-
-	/*  Destination address */
-	len += store_number(buffer + len, dst, dst_len);
-	
-	/* TP-PID. Protocol identifier  */
-	/* TP-DCS. Data coding scheme */
-	/* TP-Validity-Period */
-	/* TP-User-Data-Length */
-	/* TP-User-Data */
-	data_len = utf8_to_hexstr_ucs2(msg, msg_len, buffer + len + 8, length - len - 11);
-	if(data_len < 0)
-	{
-		ast_log (LOG_ERROR, "[%s] Error converting SMS to UCS-2: '%s'\n", PVT_ID(pvt), msg);
-		return -2;
-	}
-	/* TODO: check message limit in 178 octet of TPDU (w/o SCA) */
-	tmp = buffer[len + 8];
-	len += snprintf(buffer + len, length - len, "%02X%02X%02X%02X", SMS_TP_PID, SMS_TP_DCS, SMS_VALIDITY, data_len / 2);
-	buffer[len] = tmp;
-
-	len += data_len;
-	buffer[len++] = 0x1A;
-	buffer[len] = 0;
-
-	return len;
-}
-#undef SMS_VALIDITY
-#undef SMS_TP_DCS
-#undef SMS_REF
-#undef SMS_TP_FIRST
-#undef ROUND_UP2
 
 /*!
  * \brief Enque an SMS message
@@ -445,7 +326,7 @@ static int build_pdu(struct pvt* pvt, char* buffer, unsigned length, const char*
  * \param msg -- utf-8 encoded message
  */
 
-EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* number, const char* msg)
+EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const char* msg)
 {
 	int sca_len;
 	ssize_t res;
@@ -460,18 +341,19 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* number, const char* 
 
 	if(pvt->use_pdu)
 	{
-		at_cmd[0].length = 8;
-/*		res = build_pdu(pvt, pdu_buf, sizeof(pdu_buf), pvt->sms_scenter, number, msg, &sca_len);
-*/
-		res = build_pdu(pvt, pdu_buf, sizeof(pdu_buf), "\x00", number, msg, &sca_len);
+//		at_cmd[0].length = 8;
+/*		res = build_pdu(pdu_buf, sizeof(pdu_buf), pvt->sms_scenter, destination, msg, 3*24*60, 0, &sca_len);*/
+		res = build_pdu(pdu_buf, sizeof(pdu_buf), "", destination, msg, 3*24*60, 0, &sca_len);
 		if(res <= 0)
 			return res;
-		at_cmd[1].length = res;
-		res -= sca_len + 1;
+		if(res > (int)(sizeof(pdu_buf) - 2))
+			return -1;
+		pdu_buf[res] = 0x1A;
+		pdu_buf[res + 1] = 0;
+		at_cmd[1].length = res + 1;
+		res -= sca_len;
 		
-		at_cmd[0].length += snprintf(buf + at_cmd[0].length, sizeof(buf) - at_cmd[0].length - 2, "%d", (int)(res / 2));
-		buf[at_cmd[0].length++] = '\r';
-		buf[at_cmd[0].length] = '\0';
+		at_cmd[0].length = snprintf(buf, sizeof(buf), "AT+CMGS=%d\r", (int)(res / 2));
 
 /*		ast_debug (5, "[%s] PDU Head '%s'\n", PVT_ID(pvt), buf);
 		ast_debug (5, "[%s] PDU Body '%s'\n", PVT_ID(pvt), pdu_buf);
@@ -481,10 +363,10 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* number, const char* 
 	{
 		at_cmd[0].length = 9;
 		
-		res = utf8_to_hexstr_ucs2 (number, strlen (number), buf + at_cmd[0].length, sizeof(buf) - at_cmd[0].length - 3);
+		res = utf8_to_hexstr_ucs2 (destination, strlen (destination), buf + at_cmd[0].length, sizeof(buf) - at_cmd[0].length - 3);
 		if(res <= 0)
 		{
-			ast_log (LOG_ERROR, "[%s] Error converting SMS number to UCS-2: %s\n", PVT_ID(pvt), number);
+			ast_log (LOG_ERROR, "[%s] Error converting SMS number to UCS-2: %s\n", PVT_ID(pvt), destination);
 			return -4;
 		}
 		at_cmd[0].length += res;
@@ -520,12 +402,13 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* number, const char* 
 	}
 
 	at_cmd[1].data = ast_strdup (pdu_buf);
-	if(!at_cmd[1].data) 
+	if(!at_cmd[1].data)
 	{
 		ast_free (at_cmd[0].data);
 		return -5;
 	}
 
+//	return 0;
 	return at_queue_insert(cpvt, at_cmd, ITEMS_OF(at_cmd), 0);
 }
 
