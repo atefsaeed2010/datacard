@@ -76,3 +76,13 @@ How to store your own number:
 datacard cmd datacard0 AT+CPBS=\"ON\"
 datacard cmd datacard0 AT+CPBW=1,\"+123456789\",145
 
+
+Other CLI commands:
+
+datacard reset device
+datacard restart device
+datacard show device device
+datacard show devices
+datacard show version
+datacard sms device number message
+datacard ussd device number message
