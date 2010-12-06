@@ -78,3 +78,9 @@ added 24.11.2010
 added 06.12.2010
 
 27) Remove Call waiting status duplicated messages
+
+28) outgoing SMS: SRR, validity, SC address
+
+29) incoming SMS: raw PDU, raw message, SCTS, SCA, UDH, PID?, fields of DCS 
+
+

@@ -21,6 +21,23 @@
 #include "at_command.h"
 #include "pdu.h"				/* pdu_digit2code() */
 
+static int is_valid_ussd_string(const char* number)
+{
+	for(; *number; number++)
+		if(pdu_digit2code(*number) == 0)
+			return 0;
+
+	return 1;
+}
+
+#/* */
+EXPORT_DEF int is_valid_phone_number(const char* number)
+{
+	if(number[0] == '+')
+		number++;
+	return is_valid_ussd_string(number);
+}
+
 #/* */
 EXPORT_DEF struct pvt* find_device (const char* name)
 {
@@ -121,7 +138,7 @@ static const char* send2(const char* dev_name, int * status, int online, at_cmd_
 #/* */
 EXPORT_DEF const char* send_ussd(const char* dev_name, const char* ussd, int * status)
 {
-	if(is_valid_phone_number(ussd))
+	if(is_valid_ussd_string(ussd))
 		return send2(dev_name, status, 1, (at_cmd_f)at_enque_cusd, ussd, NULL, 
 			"Error adding USSD command to queue", "USSD queued for send");
 	if(status)
@@ -132,11 +149,7 @@ EXPORT_DEF const char* send_ussd(const char* dev_name, const char* ussd, int * s
 #/* */
 EXPORT_DEF const char * send_sms(const char * dev_name, const char * number, const char * message, int * status)
 {
-	const char * num = number;
-	if(num[0] == '+')
-		num++;
-
-	if(is_valid_phone_number(num))
+	if(is_valid_phone_number(number))
 		return send2(dev_name, status, 1, at_enque_sms, number, message, 
 				"Error adding SMS commands to queue", "SMS queued for send");
 	if(status)
@@ -168,12 +181,3 @@ EXPORT_DEF const char* send_at_command(const char* dev_name, const char* command
 			NULL, "Error adding command", "Command queued for execute");
 }
 
-#/* */
-EXPORT_DEF int is_valid_phone_number(const char* number)
-{
-	for(; *number; number++)
-		if(pdu_digit2code(*number) == 0)
-			return 0;
-
-	return 1;
-}

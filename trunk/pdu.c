@@ -12,7 +12,7 @@
 #include "char_conv.h"			/* utf8_to_hexstr_ucs2() */
 
 /* SMS-SUBMIT format
-	SCA		1..12 octet(s)		Service Center Adress information element
+	SCA		1..12 octet(s)		Service Center Address information element
 	  octets
 	        1		Length of Address (minimal 0)
 	        2		Type of Address
@@ -99,7 +99,7 @@
 */
 
 /* SMS-DELIVER format
-	SCA		1..12 octet(s)		Service Center Adress information element
+	SCA		1..12 octet(s)		Service Center Address information element
 	  octets
 	        1		Length of Address (minimal 0)
 	        2		Type of Address
