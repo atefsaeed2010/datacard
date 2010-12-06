@@ -14,6 +14,7 @@ typedef enum {
 	STR_ENCODING_7BIT_HEX		= 0,	/* 7bit encoding */
 	STR_ENCODING_8BIT_HEX,			/* 8bit encoding */
 	STR_ENCODING_UCS2_HEX,			/* UCS-2 in hex like PDU */
+/* TODO: check its really 7bit input from device */
 	STR_ENCODING_7BIT,			/* 7bit ASCII  no need recode to utf-8 */
 	STR_ENCODING_UNKNOWN,			/* still unknown */
 } str_encoding_t;

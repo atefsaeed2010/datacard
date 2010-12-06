@@ -1219,19 +1219,20 @@ EXPORT_DEF int channel_queue_hangup (struct cpvt * cpvt, int hangupcause)
 	return 0;
 }
 
+#if 0
 /* NOTE: bg: called from device level with pvt locked */
-EXPORT_DEF struct ast_channel* channel_local_request (struct pvt* pvt, void* data, const char* cid_name, const char* cid_num)
+EXPORT_DEF struct ast_channel* channel_local_request (struct pvt* pvt, const char* cid_name, const char* cid_num)
 {
 	struct ast_channel*	channel;
 	int			cause = 0;
 
 #if ASTERISK_VERSION_NUM >= 10800
-	if (!(channel = ast_request ("Local", AST_FORMAT_AUDIO_MASK, NULL, data, &cause)))
+	if (!(channel = ast_request ("Local", AST_FORMAT_AUDIO_MASK, NULL, PVT_ID(pvt), &cause)))
 #else
-	if (!(channel = ast_request ("Local", AST_FORMAT_AUDIO_MASK, data, &cause)))
+	if (!(channel = ast_request ("Local", AST_FORMAT_AUDIO_MASK, PVT_ID(pvt), &cause)))
 #endif
 	{
-		ast_log (LOG_ERROR, "Unable to request channel Local/%s\n", (char*) data);
+		ast_log (LOG_ERROR, "Unable to request channel Local/%s\n", PVT_ID(pvt));
 		return channel;
 	}
 
@@ -1245,6 +1246,53 @@ EXPORT_DEF struct ast_channel* channel_local_request (struct pvt* pvt, void* dat
 	ast_string_field_set (channel, language, CONF_SHARED(pvt, language));
 
 	return channel;
+}
+#endif
+
+/* NOTE: bg: called from device level with pvt locked */
+EXPORT_DECL void channel_local_start (struct pvt* pvt, const char* exten, const char* number, channel_var_t* vars)
+{
+	struct ast_channel*	channel;
+	int			cause = 0;
+	unsigned		idx;
+	char			channel_name[1024];
+
+	snprintf (channel_name, sizeof (channel_name), "%s@%s", exten, CONF_SHARED(pvt, context));
+
+#if ASTERISK_VERSION_NUM >= 10800
+	channel = ast_request ("Local", AST_FORMAT_AUDIO_MASK, NULL, channel_name, &cause);
+#else
+	channel = ast_request ("Local", AST_FORMAT_AUDIO_MASK, channel_name, &cause);
+#endif
+	if (channel)
+	{
+		channel_var_t dev_vars[] = 
+		{
+			{ "PROVIDER", pvt->provider_name },
+			{ "IMEI", pvt->imei },
+			{ "IMSI", pvt->imsi },
+			{ "CNUMBER", pvt->number },
+		};
+	
+		ast_set_callerid (channel, number, PVT_ID(pvt), number);
+		ast_string_field_set (channel, language, CONF_SHARED(pvt, language));
+
+		for(idx = 0; idx < ITEMS_OF(dev_vars); ++idx)
+			pbx_builtin_setvar_helper (channel, dev_vars[idx].name, dev_vars[idx].value);
+		for(; vars->name; ++vars)
+			pbx_builtin_setvar_helper (channel, vars->name, vars->value);
+
+		cause = ast_pbx_start (channel);
+		if (cause)
+		{
+			ast_hangup (channel);
+			ast_log (LOG_ERROR, "[%s] Unable to start pbx on channel Local/%s\n", PVT_ID(pvt), channel_name);
+		}
+	}
+	else
+	{
+		ast_log (LOG_ERROR, "[%s] Unable to request channel Local/%s\n", PVT_ID(pvt), channel_name);
+	}
 }
 
 #/* */
