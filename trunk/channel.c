@@ -1352,7 +1352,7 @@ static int channel_func_write(struct ast_channel* channel, const char* function,
 EXPORT_DEF const struct ast_channel_tech channel_tech =
 {
 	.type			= "Datacard",
-	.description		= "Datacard Channel Driver",
+	.description		= MODULE_DESCRIPTION,
 	.capabilities		= AST_FORMAT_SLINEAR,
 	.requester		= channel_request,
 	.call			= channel_call,

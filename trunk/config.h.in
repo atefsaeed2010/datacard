@@ -77,7 +77,7 @@
 #undef ICONV_CONST
 
 /* Define to the address where bug reports for this package should be sent. */
-//#undef PACKAGE_BUGREPORT
+#undef MODULE_BUGREPORT
 
 /* Define to the full name of this package. */
 //#undef PACKAGE_NAME
@@ -92,10 +92,10 @@
 //#undef PACKAGE_TARNAME
 
 /* Define to the home page for this package. */
-//#undef PACKAGE_URL
+#undef MODULE_URL
 
 /* Define to the version of this package. */
-//#undef PACKAGE_VERSION
+#undef MODULE_VERSION
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS

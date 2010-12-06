@@ -236,6 +236,13 @@ static void* do_monitor_phone (void* data)
 			ast_log (LOG_ERROR, "Lost connection to Datacard %s\n", PVT_ID(pvt));
 			goto e_cleanup;
 		}
+		if(pvt->restarting)
+		{
+			pvt->restarting = 0;
+			ast_log (LOG_NOTICE, "[%s] Restarting by request\n", PVT_ID(pvt));
+			goto e_restart;
+		}
+		
 		t = pvt->timeout;
 
 		ast_mutex_unlock (&pvt->lock);
@@ -290,7 +297,7 @@ e_cleanup:
 	{
 		ast_verb (3, "Error initializing Datacard %s\n", PVT_ID(pvt));
 	}
-
+e_restart:
 	disconnect_datacard (pvt);
 
 	ast_mutex_unlock (&pvt->lock);
@@ -809,7 +816,7 @@ static int unload_module ()
 	return 0;
 }
 
-AST_MODULE_INFO_STANDARD (ASTERISK_GPL_KEY, "Datacard Channel Driver");
+AST_MODULE_INFO_STANDARD (ASTERISK_GPL_KEY, MODULE_DESCRIPTION);
 
 EXPORT_DEF struct ast_module* self_module()
 {

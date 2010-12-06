@@ -5,6 +5,7 @@ added 20.11.2010
 	done at 27.11.2010 r45
     2) Handling call waiting
 	done at 27.11.2010 r45
+
 3) Extended device name 'i:' 's:' for DEVICE_STATE() and DatacardStatus()
 
 4) automatic gain control for rxgain/txgain
@@ -20,8 +21,10 @@ added 20.11.2010
 8) LED control
 
 9) SMS receive in Unicode
-	send in PDU added at 27.11.2010 r45
-	send in UCS-2 added at 05.12.2010 r72
+		send in PDU added at 27.11.2010 r45
+		send in UCS-2 added at 05.12.2010 r72
+		receive side done at 06.12.2010 r75
+	TODO: USSD check with AT+CMGF=0
 
 10) Automatic device discovery by IMEI or IMSI
 
@@ -29,7 +32,9 @@ added 20.11.2010
 
 12) Full support of SMS receive with active voice call
 
+
 added 24.11.2010
+
 13) Device files locking
 
     14) SMS PDU mode
@@ -47,7 +52,8 @@ added 24.11.2010
 
 19) Cleanup code
 
-20) Make a better Makefile
+	20) Make a better Makefile
+		switch to autoconf at 05.12.2010
 
 21) Write a better documentation
 	paritally 
@@ -62,8 +68,13 @@ added 24.11.2010
 
 24) reconfigure on fly
 
-25) implement command "datacard show version"
+	25) implement command "datacard show version"
+		done at 06.12.2010 in r77
 
-26) implement command "datacard reinitialize device"
+	26) implement command "datacard reinitialize device"
+		done at 06.12.2010 in r77
+
+
+added 06.12.2010
 
 27) Remove Call waiting status duplicated messages

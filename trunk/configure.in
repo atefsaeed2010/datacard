@@ -2,7 +2,7 @@ dnl init
 dnl AC_REVISION($Revision: 1.30 $)
 AC_PREREQ([2.60])
 AC_INIT([chan_datacard],[1.0],[http://code.google.com/p/datacard/issues/list],[chan_datacard],[http://code.google.com/p/datacard])
-PACKAGE_REVISION="248"
+PACKAGE_REVISION="249"
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_SRCDIR([chan_datacard.c])
 AC_CANONICAL_SYSTEM
@@ -170,6 +170,7 @@ dnl Checks for library functions.
 AC_FUNC_MEMCMP
 AC_CHECK_FUNCS([memchr memmove memset memmem strcasecmp strchr strncasecmp strtol])
 
+
 dnl Apply options to defines
 if test "x$enable_debug" = "xyes" ; then
   CFLAGS="$CFLAGS -O0 -g"
@@ -184,6 +185,11 @@ if test "x$enable_apps" = "xyes" ; then
   AC_DEFINE([BUILD_APPLICATIONS],[1],[Build extention applications])
 fi
 
+dnl AC_DEFINE_UNQUOTED([MODULE_], "$PACKAGE_", [])
+dnl AC_DEFINE_UNQUOTED([MODULE_], "$PACKAGE_", [])
+AC_DEFINE_UNQUOTED([MODULE_BUGREPORT], "$PACKAGE_BUGREPORT", [Define to the address where bug reports for this package should be sent])
+AC_DEFINE_UNQUOTED([MODULE_URL], "$PACKAGE_URL", [Define to the home page for this package])
+AC_DEFINE_UNQUOTED([MODULE_VERSION], "$PACKAGE_VERSION", [Define to the version of this package])
 AC_DEFINE_UNQUOTED([AST_MODULE],"$PACKAGE_NAME",[name of asterisk module])
 AC_DEFINE_UNQUOTED([PACKAGE_REVISION], "$PACKAGE_REVISION",[Revision of package])
 
