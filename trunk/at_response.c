@@ -1139,8 +1139,6 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 	char*		number;
 	char		from_number_utf8_str[1024];
 	char		text_base64[16384];
-	struct ast_channel* channel;
-	char		channel_name[1024];
 	size_t		msg_len;
 
 	const struct at_queue_cmd * ecmd = at_queue_head_cmd (pvt);
@@ -1195,19 +1193,14 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 		manager_event_new_sms(pvt, number, msg);
 		manager_event_new_sms_base64(pvt, number, text_base64);
 #endif
-		snprintf (channel_name, sizeof (channel_name), "sms@%s", CONF_SHARED(pvt, context));
-
-		channel = channel_local_request (pvt, channel_name, PVT_ID(pvt), number);
-		if (channel)
 		{
-			pbx_builtin_setvar_helper (channel, "SMS", msg);
-			pbx_builtin_setvar_helper (channel, "SMS_BASE64", text_base64);
-
-			if (ast_pbx_start (channel))
+			channel_var_t vars[] = 
 			{
-				ast_hangup (channel);
-				ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming sms\n", PVT_ID(pvt));
-			}
+				{ "SMS", msg } ,
+				{ "SMS_BASE64", text_base64 },
+				{ NULL, NULL },
+			};
+			channel_local_start(pvt, "sms", number, vars);
 		}
 	    }
 	    else
@@ -1268,9 +1261,7 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 	unsigned char	dcs;
 	char		cusd_utf8_str[1024];
 	char		text_base64[16384];
-	char		channel_name[1024];
-	struct ast_channel* channel;
-	str_encoding_t ussd_encoding;
+	str_encoding_t 	ussd_encoding;
 	
 	if (at_parse_cusd (str, len, &cusd, &dcs))
 	{
@@ -1302,20 +1293,14 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 	manager_event_new_ussd_base64 (pvt, text_base64);
 #endif
 
-	snprintf (channel_name, sizeof (channel_name), "ussd@%s", CONF_SHARED(pvt, context));
-
-	// TODO: join with sms
-	channel = channel_local_request (pvt, channel_name, PVT_ID(pvt), "ussd");
-	if (channel)
 	{
-		pbx_builtin_setvar_helper (channel, "USSD", cusd);
-		pbx_builtin_setvar_helper (channel, "USSD_BASE64", text_base64);
-
-		if (ast_pbx_start (channel))
+		channel_var_t vars[] = 
 		{
-			ast_hangup (channel);
-			ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming ussd\n", PVT_ID(pvt));
-		}
+			{ "USSD", cusd },
+			{ "USSD_BASE64", text_base64 },
+			{ NULL, NULL },
+		};
+		channel_local_start(pvt, "ussd", "ussd", vars);
 	}
 
 	return 0;

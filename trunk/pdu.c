@@ -639,6 +639,7 @@ static str_encoding_t pdu_dcs_alpabet2encoding(int alpabet)
  * \param tpdu_length -- length of TPDU in octets
  * \return 0 on success
  */
+/* TODO: split long function */
 EXPORT_DEF const char * pdu_parse(char ** pdu, size_t tpdu_length, char * oa, size_t oa_len, str_encoding_t * oa_enc, char ** msg, str_encoding_t * msg_enc)
 {
 	const char * err = NULL;
@@ -667,12 +668,13 @@ EXPORT_DEF const char * pdu_parse(char ** pdu, size_t tpdu_length, char * oa, si
 						*oa_enc = STR_ENCODING_7BIT;
 						if(pid >= 0)
 						{
+						   /* TODO: support other types of messages */
 						   if(pid == PDU_PID_SMS)
 						   {
 							int dcs = pdu_parse_byte(pdu, &pdu_length);
 							if(dcs >= 0)
 							{
-							    // TODO: another encodings ?
+							    // TODO: support compression
 							    if( PDU_DCS_76(dcs) == PDU_DCS_76_00
 							    		&&
 							    	PDU_DCS_COMPRESSION(dcs) == PDU_DCS_NOT_COMPESSED
