@@ -240,6 +240,8 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 
 			case CMD_AT_SMSTEXT:
 				pvt->outgoing_sms = 0;
+				/* TODO: move to +CMGS: handler */
+				ast_verb (3, "[%s] Successfully sent sms message\n", PVT_ID(pvt));
 				ast_log (LOG_NOTICE, "[%s] Successfully sent sms message\n", PVT_ID(pvt));
 				ast_debug (1, "[%s] Successfully sent sms message\n", PVT_ID(pvt));
 				break;
@@ -475,6 +477,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 
 			case CMD_AT_CMGS:
 			case CMD_AT_SMSTEXT:
+				ast_verb (3, "[%s] Error sending SMS message\n", PVT_ID(pvt));
 				ast_log (LOG_ERROR, "[%s] Error sending SMS message\n", PVT_ID(pvt));
 				pvt->outgoing_sms = 0;
 				break;
@@ -1083,6 +1086,7 @@ static int at_response_ring (struct pvt* pvt)
 
 static int at_response_cmti (struct pvt* pvt, const char* str)
 {
+// FIXME: check format in PDU mode
 	int index = at_parse_cmti (pvt, str);
 
 	if (index > -1)
@@ -1124,43 +1128,57 @@ static int at_response_cmti (struct pvt* pvt, const char* str)
 
 static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 {
+	char		oa[256] = "";
+	char*		msg = NULL;
+	str_encoding_t	oa_enc;
+	str_encoding_t	msg_enc;
+	const char*	err;
+	char*		err_pos = str;
+
 	ssize_t		res;
 	char		sms_utf8_str[4096];
 	char		from_number_utf8_str[1024];
-	char		channel_name[1024];
 
 	char*		from_number = NULL;
-	char*		text = NULL;
 	char		text_base64[16384];
+
+
+	struct ast_channel* channel;
+	char		channel_name[1024];
 
 	const struct at_queue_cmd * ecmd = at_queue_head_cmd (pvt);
 
-	if (ecmd && ecmd->res == RES_CMGR)
+	if (ecmd)
 	{
+	    if (ecmd->res == RES_CMGR)
+	    {
 		at_queue_handle_result (pvt, RES_CMGR);
+		pvt->incoming_sms = 0;
 
-		if (at_parse_cmgr (str, len, &from_number, &text))
+		err = at_parse_cmgr(&err_pos, len, oa, sizeof(oa), &oa_enc, &msg, &msg_enc);
+		if(err)
 		{
-			ast_log (LOG_ERROR, "[%s] Error parsing SMS message, disconnecting\n", PVT_ID(pvt));
-			return -1;
+			ast_log (LOG_WARNING, "[%s] Error parsing incoming message '%s' at '%s': %s\n", PVT_ID(pvt), str, err_pos, err);
+			return 0;
 		}
 
 		ast_debug (1, "[%s] Successfully read SMS message\n", PVT_ID(pvt));
 
-		pvt->incoming_sms = 0;
-
-		if (pvt->use_ucs2_encoding)
+		if (msg_enc == STR_ENCODING_UCS2_HEX || pvt->use_ucs2_encoding)
 		{
-			res = hexstr_ucs2_to_utf8 (text, strlen (text), sms_utf8_str, sizeof (sms_utf8_str));
+			res = hexstr_ucs2_to_utf8 (msg, strlen(msg), sms_utf8_str, sizeof (sms_utf8_str));
 			if (res > 0)
 			{
-				text = sms_utf8_str;
+				msg = sms_utf8_str;
 			}
 			else
 			{
-				ast_log (LOG_ERROR, "[%s] Error parsing SMS (convert UCS-2 to UTF-8): %s\n", PVT_ID(pvt), text);
+				ast_log (LOG_ERROR, "[%s] Error parsing SMS (convert HEX UCS-2 to UTF-8): %s\n", PVT_ID(pvt), msg);
 			}
-
+		}
+		from_number = oa;
+		if(oa_enc == STR_ENCODING_UNKNOWN && pvt->use_ucs2_encoding)
+		{
 			res = hexstr_ucs2_to_utf8 (from_number, strlen (from_number), from_number_utf8_str, sizeof (from_number_utf8_str));
 			if (res > 0)
 			{
@@ -1168,27 +1186,22 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 			}
 			else
 			{
-				ast_log (LOG_ERROR, "[%s] Error parsing SMS from_number (convert UCS-2 to UTF-8): %s\n", PVT_ID(pvt), from_number);
+				ast_log (LOG_ERROR, "[%s] Error parsing SMS from_number (convert HEX UCS-2 to UTF-8): %s\n", PVT_ID(pvt), from_number);
 			}
 		}
-
-		ast_base64encode (text_base64, (unsigned char*)text, strlen(text), sizeof(text_base64));
-		ast_verb (1, "[%s] Got SMS from %s: '%s'\n", PVT_ID(pvt), from_number, text);
+		ast_verb (1, "[%s] Got SMS from %s: '%s'\n", PVT_ID(pvt), from_number, msg);
+		ast_base64encode (text_base64, (unsigned char*)msg, strlen(msg), sizeof(text_base64));
 
 #ifdef BUILD_MANAGER
-		manager_event_new_sms (pvt, from_number, text);
+		manager_event_new_sms(pvt, from_number, msg);
 		manager_event_new_sms_base64(pvt, from_number, text_base64);
 #endif
-
-#ifdef BUILD_MANAGER
-		struct ast_channel* channel;
-
 		snprintf (channel_name, sizeof (channel_name), "sms@%s", CONF_SHARED(pvt, context));
 
 		channel = channel_local_request (pvt, channel_name, PVT_ID(pvt), from_number);
 		if (channel)
 		{
-			pbx_builtin_setvar_helper (channel, "SMS", text);
+			pbx_builtin_setvar_helper (channel, "SMS", msg);
 			pbx_builtin_setvar_helper (channel, "SMS_BASE64", text_base64);
 
 			if (ast_pbx_start (channel))
@@ -1197,16 +1210,16 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 				ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming sms\n", PVT_ID(pvt));
 			}
 		}
-#endif
-	}
-	else if (ecmd)
-	{
+	    }
+	    else
+	    {
 		ast_log (LOG_ERROR, "[%s] Received '+CMGR' when expecting '%s' response to '%s', ignoring\n", PVT_ID(pvt),
 				at_res2str (ecmd->res), at_cmd2str (ecmd->cmd));
+	    }
 	}
 	else
 	{
-		ast_log (LOG_ERROR, "[%s] Received unexpected '+CMGR'\n", PVT_ID(pvt));
+		ast_log (LOG_WARNING, "[%s] Received unexpected '+CMGR'\n", PVT_ID(pvt));
 	}
 
 	return 0;
@@ -1436,6 +1449,7 @@ static int at_response_creg (struct pvt* pvt, char* str, size_t len)
 	if (d)
 	{
 		pvt->gsm_registered = 1;
+		/* FIXME: only if gsm_registered 0 -> 1 ? */
 		at_enque_set_ccwa(&pvt->sys_chan, CONF_SHARED(pvt, call_waiting));
 	}
 	else

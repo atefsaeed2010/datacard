@@ -98,51 +98,258 @@
 	UD		0-140 octets		User Data
 */
 
-#define NUMBER_TYPE_INTERNATIONAL	145
+/* SMS-DELIVER format
+	SCA		1..12 octet(s)		Service Center Adress information element
+	  octets
+	        1		Length of Address (minimal 0)
+	        2		Type of Address
+	    3  12		Address
+
+	PDU-type	1 octet			Protocol Data Unit Type
+	  bits
+	      1 0 MTI	Message Type Indicator Parameter describing the message type 00 means SMS-DELIVER 01 means SMS-SUBMIT
+				0 0	SMS-DELIVER (SMSC ==> MS)
+						or
+					SMS-DELIVER REPORT (MS ==> SMSC, is generated automatically by the MOBILE, after receiving a SMS-DELIVER)
+
+				0 1	SMS-SUBMIT (MS ==> SMSC)
+						or
+					SMS-SUBMIT REPORT (SMSC ==> MS)
+
+				1 0	SMS-STATUS REPORT (SMSC ==> MS)
+						or
+					SMS-COMMAND (MS ==> SMSC)
+				1 1	Reserved
+
+		2 MMS	More Messages to Send	Parameter indicating whether or not there are more messages to send
+				0 More messages are waiting for the MS in the SMSC
+				1 No more messages are waiting for the MS in the SMSC
+	      4 3 Reserved
+
+		5 SRI	Status Report Indication	Parameter indicating if the SME has requested a status report
+				0 A status report will not be returned to the SME
+				1 A status report will be returned to the SME
+				
+		6 UDHI	User Data Header Indicator Parameter indicating that the UD field contains a header
+				0	The UD field contains only the short message
+				1	The beginning of the UD field contains a header in addition of the short message
+		7 RP	Reply Path Parameter indicating that Reply Path exists
+				0	Reply Path parameter is not set in this PDU
+				1	Reply Path parameter is set in this PDU
+
+	OA		2-12 octets	Originator Address
+	  octets
+		1	Length of Address (of BCD digits!)
+		2	Type of Address
+	     3 12	Address
+	PID		1 octet		Protocol Identifier
+						The PID is the information element by which the Transport Layer either refers to the higher
+						layer protocol being used, or indicates interworking with a certain type of telematic device.
+						here are some examples of PID codings:
+		00H: The PDU has to be treat as a short message
+		41H: Replace Short Message Type1
+		  ....
+		47H: Replace Short Message Type7
+					Another description:
+		
+		Bit7 bit6 (bit 7 = 0, bit 6 = 0)
+		l 0 0 Assign bits 0..5, the values are defined as follows.
+		l 1 0 Assign bits 0..5, the values are defined as follows.
+		l 0 1 Retain
+		l 1 1 Assign bits 0..5 for special use of SC
+		Bit5 values:
+		l 0: No interworking, but SME-to-SME protocol
+		l 1: Telematic interworking (in this situation , value of bits4...0 is
+		valid)
+		Interface Description for HUAWEI EV-DO Data Card AT Commands
+		All rights reserved Page 73 , Total 140
+		Bit4...Bit0: telematic devices type identifier. If the value is 1 0 0 1 0, it
+		indicates email. Other values are not supported currently.
+		
+		
+	DCS		1 octet			Data Coding Scheme
+
+	SCTS		7 octets		Service Center Time Stamp
+	UDL		1 octet			User Data Length
+	UD		0-140 octets		User Data
+*/
+
+#define NUMBER_TYPE_INTERNATIONAL		0x91
 
 /* Message Type Indicator Parameter */
-#define PDUTYPE_MTI_SMS_DELIVER			0x00
-#define PDUTYPE_MTI_SMS_DELIVER_REPORT		0x00
-#define PDUTYPE_MTI_SMS_SUBMIT			0x01
-#define PDUTYPE_MTI_SMS_SUBMIT_REPORT		0x01
-#define PDUTYPE_MTI_SMS_STATUS_REPORT		0x02
-#define PDUTYPE_MTI_SMS_COMMAND			0x02
-#define PDUTYPE_MTI_RESERVED			0x03
+#define PDUTYPE_MTI_SHIFT			0
+#define PDUTYPE_MTI_SMS_DELIVER			(0x00 << PDUTYPE_MTI_SHIFT)
+#define PDUTYPE_MTI_SMS_DELIVER_REPORT		(0x00 << PDUTYPE_MTI_SHIFT)
+#define PDUTYPE_MTI_SMS_SUBMIT			(0x01 << PDUTYPE_MTI_SHIFT)
+#define PDUTYPE_MTI_SMS_SUBMIT_REPORT		(0x01 << PDUTYPE_MTI_SHIFT)
+#define PDUTYPE_MTI_SMS_STATUS_REPORT		(0x02 << PDUTYPE_MTI_SHIFT)
+#define PDUTYPE_MTI_SMS_COMMAND			(0x02 << PDUTYPE_MTI_SHIFT)
+#define PDUTYPE_MTI_RESERVED			(0x03 << PDUTYPE_MTI_SHIFT)
+
+#define PDUTYPE_MTI_MASK			(0x03 << PDUTYPE_MTI_SHIFT)
+#define PDUTYPE_MTI(pdutype)			((pdutype) & PDUTYPE_MTI_MASK)
 
 /* Reject Duplicate */
-#define PDUTYPE_RD_ACCEPT			(0x00 << 2)
-#define PDUTYPE_RD_REJECT			(0x01 << 2)
+#define PDUTYPE_RD_SHIFT			2
+#define PDUTYPE_RD_ACCEPT			(0x00 << PDUTYPE_RD_SHIFT)
+#define PDUTYPE_RD_REJECT			(0x01 << PDUTYPE_RD_SHIFT)
 
 /* Validity Period Format */
-#define PDUTYPE_VPF_NOT_PRESENT			(0x00 << 3)
-#define PDUTYPE_VPF_RESERVED			(0x01 << 3)
-#define PDUTYPE_VPF_RELATIVE			(0x02 << 3)
-#define PDUTYPE_VPF_ABSOLUTE			(0x03 << 3)
+#define PDUTYPE_VPF_SHIFT			3
+#define PDUTYPE_VPF_NOT_PRESENT			(0x00 << PDUTYPE_VPF_SHIFT)
+#define PDUTYPE_VPF_RESERVED			(0x01 << PDUTYPE_VPF_SHIFT)
+#define PDUTYPE_VPF_RELATIVE			(0x02 << PDUTYPE_VPF_SHIFT)
+#define PDUTYPE_VPF_ABSOLUTE			(0x03 << PDUTYPE_VPF_SHIFT)
 
 /* Status Report Request */
-#define PDUTYPE_SRR_NOT_REQUESTED		(0x00 << 5)
-#define PDUTYPE_SRR_REQUESTED			(0x01 << 5)
+#define PDUTYPE_SRR_SHIFT			5
+#define PDUTYPE_SRR_NOT_REQUESTED		(0x00 << PDUTYPE_SRR_SHIFT)
+#define PDUTYPE_SRR_REQUESTED			(0x01 << PDUTYPE_SRR_SHIFT)
 
 /* User Data Header Indicator */
-#define PDUTYPE_UDHI_ONLY_SMS			(0x00 << 6)
-#define PDUTYPE_UDHI_HAS_HEADER			(0x01 << 6)
+#define PDUTYPE_UDHI_SHIFT			6
+#define PDUTYPE_UDHI_NO_HEADER			(0x00 << PDUTYPE_UDHI_SHIFT)
+#define PDUTYPE_UDHI_HAS_HEADER			(0x01 << PDUTYPE_UDHI_SHIFT)
+#define PDUTYPE_UDHI_MASK			(0x01 << PDUTYPE_UDHI_SHIFT)
+#define PDUTYPE_UDHI(pdutype)			((pdutype) & PDUTYPE_UDHI_MASK)
 
 /* eply Path Parameter */
-#define PDUTYPE_RP_IS_NOT_SET			(0x00 << 7)
-#define PDUTYPE_RP_IS_SET			(0x01 << 7)
+#define PDUTYPE_RP_SHIFT			7
+#define PDUTYPE_RP_IS_NOT_SET			(0x00 << PDUTYPE_RP_SHIFT)
+#define PDUTYPE_RP_IS_SET			(0x01 << PDUTYPE_RP_SHIFT)
 
 #define PDU_MESSAGE_REFERENCE			0x00		/* assigned by MS */
-#define PDU_PID_SMS				0x00		/* bit5 No interworking, but SME-to-SME protocol */
-#define PDU_PID_EMAIL				0x32		/* bit5 Telematic interworking, bits 4..0 0x 12 email */
-#define PDU_DCS					0x08		/* UCS2, Not compressed, bits01 retained */
 
+#define PDU_PID_SMS				0x00		/* bit5 No interworking, but SME-to-SME protocol = SMS */
+#define PDU_PID_EMAIL				0x32		/* bit5 Telematic interworking, bits 4..0 0x 12  = email */
 
+/* DCS */
+/*   bits 1..0 Class */
+#define PDU_DCS_CLASS_SHIFT			0
+#define PDU_DCS_CLASS0				(0x00 << PDU_DCS_CLASS_SHIFT)	/* Class 0, provides display and responds SC */
+#define PDU_DCS_CLASS1				(0x01 << PDU_DCS_CLASS_SHIFT)	/* Class 1, saves to MS (NV); or saves to the UIM card when MS is full */
+#define PDU_DCS_CLASS2				(0x02 << PDU_DCS_CLASS_SHIFT)	/* Class 2, dedicated for the UIM card The storage status is reported to SC after storage If the UIM card is full, failure and reason are reported to SC */
+#define PDU_DCS_CLASS3				(0x03 << PDU_DCS_CLASS_SHIFT)	/* Class 3, stored to TE, MS receives messages and does not sent to TE, but responds to SC */
+#define PDU_DCS_CLASS_MASK			(0x03 << PDU_DCS_CLASS_SHIFT)
+#define PDU_DCS_CLASS(dcs)			((dcs) & PDU_DCS_CLASS_MASK)
+
+/*   bits 3..2 Alpabet */
+#define PDU_DCS_ALPABET_SHIFT			2
+#define PDU_DCS_ALPABET_7BIT			(0x00 << PDU_DCS_ALPABET_SHIFT)
+#define PDU_DCS_ALPABET_8BIT			(0x01 << PDU_DCS_ALPABET_SHIFT)
+#define PDU_DCS_ALPABET_UCS2			(0x02 << PDU_DCS_ALPABET_SHIFT)
+#define PDU_DCS_ALPABET_MASK			(0x03 << PDU_DCS_ALPABET_SHIFT)
+#define PDU_DCS_ALPABET(dcs)			((dcs) & PDU_DCS_ALPABET_MASK)
+
+/*   bit 4 */
+#define PDU_DCS_BITS10_CTRL_SHIFT		4
+#define PDU_DCS_BITS10_RETAIN			(0x00 << PDU_DCS_BIT10_CTRL_SHIFT)
+#define PDU_DCS_BITS10_INUSE			(0x01 << PDU_DCS_BIT10_CTRL_SHIFT)
+#define PDU_DCS_BITS10_CTRL_MASK		(0x01 << PDU_DCS_BIT10_CTRL_SHIFT)
+#define PDU_DCS_BITS10_CTRL(dcs)		((dcs) & PDU_DCS_BITS10_CTRL_MASK)
+
+/*   bit 5 */
+#define PDU_DCS_COMPRESSION_SHIFT		5
+#define PDU_DCS_NOT_COMPESSED			(0x00 << PDU_DCS_COMPRESSION_SHIFT)
+#define PDU_DCS_COMPESSED			(0x01 << PDU_DCS_COMPRESSION_SHIFT)
+#define PDU_DCS_COMPRESSION_MASK		(0x01 << PDU_DCS_COMPRESSION_SHIFT)
+#define PDU_DCS_COMPRESSION(dcs)		((dcs) & PDU_DCS_COMPRESSION_MASK)
+
+/*   bit 7..6 */
+#define PDU_DCS_76_SHIFT			6
+#define PDU_DCS_76_00				(0x00 << PDU_DCS_76_SHIFT)
+#define PDU_DCS_76_MASK				(0x03 << PDU_DCS_76_SHIFT)
+#define PDU_DCS_76(dcs)				((dcs) & PDU_DCS_76_MASK)
 
 #define ROUND_UP2(x)		(((x) + 1) & (0xFFFFFFFF << 1))
 #define LENGTH2BYTES(x)		(((x) + 1)/2)
 
+#/* get digit code, 0 if invalid  */
+EXPORT_DEF char pdu_digit2code(char digit)
+{
+	switch(digit)
+	{
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+			break;
+		case '*':
+			digit = 'A';
+			break;
+		case '#':
+			digit = 'B';
+			break;
+		case 'a':
+		case 'A':
+			digit = 'C';
+			break;
+		case 'b':
+		case 'B':
+			digit = 'D';
+			break;
+		case 'c':
+		case 'C':
+			digit = 'E';
+			break;
+		default:
+			return 0;
+	}
+	return digit;
+}
+
+#/* */
+static char pdu_code2digit(char code)
+{
+	switch(code)
+	{
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+			break;
+		case 'a':
+		case 'A':
+			code = '*';
+			break;
+		case 'b':
+		case 'B':
+			code = '#';
+			break;
+		case 'c':
+		case 'C':
+			code = 'A';
+			break;
+		case 'd':
+		case 'D':
+			code = 'B';
+			break;
+		case 'e':
+		case 'E':
+			code = 'C';
+			break;
+		case 'F':
+			return 0;
+		default:
+			return -1;
+	}
+	return code;
+}
+
 #/* convert minutes to relative VP value */
-static int get_relative_validity(unsigned minutes)
+static int pdu_relative_validity(unsigned minutes)
 {
 #define DIV_UP(x,y)	(((x)+(y)-1)/(y))
 /*
@@ -166,6 +373,43 @@ static int get_relative_validity(unsigned minutes)
 #undef DIV_UP
 }
 
+#/* convert 1 hex digits of PDU to byte, return < 0 on error */
+static int pdu_parse_hexdigit(int hex)
+{
+	if(hex >= '0' && hex <= '9')
+		return hex - '0';
+	if(hex >= 'a' && hex <= 'f')
+		return hex - 'a' + 10;
+	if(hex >= 'A' && hex <= 'F')
+		return hex - 'A' + 10;
+	return -1;
+}
+
+#/* convert 2 hex digits of PDU to byte, return < 0 on error */
+static int pdu_parse_byte(char ** digits2hex, size_t * length)
+{
+	int res = -1;
+	int res2;
+	
+	if(*length >= 2)
+	{
+		res = pdu_parse_hexdigit(*digits2hex[0]);
+		if(res >= 0)
+		{
+			(*digits2hex)++;
+			(*length)--;
+			res2 = pdu_parse_hexdigit(*digits2hex[0]);
+			if(res2 >= 0)
+			{
+				(*digits2hex)++;
+				(*length)--;
+				return (res << 4) | res2;
+			}
+		}
+	}
+	return res;
+}
+
 /*!
  * \brief Store number in PDU 
  * \param buffer -- pointer to place where number will be stored, CALLER MUST be provide length + 2 bytes of buffer
@@ -173,24 +417,98 @@ static int get_relative_validity(unsigned minutes)
  * \param length -- length of number
  * \return number of bytes written to buffer
  */
-static int store_number(char* buffer, const char* number, unsigned length)
+static int pdu_store_number(char* buffer, const char* number, unsigned length)
 {
 	int i;
 	for(i = 0; length > 1; length -=2, i +=2)
 	{
-		buffer[i] = dial_digit_code(number[i + 1]);
-		buffer[i + 1] = dial_digit_code(number[i]);
+		buffer[i] = pdu_digit2code(number[i + 1]);
+		buffer[i + 1] = pdu_digit2code(number[i]);
 	}
 	
 	if(length)
 	{
 		buffer[i] = 'F';
-		buffer[i+1] = dial_digit_code(number[i]);
+		buffer[i+1] = pdu_digit2code(number[i]);
 		i += 2;
 	}
 	return i;
 }
 
+#/* reverse of pdu_store_number() */
+static int pdu_parse_number(char ** pdu, size_t * pdu_length, unsigned digits, int * toa, char * number, size_t num_len)
+{
+	const char * begin;
+
+	if(num_len < digits + 1)
+		return -ENOMEM;
+
+	begin = *pdu;
+	*toa = pdu_parse_byte(pdu, pdu_length);
+	if(*toa)
+	{
+		unsigned syms = ROUND_UP2(digits);
+		if(syms <= *pdu_length)
+		{
+			char digit;
+			if(*toa == NUMBER_TYPE_INTERNATIONAL)
+				*number++ = '+';
+			for(; syms > 0; syms -= 2, *pdu += 2, *pdu_length -= 2)
+			{
+				digit = pdu_code2digit(pdu[0][1]);
+				if(digit <= 0)
+					return -1;
+				*number++ = digit;
+
+				digit = pdu_code2digit(pdu[0][0]);
+				if(digit < 0 || (digit == 0 && (syms != 2 || (digits & 0x1) == 0)))
+					return -1;
+
+				*number++ = digit;
+			}
+			if((digits & 0x1) == 0)
+				*number = 0;
+			return *pdu - begin;
+		}
+	}
+
+	return -EINVAL;
+}
+
+
+#/* return bytes (not octets!) of pdu occupied by SCA or <0 on errors */
+static int pdu_parse_sca(char ** pdu, size_t * length)
+{
+	/* get length of SCA field */
+	int sca_len = pdu_parse_byte(pdu, length);
+
+	if(sca_len >= 0)
+	{
+		sca_len *= 2;
+		if((size_t)sca_len <= *length)
+		{
+			*pdu += sca_len;
+			*length -= sca_len;
+
+			/* TODO: Parse SCA Address */
+			
+			return sca_len + 2;
+		}
+	}
+	return -EINVAL;
+}
+
+#/* TODO: implement */
+static int pdu_parse_timestamp(char ** pdu, size_t * length)
+{
+	if(*length >= 14)
+	{
+		*pdu += 14;
+		*length -= 14;
+		return 14;
+	}
+	return -EINVAL;
+}
 
 /*!
  * \brief Build PDU text for SMS
@@ -204,7 +522,7 @@ static int store_number(char* buffer, const char* number, unsigned length)
  * \param sca_len -- pointer where length of SCA header (in bytes) will be stored
  * \return number of bytes written to buffer w/o trailing 0x1A or 0, -ENOMEM if buffer too short, -EINVAL on iconv recode errors, -E2BIG if message too long
  */
-EXPORT_DEF int build_pdu(char* buffer, unsigned length, const char* csca, const char* dst, const char* msg, unsigned valid_minutes, int srr, int* sca_len)
+EXPORT_DEF int pdu_build(char* buffer, size_t length, const char* csca, const char* dst, const char* msg, unsigned valid_minutes, int srr, int* sca_len)
 {
 	char tmp;
 	int len = 0;
@@ -212,7 +530,8 @@ EXPORT_DEF int build_pdu(char* buffer, unsigned length, const char* csca, const 
 
 	int csca_toa = NUMBER_TYPE_INTERNATIONAL;
 	int dst_toa = NUMBER_TYPE_INTERNATIONAL;
-	int pdutype= PDUTYPE_MTI_SMS_SUBMIT | PDUTYPE_RD_ACCEPT | PDUTYPE_VPF_RELATIVE | PDUTYPE_SRR_NOT_REQUESTED | PDUTYPE_UDHI_ONLY_SMS | PDUTYPE_RP_IS_NOT_SET;
+	int pdutype= PDUTYPE_MTI_SMS_SUBMIT | PDUTYPE_RD_ACCEPT | PDUTYPE_VPF_RELATIVE | PDUTYPE_SRR_NOT_REQUESTED | PDUTYPE_UDHI_NO_HEADER | PDUTYPE_RP_IS_NOT_SET;
+	int dcs = PDU_DCS_ALPABET_UCS2;
 	
 	/* TODO: check numbers */
 	if(csca[0] == '+')
@@ -240,7 +559,7 @@ EXPORT_DEF int build_pdu(char* buffer, unsigned length, const char* csca, const 
 	if(csa_len)
 	{
 		len += snprintf(buffer + len, length - len, "%02X%02X", 1 + LENGTH2BYTES(csa_len), csca_toa);
-		len += store_number(buffer + len, csca, csa_len);
+		len += pdu_store_number(buffer + len, csca, csa_len);
 		*sca_len = len;
 	}
 	else
@@ -260,7 +579,7 @@ EXPORT_DEF int build_pdu(char* buffer, unsigned length, const char* csca, const 
 	len += snprintf(buffer + len, length - len, "%02X%02X%02X%02X", pdutype, PDU_MESSAGE_REFERENCE, dst_len, dst_toa);
 
 	/*  Destination address */
-	len += store_number(buffer + len, dst, dst_len);
+	len += pdu_store_number(buffer + len, dst, dst_len);
 	
 	/* TP-PID. Protocol identifier  */
 	/* TP-DCS. Data coding scheme */
@@ -274,10 +593,160 @@ EXPORT_DEF int build_pdu(char* buffer, unsigned length, const char* csca, const 
 	}
 	/* TODO: check message limit in 178 octet of TPDU (w/o SCA) */
 	tmp = buffer[len + 8];
-	len += snprintf(buffer + len, length - len, "%02X%02X%02X%02X", PDU_PID_SMS, PDU_DCS, get_relative_validity(valid_minutes), data_len / 2);
+	len += snprintf(buffer + len, length - len, "%02X%02X%02X%02X", PDU_PID_SMS, dcs, pdu_relative_validity(valid_minutes), data_len / 2);
 	buffer[len] = tmp;
 
 	len += data_len;
 	return len;
+}
+
+
+
+/*!
+ * \brief Parse PDU
+ * \param pdu -- SCA + TPDU
+ * \param tpdu_length -- length of TPDU in octets
+ * \return 0 on success
+ */
+EXPORT_DEF const char * pdu_parse(char ** pdu, size_t tpdu_length, char * oa, size_t oa_len, str_encoding_t * oa_enc, char ** msg, str_encoding_t * msg_enc)
+{
+	const char * err = NULL;
+	size_t pdu_length = strlen(*pdu);
+	
+	/* decode SCA */
+	int field_len = pdu_parse_sca(pdu, &pdu_length);
+	if(field_len > 0)
+	{
+	    if(tpdu_length * 2 == pdu_length)
+	    {
+		int pdu_type = pdu_parse_byte(pdu, &pdu_length);
+		if(pdu_type >= 0)
+		{
+			/* TODO: also handle PDUTYPE_MTI_SMS_SUBMIT_REPORT and PDUTYPE_MTI_SMS_STATUS_REPORT */
+			if(PDUTYPE_MTI(pdu_type) == PDUTYPE_MTI_SMS_DELIVER)
+			{
+				int oa_digits = pdu_parse_byte(pdu, &pdu_length);
+				if(oa_digits > 0)
+				{
+					int oa_toa;
+					field_len = pdu_parse_number(pdu, &pdu_length, oa_digits, &oa_toa, oa, oa_len);
+					if(field_len > 0)
+					{
+						int pid = pdu_parse_byte(pdu, &pdu_length);
+						*oa_enc = STR_ENCODING_PLAIN;
+						if(pid >= 0)
+						{
+						   if(pid == PDU_PID_SMS)
+						   {
+							int dcs = pdu_parse_byte(pdu, &pdu_length);
+							if(dcs >= 0)
+							{
+							    // TODO: another encodings ?
+							    if( PDU_DCS_76(dcs) == PDU_DCS_76_00
+							    		&&
+							    	PDU_DCS_COMPRESSION(dcs) == PDU_DCS_NOT_COMPESSED
+							    		&&
+							    	PDU_DCS_ALPABET(dcs) == PDU_DCS_ALPABET_UCS2)
+							    {
+								int ts = pdu_parse_timestamp(pdu, &pdu_length);
+								*msg_enc = STR_ENCODING_UCS2_HEX;
+								if(ts >= 0)
+								{
+									int udl = pdu_parse_byte(pdu, &pdu_length);
+									if(udl >= 0)
+									{
+										if((size_t)udl * 2 == pdu_length)
+										{
+											/* TODO: implement header */
+											if(PDUTYPE_UDHI(pdu_type) == PDUTYPE_UDHI_HAS_HEADER)
+											{
+												/* skip UDH */
+												int udhl = pdu_parse_byte(pdu, &pdu_length);
+												if(udhl >= 0)
+												{
+													if(pdu_length >= (size_t)(udhl * 2))
+													{
+														*pdu += udhl * 2;
+														pdu_length -= udhl * 2;
+													}
+													else
+													{
+														err = "Invalid UDH";
+													}
+												}
+												else
+												{
+													err = "Can't parse UDHL";
+												}
+											}
+											/* save message */
+											*msg = *pdu;
+										}
+										else
+										{
+											err = "UDL not match with UD length";
+										}
+									}
+									else
+									{
+										err = "Can't parse UDL";
+									}
+								}
+								else
+								{
+									err = "Can't parse Timestamp";
+								}
+							    }
+							    else
+							    {
+								err = "Unsupported DCS value";
+							    }
+							}
+							else
+							{
+								err = "Can't parse DSC";
+							}
+						    }
+						    else
+						    {
+						    	err = "Unhandled PID value, only SMS supported";
+						    }
+						}
+						else
+						{
+							err = "Can't parse PID";
+						}
+					}
+					else
+					{
+						err = "Can't parse OA";
+					}
+				}
+				else
+				{
+					err = "Can't parse length of OA";
+				}
+			}
+			else
+			{
+				err = "Unhandled PDU Type MTI only SMS-DELIVER supported";
+			}
+		}
+		else
+		{
+			err = "Can't parse PDU Type";
+		}
+	    }
+	    else
+	    {
+		err = "TPDU length not matched with actual length";
+	    }
+	}
+	else
+	{
+		err = "Can't parse SCA";
+	}
+
+	return err;
 }
 

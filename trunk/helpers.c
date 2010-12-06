@@ -18,6 +18,7 @@
 
 #include "chan_datacard.h"			/* devices */
 #include "at_command.h"
+#include "pdu.h"				/* pdu_digit2code() */
 
 #/* */
 EXPORT_DEF struct pvt* find_device (const char* name)
@@ -157,51 +158,11 @@ EXPORT_DEF const char* send_at_command(const char* dev_name, const char* command
 /* TODO: use also for SMS and USSD?
 */
 
-#/* get digit code, 0 if invalid  */
-EXPORT_DEF char dial_digit_code(char digit)
-{
-	switch(digit)
-	{
-		case '0':
-		case '1':
-		case '2':
-		case '3':
-		case '4':
-		case '5':
-		case '6':
-		case '7':
-		case '8':
-		case '9':
-			break;
-		case '*':
-			digit = 'A';
-			break;
-		case '#':
-			digit = 'B';
-			break;
-		case 'a':
-		case 'A':
-			digit = 'C';
-			break;
-		case 'b':
-		case 'B':
-			digit = 'D';
-			break;
-		case 'c':
-		case 'C':
-			digit = 'E';
-			break;
-		default:
-			return 0;
-	}
-	return digit;
-}
-
 #/* */
 EXPORT_DEF int is_valid_phone_number(const char* number)
 {
 	for(; *number; number++)
-		if(dial_digit_code(*number) == 0)
+		if(pdu_digit2code(*number) == 0)
 			return 0;
 
 	return 1;

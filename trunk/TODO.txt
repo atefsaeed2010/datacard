@@ -66,3 +66,4 @@ added 24.11.2010
 
 26) implement command "datacard reinitialize device"
 
+27) Remove Call waiting status duplicated messages

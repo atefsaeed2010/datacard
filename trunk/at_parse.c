@@ -23,9 +23,9 @@
 #include <stdlib.h>			/* strtol */
 
 #include "at_parse.h"
+#include "helpers.h"			/* ITEMS_OF() */
 #include "chan_datacard.h"
-
-
+#include "pdu.h"			/* pdu_parse() */
 
 /*!
  * \brief Parse a CNUM response
@@ -315,6 +315,96 @@ EXPORT_DEF int at_parse_cmti (struct pvt* pvt, const char* str)
 	return index;
 }
 
+
+static const char*  parse_cmgr_text (char** str, size_t len, char* oa, size_t oa_len, str_encoding_t* oa_enc, char** msg, str_encoding_t* msg_enc)
+{
+	/*
+	 * parse cmgr info in the following TEXT format:
+	 * +CMGR: "<msg status>","+123456789",,timestamp<CR><LF>
+	 * <message text><CR><LF><CR><LF>
+	 * OK<CR><LF>
+	 *	or
+	 * +CMGR: "<msg status>","002B....",,timestamp<CR><LF>
+	 * <message text><CR><LF><CR><LF>
+	 * OK<CR><LF>
+	 */
+	
+	static const char char_search[] = {',', '"', '"', '\n', '\r'};
+	char* sym;
+	char* number = NULL;
+	unsigned i;
+	
+	for(i = 0; i < ITEMS_OF(char_search); ++i)
+	{
+		sym = memchr(*str, char_search[i], len);
+		if(!sym)
+			break;
+		len -= sym + 1 - *str;
+		*str = sym + 1;
+		switch(i)
+		{
+			case 1:
+				number = *str;
+				break;
+			case 2:
+				str[-1] = 0;
+				/* TODO: check encoding */
+				*oa_enc = STR_ENCODING_UNKNOWN;
+				if(oa_len < (size_t)(*str - number))
+					return "Not enought space for store number";
+				memcpy(oa, number, *str - number);
+				break;
+			case 3:
+				*msg = *str;
+				/* TODO: check encoding */
+				*msg_enc = STR_ENCODING_UNKNOWN;
+				return 0;
+		}
+	}
+	return "Can't parse CMGR text";
+}
+
+static const char* parse_cmgr_pdu (char** str, size_t len, char* oa, size_t oa_len, str_encoding_t* oa_enc, char** msg, str_encoding_t* msg_enc)
+{
+	/*
+	 * parse cmgr info in the following PDU format
+	 * +CMGR: message_status,[address_text],TPDU_length<CR><LF>
+	 * SMSC_number_and_TPDU<CR><LF><CR><LF>
+	 * OK<CR><LF>
+	 *
+	 *	sample
+	 * +CMGR: 1,,31
+	 * 07911234567890F3040B911234556780F20008012150220040210C041F04400438043204350442<CR><LF><CR><LF>
+	 * OK<CR><LF>
+	 */
+
+	static const char char_search[] = { ',', ',', '\n'};
+	char * sym;
+	char * end;
+	unsigned i;
+	int tpdu_length = 0;
+
+	for(i = 0; i < ITEMS_OF(char_search); ++i)
+	{
+		sym = memchr(*str, char_search[i], len);
+		if(!sym)
+			break;
+		len -= sym + 1 - *str;
+		*str = sym + 1;
+		switch(i)
+		{
+			case 1:
+				tpdu_length = strtol(*str, &end, 10);
+				if(tpdu_length <= 0 || end[0] != '\r')
+					return "Invalid TPDU length in CMGR PDU status line";
+				break;
+			case 2:
+				return pdu_parse(str, tpdu_length, oa, oa_len, oa_enc, msg, msg_enc);
+		}
+	}
+	return "Can't parse CMGR text";
+}
+
 /*!
  * \brief Parse a CMGR message
  * \param pvt -- pvt structure
@@ -327,73 +417,30 @@ EXPORT_DEF int at_parse_cmti (struct pvt* pvt, const char* str)
  * \retval -1 parse error
  */
 
-EXPORT_DEF int at_parse_cmgr (char* str, size_t len, char** number, char** text)
+EXPORT_DEF const char* at_parse_cmgr (char** str, size_t len, char* oa, size_t oa_len, str_encoding_t* oa_enc, char** msg, str_encoding_t* msg_enc)
 {
-	size_t	i;
-	int	state;
+	const char* rv = "Can't parse CMGR first line";
 
-	*number = NULL;
-	*text   = NULL;
+	/* skip "+CMGR:" */
+	*str += 6;
+	len -= 6;
 
-	/*
-	 * parse cmgr info in the following format:
-	 * +CMGR: <msg status>,"+123456789",...\r\n
-	 * <message text>
-	 */
-
-	for (i = 0, state = 0; i < len && state < 6; i++)
+	/* skip leading spaces */
+	while(len > 0 && str[0][0] == ' ')
 	{
-		switch (state)
-		{
-			case 0: /* search for start of the number section (,) */
-				if (str[i] == ',')
-				{
-					state++;
-				}
-				break;
-
-			case 1: /* find the opening quote (") */
-				if (str[i] == '"')
-				{
-					state++;
-				}
-				break;
-
-			case 2: /* mark the start of the number */
-				*number = &str[i];
-				state++;
-				break;
-
-			/* fall through */
-
-			case 3: /* search for the end of the number (") */
-				if (str[i] == '"')
-				{
-					str[i] = '\0';
-					state++;
-				}
-				break;
-
-			case 4: /* search for the start of the message text (\n) */
-				if (str[i] == '\n')
-				{
-					state++;
-				}
-				break;
-
-			case 5: /* mark the start of the message text */
-				*text = &str[i];
-				state++;
-				break;
-		}
+		(*str)++;
+		len--;
 	}
 
-	if (state != 6)
+	if(len > 0)
 	{
-		return -1;
+		/* check PDU or TEXT mode */
+		const char* (*fptr)(char** str, size_t len, char* num, size_t num_len, str_encoding_t * oa_enc, char** msg, str_encoding_t * msg_enc);
+		fptr = *str[0] == '"' ? parse_cmgr_text : parse_cmgr_pdu;
+		rv = (*fptr)(str, len, oa, oa_len, oa_enc, msg, msg_enc);
 	}
 
-	return 0;
+	return rv;
 }
 
  /*!
