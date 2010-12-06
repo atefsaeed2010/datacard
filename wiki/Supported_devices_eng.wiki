@@ -80,7 +80,17 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 <td>+</td>
 <td> </td>
 </tr>
+
+
 <tr>
+<td>E1612</td>
+<td>-</td>
+<td>+</td>
+<td>+</td>
+<td> </td>
+</tr>
+<tr>
+
 <td>E270</td>
 <td>-</td>
 <td>+</td>
