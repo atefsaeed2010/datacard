@@ -106,12 +106,6 @@ static int app_send_sms_exec (attribute_unused struct ast_channel* channel, cons
 		return -1;
 	}
 
-	if (!is_valid_phone_number (args.number))
-	{
-		ast_log (LOG_ERROR, "Invalid destination for message -- SMS will not be sent\n");
-		return -1;
-	}
-	
 /* its possible to send empty SMS message
 	if (ast_strlen_zero (args.message))
 	{

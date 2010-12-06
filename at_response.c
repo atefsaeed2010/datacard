@@ -1128,23 +1128,20 @@ static int at_response_cmti (struct pvt* pvt, const char* str)
 
 static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 {
-	char		oa[256] = "";
+	char		oa[512] = "";
 	char*		msg = NULL;
 	str_encoding_t	oa_enc;
 	str_encoding_t	msg_enc;
 	const char*	err;
 	char*		err_pos = str;
-
 	ssize_t		res;
 	char		sms_utf8_str[4096];
+	char*		number;
 	char		from_number_utf8_str[1024];
-
-	char*		from_number = NULL;
 	char		text_base64[16384];
-
-
 	struct ast_channel* channel;
 	char		channel_name[1024];
+	size_t		msg_len;
 
 	const struct at_queue_cmd * ecmd = at_queue_head_cmd (pvt);
 
@@ -1155,50 +1152,52 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 		at_queue_handle_result (pvt, RES_CMGR);
 		pvt->incoming_sms = 0;
 
-		err = at_parse_cmgr(&err_pos, len, oa, sizeof(oa), &oa_enc, &msg, &msg_enc);
-		if(err)
+		err = at_parse_cmgr (&err_pos, len, oa, sizeof(oa), &oa_enc, &msg, &msg_enc);
+		if (err)
 		{
-			ast_log (LOG_WARNING, "[%s] Error parsing incoming message '%s' at '%s': %s\n", PVT_ID(pvt), str, err_pos, err);
+			ast_log (LOG_WARNING, "[%s] Error parsing incoming message '%s' at '%20s': %s\n", PVT_ID(pvt), str, err_pos, err);
 			return 0;
 		}
 
 		ast_debug (1, "[%s] Successfully read SMS message\n", PVT_ID(pvt));
 
-		if (msg_enc == STR_ENCODING_UCS2_HEX || pvt->use_ucs2_encoding)
+		/* last chance to define encodings */
+		if (oa_enc == STR_ENCODING_UNKNOWN)
+			oa_enc = pvt->use_ucs2_encoding ? STR_ENCODING_UCS2_HEX : STR_ENCODING_7BIT;
+
+		if (msg_enc == STR_ENCODING_UNKNOWN)
+			msg_enc = pvt->use_ucs2_encoding ? STR_ENCODING_UCS2_HEX : STR_ENCODING_7BIT;
+
+		/* decode number and message */
+		res = str_recode (RECODE_DECODE, oa_enc, oa, strlen(oa), from_number_utf8_str, sizeof (from_number_utf8_str));
+		if (res < 0)
 		{
-			res = hexstr_ucs2_to_utf8 (msg, strlen(msg), sms_utf8_str, sizeof (sms_utf8_str));
-			if (res > 0)
-			{
-				msg = sms_utf8_str;
-			}
-			else
-			{
-				ast_log (LOG_ERROR, "[%s] Error parsing SMS (convert HEX UCS-2 to UTF-8): %s\n", PVT_ID(pvt), msg);
-			}
+			ast_log (LOG_ERROR, "[%s] Error parsing SMS from_number (convert HEX UCS-2 to UTF-8): %s\n", PVT_ID(pvt), oa);
+			number = oa;
 		}
-		from_number = oa;
-		if(oa_enc == STR_ENCODING_UNKNOWN && pvt->use_ucs2_encoding)
+		else
+			number = from_number_utf8_str;
+
+		msg_len = strlen(msg);
+		res = str_recode (RECODE_DECODE, msg_enc, msg, msg_len, sms_utf8_str, sizeof (sms_utf8_str));
+		if (res < 0)
+			ast_log (LOG_ERROR, "[%s] Error parsing SMS from_number (convert HEX UCS-2 to UTF-8): %s\n", PVT_ID(pvt), msg);
+		else
 		{
-			res = hexstr_ucs2_to_utf8 (from_number, strlen (from_number), from_number_utf8_str, sizeof (from_number_utf8_str));
-			if (res > 0)
-			{
-				from_number = from_number_utf8_str;
-			}
-			else
-			{
-				ast_log (LOG_ERROR, "[%s] Error parsing SMS from_number (convert HEX UCS-2 to UTF-8): %s\n", PVT_ID(pvt), from_number);
-			}
+			msg = sms_utf8_str;
+			msg_len = res;
 		}
-		ast_verb (1, "[%s] Got SMS from %s: '%s'\n", PVT_ID(pvt), from_number, msg);
-		ast_base64encode (text_base64, (unsigned char*)msg, strlen(msg), sizeof(text_base64));
+
+		ast_verb (1, "[%s] Got SMS from %s: '%s'\n", PVT_ID(pvt), number, msg);
+		ast_base64encode (text_base64, (unsigned char*)msg, msg_len, sizeof(text_base64));
 
 #ifdef BUILD_MANAGER
-		manager_event_new_sms(pvt, from_number, msg);
-		manager_event_new_sms_base64(pvt, from_number, text_base64);
+		manager_event_new_sms(pvt, number, msg);
+		manager_event_new_sms_base64(pvt, number, text_base64);
 #endif
 		snprintf (channel_name, sizeof (channel_name), "sms@%s", CONF_SHARED(pvt, context));
 
-		channel = channel_local_request (pvt, channel_name, PVT_ID(pvt), from_number);
+		channel = channel_local_request (pvt, channel_name, PVT_ID(pvt), number);
 		if (channel)
 		{
 			pbx_builtin_setvar_helper (channel, "SMS", msg);
@@ -1271,40 +1270,30 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 	char		text_base64[16384];
 	char		channel_name[1024];
 	struct ast_channel* channel;
-
+	str_encoding_t ussd_encoding;
+	
 	if (at_parse_cusd (str, len, &cusd, &dcs))
 	{
 		ast_verb (1, "[%s] Error parsing CUSD: '%.*s'\n", PVT_ID(pvt), (int) len, str);
 		return 0;
 	}
 
+	// FIXME: strictly check USSD encoding
 	if ((dcs == 0 || dcs == 15) && !pvt->cusd_use_ucs2_decoding)
+		ussd_encoding = STR_ENCODING_7BIT_HEX;
+	else
+		ussd_encoding = STR_ENCODING_UCS2_HEX;
+	res = str_recode (RECODE_DECODE, ussd_encoding, cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
+	if(res >= 0)
 	{
-		res = hexstr_7bit_to_char (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
-		if (res > 0)
-		{
-			cusd = cusd_utf8_str;
-		}
-		else
-		{
-			ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert 7bit to ASCII): %s\n", PVT_ID(pvt), cusd);
-			return -1;
-		}
+		cusd = cusd_utf8_str;
 	}
 	else
 	{
-		res = hexstr_ucs2_to_utf8 (cusd, strlen (cusd), cusd_utf8_str, sizeof (cusd_utf8_str));
-		if (res > 0)
-		{
-			cusd = cusd_utf8_str;
-		}
-		else
-		{
-			ast_log (LOG_ERROR, "[%s] Error parsing CUSD (convert UCS-2 to UTF-8): %s\n", PVT_ID(pvt), cusd);
-			return -1;
-		}
+		ast_log (LOG_ERROR, "[%s] Error parsing CUSD: %s\n", PVT_ID(pvt), cusd);
+		return -1;
 	}
-
+	
 	ast_verb (1, "[%s] Got USSD response: '%s'\n", PVT_ID(pvt), cusd);
 	ast_base64encode (text_base64, (unsigned char*)cusd, strlen(cusd), sizeof(text_base64));
 
@@ -1313,9 +1302,9 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 	manager_event_new_ussd_base64 (pvt, text_base64);
 #endif
 
-
 	snprintf (channel_name, sizeof (channel_name), "ussd@%s", CONF_SHARED(pvt, context));
 
+	// TODO: join with sms
 	channel = channel_local_request (pvt, channel_name, PVT_ID(pvt), "ussd");
 	if (channel)
 	{

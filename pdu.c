@@ -171,7 +171,14 @@
 
 	SCTS		7 octets		Service Center Time Stamp
 	UDL		1 octet			User Data Length
-	UD		0-140 octets		User Data
+	UD		0-140 octets		User Data, may be prepended by User Data Header see UDHI flag
+	    octets
+	    	1 opt UDHL	Total number of Octets in UDH
+	    	? IEIa
+	    	? IEIDLa
+	    	? IEIDa
+	    	? IEIb
+		  ...
 */
 
 #define NUMBER_TYPE_INTERNATIONAL		0x91
@@ -531,8 +538,10 @@ EXPORT_DEF int pdu_build(char* buffer, size_t length, const char* csca, const ch
 	int csca_toa = NUMBER_TYPE_INTERNATIONAL;
 	int dst_toa = NUMBER_TYPE_INTERNATIONAL;
 	int pdutype= PDUTYPE_MTI_SMS_SUBMIT | PDUTYPE_RD_ACCEPT | PDUTYPE_VPF_RELATIVE | PDUTYPE_SRR_NOT_REQUESTED | PDUTYPE_UDHI_NO_HEADER | PDUTYPE_RP_IS_NOT_SET;
+
+	/* TODO: detect msg encoding use 7Bit 8Bit or UCS-2 */
 	int dcs = PDU_DCS_ALPABET_UCS2;
-	
+
 	/* TODO: check numbers */
 	if(csca[0] == '+')
 		csca++;
@@ -541,6 +550,7 @@ EXPORT_DEF int pdu_build(char* buffer, size_t length, const char* csca, const ch
 		dst++;
 
 	/* count length of strings */
+	/* cannot exceed 140 octets for no compressed or cannot exceed 160 septets for compressed */
 	unsigned msg_len = strlen(msg);
 	if(msg_len > 70)
 	{
@@ -586,12 +596,12 @@ EXPORT_DEF int pdu_build(char* buffer, size_t length, const char* csca, const ch
 	/* TP-Validity-Period */
 	/* TP-User-Data-Length */
 	/* TP-User-Data */
-	data_len = utf8_to_hexstr_ucs2(msg, msg_len, buffer + len + 8, length - len - 11);
+	data_len = str_recode(RECODE_ENCODE, STR_ENCODING_UCS2_HEX, msg, msg_len, buffer + len + 8, length - len - 11);
 	if(data_len < 0)
 	{
 		return -EINVAL;
 	}
-	/* TODO: check message limit in 178 octet of TPDU (w/o SCA) */
+	/* TODO: also check message limit in 178 octet of TPDU (w/o SCA) */
 	tmp = buffer[len + 8];
 	len += snprintf(buffer + len, length - len, "%02X%02X%02X%02X", PDU_PID_SMS, dcs, pdu_relative_validity(valid_minutes), data_len / 2);
 	buffer[len] = tmp;
@@ -601,6 +611,27 @@ EXPORT_DEF int pdu_build(char* buffer, size_t length, const char* csca, const ch
 }
 
 
+#/* */
+static str_encoding_t pdu_dcs_alpabet2encoding(int alpabet)
+{
+	str_encoding_t rv = STR_ENCODING_UNKNOWN;
+
+	alpabet >>= PDU_DCS_ALPABET_SHIFT;
+	switch(alpabet)
+	{
+		case (PDU_DCS_ALPABET_7BIT >> PDU_DCS_ALPABET_SHIFT):
+			rv = STR_ENCODING_7BIT_HEX;
+			break;
+		case (PDU_DCS_ALPABET_8BIT >> PDU_DCS_ALPABET_SHIFT):
+			rv = STR_ENCODING_8BIT_HEX;
+			break;
+		case (PDU_DCS_ALPABET_UCS2 >> PDU_DCS_ALPABET_SHIFT):
+			rv = STR_ENCODING_UCS2_HEX;
+			break;
+	}
+
+	return rv;
+}
 
 /*!
  * \brief Parse PDU
@@ -633,7 +664,7 @@ EXPORT_DEF const char * pdu_parse(char ** pdu, size_t tpdu_length, char * oa, si
 					if(field_len > 0)
 					{
 						int pid = pdu_parse_byte(pdu, &pdu_length);
-						*oa_enc = STR_ENCODING_PLAIN;
+						*oa_enc = STR_ENCODING_7BIT;
 						if(pid >= 0)
 						{
 						   if(pid == PDU_PID_SMS)
@@ -646,26 +677,37 @@ EXPORT_DEF const char * pdu_parse(char ** pdu, size_t tpdu_length, char * oa, si
 							    		&&
 							    	PDU_DCS_COMPRESSION(dcs) == PDU_DCS_NOT_COMPESSED
 							    		&&
-							    	PDU_DCS_ALPABET(dcs) == PDU_DCS_ALPABET_UCS2)
+							    		(
+							    		PDU_DCS_ALPABET(dcs) == PDU_DCS_ALPABET_7BIT
+							    			||
+							    		PDU_DCS_ALPABET(dcs) == PDU_DCS_ALPABET_8BIT
+							    			||
+							    		PDU_DCS_ALPABET(dcs) == PDU_DCS_ALPABET_UCS2
+							    		)
+							    	)
 							    {
 								int ts = pdu_parse_timestamp(pdu, &pdu_length);
-								*msg_enc = STR_ENCODING_UCS2_HEX;
+								*msg_enc = pdu_dcs_alpabet2encoding(PDU_DCS_ALPABET(dcs));
 								if(ts >= 0)
 								{
 									int udl = pdu_parse_byte(pdu, &pdu_length);
 									if(udl >= 0)
 									{
+										/* calculate number of octets in UD */
+										if(PDU_DCS_ALPABET(dcs) == PDU_DCS_ALPABET_7BIT)
+											udl = ((udl + 1) * 7) >> 3;
 										if((size_t)udl * 2 == pdu_length)
 										{
-											/* TODO: implement header */
 											if(PDUTYPE_UDHI(pdu_type) == PDUTYPE_UDHI_HAS_HEADER)
 											{
-												/* skip UDH */
+												/* TODO: implement header parse */
 												int udhl = pdu_parse_byte(pdu, &pdu_length);
 												if(udhl >= 0)
 												{
+													/* NOTE: UDHL count octets no need calculation */
 													if(pdu_length >= (size_t)(udhl * 2))
 													{
+														/* skip UDH */
 														*pdu += udhl * 2;
 														pdu_length -= udhl * 2;
 													}
@@ -684,6 +726,7 @@ EXPORT_DEF const char * pdu_parse(char ** pdu, size_t tpdu_length, char * oa, si
 										}
 										else
 										{
+											*pdu -= 2;
 											err = "UDL not match with UD length";
 										}
 									}
@@ -699,6 +742,7 @@ EXPORT_DEF const char * pdu_parse(char ** pdu, size_t tpdu_length, char * oa, si
 							    }
 							    else
 							    {
+								*pdu -= 2;
 								err = "Unsupported DCS value";
 							    }
 							}
@@ -729,6 +773,7 @@ EXPORT_DEF const char * pdu_parse(char ** pdu, size_t tpdu_length, char * oa, si
 			}
 			else
 			{
+				*pdu -= 2;
 				err = "Unhandled PDU Type MTI only SMS-DELIVER supported";
 			}
 		}
