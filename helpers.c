@@ -16,6 +16,7 @@
 #include <asterisk/lock.h>			/* AST_RWLIST_RDLOCK AST_RWLIST_TRAVERSE AST_RWLIST_UNLOCK */
 #include <asterisk/callerid.h>			/*  AST_PRES_* */
 
+#include "helpers.h"
 #include "chan_datacard.h"			/* devices */
 #include "at_command.h"
 #include "pdu.h"				/* pdu_digit2code() */
@@ -120,15 +121,27 @@ static const char* send2(const char* dev_name, int * status, int online, at_cmd_
 #/* */
 EXPORT_DEF const char* send_ussd(const char* dev_name, const char* ussd, int * status)
 {
-	return send2(dev_name, status, 1, (at_cmd_f)at_enque_cusd, ussd, NULL, 
+	if(is_valid_phone_number(ussd))
+		return send2(dev_name, status, 1, (at_cmd_f)at_enque_cusd, ussd, NULL, 
 			"Error adding USSD command to queue", "USSD queued for send");
+	if(status)
+		*status = 0;
+	return "Invalid USSD";
 }
 
 #/* */
-EXPORT_DEF const char* send_sms(const char* dev_name, const char* number, const char* message, int * status)
+EXPORT_DEF const char * send_sms(const char * dev_name, const char * number, const char * message, int * status)
 {
-	return send2(dev_name, status, 1, at_enque_sms, number, message, 
-			"Error adding SMS commands to queue", "SMS queued for send");
+	const char * num = number;
+	if(num[0] == '+')
+		num++;
+
+	if(is_valid_phone_number(num))
+		return send2(dev_name, status, 1, at_enque_sms, number, message, 
+				"Error adding SMS commands to queue", "SMS queued for send");
+	if(status)
+		*status = 0;
+	return "Invalid destination number";
 }
 
 #/* */
@@ -154,9 +167,6 @@ EXPORT_DEF const char* send_at_command(const char* dev_name, const char* command
 	return send2(dev_name, NULL, 0, (at_cmd_f)at_enque_unknown_cmd, command, 
 			NULL, "Error adding command", "Command queued for execute");
 }
-
-/* TODO: use also for SMS and USSD?
-*/
 
 #/* */
 EXPORT_DEF int is_valid_phone_number(const char* number)
