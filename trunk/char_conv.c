@@ -15,8 +15,10 @@
 #include <iconv.h>			/* iconv_t iconv() */
 #include <string.h>			/* memcpy() */
 #include <stdio.h>			/* sscanf() snprintf() */
+#include <errno.h>			/* EINVAL */
 
 #include "char_conv.h"
+#include "helpers.h"			/* ITEMS_OF() */
 
 static ssize_t convert_string (const char* in, size_t in_length, char* out, size_t out_size, char* from, char* to)
 {
@@ -47,7 +49,7 @@ static ssize_t convert_string (const char* in, size_t in_length, char* out, size
 	return (out_ptr - out);
 }
 
-static ssize_t hexstr_to_ucs2char (const char* in, size_t in_length, char* out, size_t out_size)
+static ssize_t hexstr_to_8bitchars (const char* in, size_t in_length, char* out, size_t out_size)
 {
 	size_t i;
 	size_t x;
@@ -56,6 +58,7 @@ static ssize_t hexstr_to_ucs2char (const char* in, size_t in_length, char* out, 
 
 	in_length = in_length / 2;
 
+	/* FIXME: odd number of chars check */
 	if (out_size - 1 < in_length)
 	{
 		return -1;
@@ -63,6 +66,7 @@ static ssize_t hexstr_to_ucs2char (const char* in, size_t in_length, char* out, 
 
 	for (i = 0, x = 0; i < in_length; i++)
 	{
+		// SPEED: remove memcpy , remove sscanf
 		memcpy (buf, in + i * 2, 2);
 		if (sscanf (buf, "%x", &hexval) != 1)
 		{
@@ -77,7 +81,7 @@ static ssize_t hexstr_to_ucs2char (const char* in, size_t in_length, char* out, 
 	return x;
 }
 
-static ssize_t ucs2char_to_hexstr (const char* in, size_t in_length, char* out, size_t out_size)
+static ssize_t chars8bit_to_hexstr (const char* in, size_t in_length, char* out, size_t out_size)
 {
 	size_t i;
 	size_t x;
@@ -90,6 +94,7 @@ static ssize_t ucs2char_to_hexstr (const char* in, size_t in_length, char* out, 
 
 	for (i = 0, x = 0; i < in_length; i++)
 	{
+		// SPEED: remove memcpy  direct snprintf to out
 		snprintf (buf,sizeof (buf),"%.2X", in[i]);
 		memcpy (out + x, buf, 2);
 		x = x + 2;
@@ -100,7 +105,7 @@ static ssize_t ucs2char_to_hexstr (const char* in, size_t in_length, char* out, 
 	return x;
 }
 
-EXPORT_DEF ssize_t hexstr_ucs2_to_utf8 (const char* in, size_t in_length, char* out, size_t out_size)
+static ssize_t hexstr_ucs2_to_utf8 (const char* in, size_t in_length, char* out, size_t out_size)
 {
 	char	buf[out_size];
 	ssize_t	res;
@@ -110,7 +115,7 @@ EXPORT_DEF ssize_t hexstr_ucs2_to_utf8 (const char* in, size_t in_length, char* 
 		return -1;
 	}
 
-	res = hexstr_to_ucs2char (in, in_length, buf, out_size);
+	res = hexstr_to_8bitchars (in, in_length, buf, out_size);
 	if (res < 0)
 	{
 		return res;
@@ -121,7 +126,7 @@ EXPORT_DEF ssize_t hexstr_ucs2_to_utf8 (const char* in, size_t in_length, char* 
 	return res;
 }
 
-EXPORT_DEF ssize_t utf8_to_hexstr_ucs2 (const char* in, size_t in_length, char* out, size_t out_size)
+static ssize_t utf8_to_hexstr_ucs2 (const char* in, size_t in_length, char* out, size_t out_size)
 {
 	char	buf[out_size];
 	ssize_t	res;
@@ -137,12 +142,12 @@ EXPORT_DEF ssize_t utf8_to_hexstr_ucs2 (const char* in, size_t in_length, char* 
 		return res;
 	}
 
-	res = ucs2char_to_hexstr (buf, res, out, out_size);
+	res = chars8bit_to_hexstr (buf, res, out, out_size);
 
 	return res;
 }
 
-EXPORT_DEF ssize_t char_to_hexstr_7bit (const char* in, size_t in_length, char* out, size_t out_size)
+static ssize_t char_to_hexstr_7bit (const char* in, size_t in_length, char* out, size_t out_size)
 {
 	size_t		i;
 	size_t		x;
@@ -187,7 +192,7 @@ EXPORT_DEF ssize_t char_to_hexstr_7bit (const char* in, size_t in_length, char* 
 	return x;
 }
 
-EXPORT_DEF ssize_t hexstr_7bit_to_char (const char* in, size_t in_length, char* out, size_t out_size)
+static ssize_t hexstr_7bit_to_char (const char* in, size_t in_length, char* out, size_t out_size)
 {
 	size_t		i;
 	size_t		x;
@@ -230,4 +235,38 @@ EXPORT_DEF ssize_t hexstr_7bit_to_char (const char* in, size_t in_length, char* 
 	out[x] = '\0';
 
 	return x;
+}
+
+#/* */
+ssize_t just_copy (const char* in, size_t in_length, char* out, size_t out_size)
+{
+	// FIXME: or copy out_size-1 bytes only ?
+	if (in_length + 1 <= out_size)
+	{
+		memcpy(out, in, in_length);
+		out[in_length] = 0;
+		return in_length;
+	}
+	return -EINVAL;
+}
+
+typedef ssize_t (*coder) (const char* in, size_t in_length, char* out, size_t out_size);
+
+/* array in order of values RECODE_*  */
+static const coder recoders[][2] =
+{
+/* in order of values STR_ENCODING_*  */
+	{ hexstr_7bit_to_char, char_to_hexstr_7bit },		/* STR_ENCODING_7BIT_HEX */
+	{ hexstr_to_8bitchars, chars8bit_to_hexstr },		/* STR_ENCODING_8BIT_HEX */
+	{ hexstr_ucs2_to_utf8, utf8_to_hexstr_ucs2 },		/* STR_ENCODING_UCS2_HEX */
+	{ just_copy, just_copy },				/* STR_ENCODING_7BIT */
+};
+
+#/* */
+EXPORT_DEF ssize_t str_recode(recode_direction_t dir, str_encoding_t encoding, const char* in, size_t in_length, char* out, size_t out_size)
+{
+	unsigned idx = encoding;
+	if((dir == RECODE_DECODE || dir == RECODE_ENCODE) && idx < ITEMS_OF(recoders))
+		return (recoders[idx][dir])(in, in_length, out, out_size);
+	return -EINVAL;
 }

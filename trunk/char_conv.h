@@ -8,17 +8,22 @@
 #include "export.h"			/* EXPORT_DECL EXPORT_DEF */
 
 /* encoding types of strings to/from device */
+/* for simplefy first 3 values same as in PDU DCS bits 3..2 */
+/* NOTE: order is magic see definition of recoders in char_conv.c */
 typedef enum {
-	STR_ENCODING_UNKNOWN	= 0,	/* still unknown */
-	STR_ENCODING_PLAIN,		/* plain text ASCII */
-//	STR_ENCODING_7BIT,		/* 7bit encoding */
-	STR_ENCODING_UCS2_HEX,		/* UCS-2 in hex like PDU */
-	
+	STR_ENCODING_7BIT_HEX		= 0,	/* 7bit encoding */
+	STR_ENCODING_8BIT_HEX,			/* 8bit encoding */
+	STR_ENCODING_UCS2_HEX,			/* UCS-2 in hex like PDU */
+	STR_ENCODING_7BIT,			/* 7bit ASCII  no need recode to utf-8 */
+	STR_ENCODING_UNKNOWN,			/* still unknown */
 } str_encoding_t;
 
-EXPORT_DECL ssize_t utf8_to_hexstr_ucs2 (const char* in, size_t in_length, char* out, size_t out_size);
-EXPORT_DECL ssize_t char_to_hexstr_7bit (const char* in, size_t in_length, char* out, size_t out_size);
-EXPORT_DECL ssize_t hexstr_ucs2_to_utf8 (const char* in, size_t in_length, char* out, size_t out_size);
-EXPORT_DECL ssize_t hexstr_7bit_to_char (const char* in, size_t in_length, char* out, size_t out_size);
+typedef enum {
+	RECODE_DECODE	=	0,		/* from encoded to UTF-8 */
+	RECODE_ENCODE				/* from UTF-8 to encoded */
+} recode_direction_t;
+
+/* recode in both directions */
+EXPORT_DECL ssize_t str_recode(recode_direction_t dir, str_encoding_t encoding, const char* in, size_t in_length, char* out, size_t out_size);
 
 #endif /* CHAN_DATACARD_CHAR_CONV_H_INCLUDED */

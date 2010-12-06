@@ -368,7 +368,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 	{
 		at_cmd[0].length = 9;
 		
-		res = utf8_to_hexstr_ucs2 (destination, strlen (destination), buf + at_cmd[0].length, sizeof(buf) - at_cmd[0].length - 3);
+		res = str_recode (RECODE_ENCODE, STR_ENCODING_UCS2_HEX, destination, strlen (destination), buf + at_cmd[0].length, sizeof(buf) - at_cmd[0].length - 3);
 		if(res <= 0)
 		{
 			ast_log (LOG_ERROR, "[%s] Error converting SMS number to UCS-2\n", PVT_ID(pvt));
@@ -389,7 +389,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 	{
 		if (pvt->use_ucs2_encoding)
 		{
-			res = utf8_to_hexstr_ucs2 (msg, strlen (msg), pdu_buf, sizeof(pdu_buf) - 2);
+			res = str_recode (RECODE_ENCODE, STR_ENCODING_UCS2_HEX, msg, strlen (msg), pdu_buf, sizeof(pdu_buf) - 2);
 			if (res < 0)
 			{
 				ast_free (at_cmd[0].data);
@@ -413,17 +413,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 		return -5;
 	}
 
-//	return 0;
 	return at_queue_insert(cpvt, at_cmd, ITEMS_OF(at_cmd), 0);
-}
-
-/* USSD send */
-static ssize_t null_recoder(const char* src, size_t slen, char * dest, size_t dlen)
-{
-	ssize_t res = MIN (slen, dlen);
-	memcpy (dest, src, res);
-	
-	return res;
 }
 
 /*!
@@ -434,22 +424,10 @@ static ssize_t null_recoder(const char* src, size_t slen, char * dest, size_t dl
 
 EXPORT_DEF int at_enque_cusd (struct cpvt* cpvt, const char* code)
 {
-	struct converter
-	{
-		ssize_t (*func)(const char*, size_t, char *, size_t);
-		const char * descr;
-	};
-
-	static const struct converter converter[] = {
-		{ char_to_hexstr_7bit, "7Bit"},
-		{ utf8_to_hexstr_ucs2, "UCS-2"},
-		{ null_recoder, "USSD"}
-		};
 	static const char cmd[] = "AT+CUSD=1,\"";
 	static const char cmd_end[] = "\",15\r";
 	at_queue_cmd_t at_cmd = ATQ_CMD_DECLARE_DYN(CMD_AT_CUSD);	/* TODO: may be increase timeout ? */
-	
-	const struct converter * coder;
+	str_encoding_t cusd_encoding ;
 	ssize_t res;
 	int length;
 	char buf[4096];
@@ -458,19 +436,20 @@ EXPORT_DEF int at_enque_cusd (struct cpvt* cpvt, const char* code)
 	memcpy (buf, cmd, STRLEN(cmd));
 	length = STRLEN(cmd);
 	
+	
 	if (pvt->cusd_use_7bit_encoding)
-		coder = &converter[0];
+		cusd_encoding = STR_ENCODING_7BIT_HEX;
 	else if (pvt->use_ucs2_encoding)
-		coder = &converter[1];
+		cusd_encoding = STR_ENCODING_UCS2_HEX;
 	else
-		coder = &converter[2];
-	res = (*coder->func)(code, strlen (code), buf + STRLEN(cmd), sizeof (buf) - STRLEN(cmd) - STRLEN(cmd_end) - 1);
+		cusd_encoding = STR_ENCODING_7BIT;
+	res = str_recode(RECODE_ENCODE, cusd_encoding, code, strlen (code), buf + STRLEN(cmd), sizeof (buf) - STRLEN(cmd) - STRLEN(cmd_end) - 1);
 	if (res <= 0)
 	{
-		ast_log (LOG_ERROR, "[%s] Error converting USSD code to %s: %s\n", PVT_ID(pvt), coder->descr, code);
+		ast_log (LOG_ERROR, "[%s] Error converting USSD code: %s\n", PVT_ID(pvt), code);
 		return -1;
 	}
-	
+
 	length += res;
 	memcpy(buf + length, cmd_end, STRLEN(cmd_end)+1);
 	length += STRLEN(cmd_end);
