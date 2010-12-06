@@ -126,9 +126,9 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 	pvt = find_device (a->argv[3]);
 	if (pvt)
 	{
-		ast_mutex_lock (&pvt->lock);
-		
 		statebuf = pvt_str_state_ex(pvt);
+
+		ast_mutex_lock (&pvt->lock);
 
 		ast_cli (a->fd, "\n Current device settings:\n");
 		ast_cli (a->fd, "------------------------------------\n");
@@ -173,6 +173,30 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 	{
 		ast_cli (a->fd, "Device %s not found\n", a->argv[2]);
 	}
+
+	return CLI_SUCCESS;
+}
+
+static char* cli_show_version (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+{
+	switch (cmd)
+	{
+		case CLI_INIT:
+			e->command =	"datacard show version";
+			e->usage   =	"Usage: datacard show version\n"
+					"       Shows the version of module.\n";
+			return NULL;
+
+		case CLI_GENERATE:
+			return NULL;
+	}
+
+	if (a->argc < 3)
+	{
+		return CLI_SHOWUSAGE;
+	}
+
+	ast_cli (a->fd, "\n%s %s Version %s Revision %s\nProject Home %s\nBug Reporting on %s\n\n", AST_MODULE, MODULE_DESCRIPTION, MODULE_VERSION, PACKAGE_REVISION, MODULE_URL, MODULE_BUGREPORT);
 
 	return CLI_SUCCESS;
 }
@@ -372,17 +396,60 @@ static char* cli_reset (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a
 	return CLI_SUCCESS;
 }
 
+#/* */
+static char* cli_restart (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+{
+	struct pvt* pvt;
+
+	switch (cmd)
+	{
+		case CLI_INIT:
+			e->command = "datacard restart";
+			e->usage =
+				"Usage: datacard restart <device>\n"
+				"       Restart datacard <device>\n";
+			return NULL;
+
+		case CLI_GENERATE:
+			if (a->pos == 2)
+			{
+				return complete_device (a->word, a->n);
+			}
+			return NULL;
+	}
+
+	if (a->argc < 3)
+	{
+		return CLI_SHOWUSAGE;
+	}
+
+	pvt = find_device (a->argv[2]);
+	if (pvt)
+	{
+		ast_mutex_lock (&pvt->lock);
+		pvt->restarting = 1;
+		ast_mutex_unlock (&pvt->lock);
+	
+		ast_cli (a->fd, "[%s] Schedule restarting\n", a->argv[2]);
+	}
+	else
+	{
+		ast_cli (a->fd, "Device %s not found\n", a->argv[2]);
+	}
+
+	return CLI_SUCCESS;
+}
+
 static struct ast_cli_entry cli[] = {
 	AST_CLI_DEFINE (cli_show_devices,	"Show Datacard devices state"),
 	AST_CLI_DEFINE (cli_show_device,	"Show Datacard device state and config"),
+	AST_CLI_DEFINE (cli_show_version,	"Show module version"),
 	AST_CLI_DEFINE (cli_cmd,		"Send commands to port for debugging"),
 	AST_CLI_DEFINE (cli_ussd,		"Send USSD commands to the datacard"),
 	AST_CLI_DEFINE (cli_sms,		"Send SMS from the datacard"),
 	AST_CLI_DEFINE (cli_ccwa_set,		"Enable/Disable Call-Waiting on the datacard"),
 	AST_CLI_DEFINE (cli_reset,		"Reset datacard"),
-/* TODO: 
 	AST_CLI_DEFINE (cli_restart,		"Restart datacard"),
-*/
 };
 
 #/* */

@@ -20,6 +20,7 @@
 #include "dc_config.h"			/* pvt_config_t */
 
 #define FRAME_SIZE		320
+#define MODULE_DESCRIPTION	"Datacard Channel Driver"
 
 struct at_queue_task;
 
@@ -123,6 +124,7 @@ typedef struct pvt
 	unsigned int		prov_last_used:1;		/*!< mark the last used device */
 	unsigned int		sim_last_used:1;		/*!< mark the last used device */
 	unsigned int		d_read_result:1;		/*!< for response parsing, may move to reader thread stack */
+	unsigned int		restarting:1;			/*!< if non-zero request to restart device */
 
 	pvt_config_t		settings;			/*!< all device settings from config file */
 	pvt_stat_t		stat;				/*!< various statistics */
