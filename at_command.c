@@ -267,8 +267,6 @@ EXPORT_DEF int at_enque_initialization(struct cpvt* cpvt, at_cmd_t from_command)
 			continue;
 		if(st_cmds[in].cmd == CMD_AT_U2DIAG && CONF_SHARED(pvt, u2diag) == -1)
 			continue;
-		if(st_cmds[in].cmd == CMD_AT_CCWA_SET && CONF_SHARED(pvt, call_waiting) == CALL_WAITING_AUTO)
-			continue;
 
 		memcpy(&cmds[out], &st_cmds[in], sizeof(st_cmds[in]));
 
@@ -341,8 +339,8 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 
 	if(pvt->use_pdu)
 	{
-/*		res = build_pdu(pdu_buf, sizeof(pdu_buf), pvt->sms_scenter, destination, msg, 3*24*60, 0, &sca_len);*/
-		res = build_pdu(pdu_buf, sizeof(pdu_buf), "", destination, msg, 3*24*60, 0, &sca_len);
+/*		res = pdu_build(pdu_buf, sizeof(pdu_buf), pvt->sms_scenter, destination, msg, 3*24*60, 0, &sca_len);*/
+		res = pdu_build(pdu_buf, sizeof(pdu_buf), "", destination, msg, 3*24*60, 0, &sca_len);
 		if(res <= 0) 
 		{
 			if(res == -E2BIG)
@@ -350,6 +348,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 			ast_verb (3, "SMS Message too long, PDU has limit 70 symbols\n");
 			ast_log (LOG_WARNING, "[%s] SMS Message too long, PDU has limit 70 symbols\n", PVT_ID(pvt));
 			}
+			/* TODO: complain on other errors */
 			return res;
 		}
 		if(res > (int)(sizeof(pdu_buf) - 2))
@@ -442,7 +441,7 @@ EXPORT_DEF int at_enque_cusd (struct cpvt* cpvt, const char* code)
 	};
 
 	static const struct converter converter[] = {
-		{ char_to_hexstr_7bit, "PDU"},
+		{ char_to_hexstr_7bit, "7Bit"},
 		{ utf8_to_hexstr_ucs2, "UCS-2"},
 		{ null_recoder, "USSD"}
 		};

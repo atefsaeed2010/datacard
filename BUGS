@@ -10,3 +10,5 @@ Known bugs
 kill device. Device not responding on commands but still sending ^BOOT: and ^RSSI: URCs
 
 5) kill device after entering long PDU
+
+6) white noise on x86_64
