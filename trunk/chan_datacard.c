@@ -162,15 +162,15 @@ static int disconnect_datacard (struct pvt* pvt)
 	pvt->firmware[0]	= '\0';
 	pvt->imei[0]		= '\0';
 	pvt->imsi[0]		= '\0';
-	pvt->number[0]		= '\0';
 	pvt->location_area_code[0]= '\0';
 	pvt->cell_id[0]		= '\0';
 	pvt->sms_scenter[0]	= '\0';
 
 	pvt->dtmf_digit		= 0;
 	
-	ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
-	ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
+	ast_copy_string (pvt->provider_name, "NONE", sizeof (pvt->provider_name));
+	pvt->has_subscriber_number = 0;
+	ast_copy_string (pvt->subscriber_number, "Unknown", sizeof (pvt->subscriber_number));
 
 	at_queue_flush(pvt);
 
@@ -642,8 +642,9 @@ static struct pvt* load_device (struct ast_config* cfg, const char* cat, const s
 				pvt->cusd_use_ucs2_decoding	=  1;
 				pvt->gsm_reg_status		= -1;
 
-				ast_copy_string (pvt->provider_name,	"NONE",		sizeof (pvt->provider_name));
-				ast_copy_string (pvt->number,		"Unknown",	sizeof (pvt->number));
+				ast_copy_string (pvt->provider_name, "NONE", sizeof (pvt->provider_name));
+				ast_copy_string (pvt->subscriber_number, "Unknown", sizeof (pvt->subscriber_number));
+				pvt->has_subscriber_number = 0;
 
 				/* setup the dsp */
 				pvt->dsp = ast_dsp_new ();

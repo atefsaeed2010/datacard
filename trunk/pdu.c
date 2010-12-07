@@ -380,18 +380,6 @@ static int pdu_relative_validity(unsigned minutes)
 #undef DIV_UP
 }
 
-#/* convert 1 hex digits of PDU to byte, return < 0 on error */
-static int pdu_parse_hexdigit(int hex)
-{
-	if(hex >= '0' && hex <= '9')
-		return hex - '0';
-	if(hex >= 'a' && hex <= 'f')
-		return hex - 'a' + 10;
-	if(hex >= 'A' && hex <= 'F')
-		return hex - 'A' + 10;
-	return -1;
-}
-
 #/* convert 2 hex digits of PDU to byte, return < 0 on error */
 static int pdu_parse_byte(char ** digits2hex, size_t * length)
 {
@@ -400,12 +388,12 @@ static int pdu_parse_byte(char ** digits2hex, size_t * length)
 	
 	if(*length >= 2)
 	{
-		res = pdu_parse_hexdigit(*digits2hex[0]);
+		res = parse_hexdigit(*digits2hex[0]);
 		if(res >= 0)
 		{
 			(*digits2hex)++;
 			(*length)--;
-			res2 = pdu_parse_hexdigit(*digits2hex[0]);
+			res2 = parse_hexdigit(*digits2hex[0]);
 			if(res2 >= 0)
 			{
 				(*digits2hex)++;

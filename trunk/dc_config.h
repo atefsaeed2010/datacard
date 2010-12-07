@@ -21,6 +21,7 @@ typedef enum {
 typedef struct dc_sconfig
 {
 	char			context[AST_MAX_CONTEXT];	/*!< the context for incoming calls; 'default '*/
+	char			exten[AST_MAX_EXTENSION];	/*!< exten, not overwrite valid subscriber_number */
 	char			language[MAX_LANGUAGE];		/*!< default language 'en' */
 	int			group;				/*!< group number for group dialling 0 */
 	int			rxgain;				/*!< increase the incoming volume 0 */

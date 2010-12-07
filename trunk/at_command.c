@@ -345,8 +345,8 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 		{
 			if(res == -E2BIG)
 			{
-			ast_verb (3, "SMS Message too long, PDU has limit 70 symbols\n");
-			ast_log (LOG_WARNING, "[%s] SMS Message too long, PDU has limit 70 symbols\n", PVT_ID(pvt));
+			ast_verb (3, "SMS Message too long, PDU has limit 140 octets\n");
+			ast_log (LOG_WARNING, "[%s] SMS Message too long, PDU has limit 140 octets\n", PVT_ID(pvt));
 			}
 			/* TODO: complain on other errors */
 			return res;
@@ -709,28 +709,30 @@ EXPORT_DEF int at_enque_unknown_cmd(struct cpvt* cpvt, const char * input)
  * \param delete -- if non-zero also enque commands for delete message in store after reading
  * \return 0 on success
  */
-EXPORT_DEF int at_enque_retrive_sms(struct cpvt* cpvt, int index, int delete)
+EXPORT_DEF int at_enque_retrive_sms (struct cpvt* cpvt, int index, int delete)
 {
 	int err;
-	unsigned cmdsno;
 	at_queue_cmd_t cmds[] = {
 		ATQ_CMD_DECLARE_DYN2(CMD_AT_CMGR, RES_CMGR),
 		ATQ_CMD_DECLARE_DYN(CMD_AT_CMGD)
 		};
+	unsigned cmdsno = ITEMS_OF (cmds);
 	
-	err = at_fill_generic_cmd(&cmds[0], "AT+CMGR=%d\r", index);
-	if(err)
+	err = at_fill_generic_cmd (&cmds[0], "AT+CMGR=%d\r", index);
+	if (err)
 		return err;
 
-	cmdsno = ITEMS_OF(cmds);
-	if(delete)
+	if (delete)
 	{
-		err = at_fill_generic_cmd(&cmds[1], "AT+CMGD=%d\r\r", index);
+		err = at_fill_generic_cmd (&cmds[1], "AT+CMGD=%d\r\r", index);
 		if(err)
 		{
 			ast_free (cmds[0].data);
 			return err;
 		}
+	}
+	else
+	{
 		cmdsno--;
 	}
 

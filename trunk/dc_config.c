@@ -49,15 +49,16 @@ EXPORT_DEF void dc_sconfig_fill_defaults(struct dc_sconfig * config)
 {
 	/* first set default values */
 	memset(config, 0, sizeof(*config));
-	
-	ast_copy_string (config->context,	"default",	  sizeof (config->context));
-	ast_copy_string (config->language,	DEFAULT_LANGUAGE, sizeof (config->language));
-	
+
+	ast_copy_string (config->context, "default", sizeof (config->context));
+	ast_copy_string (config->exten, "", sizeof (config->exten));
+	ast_copy_string (config->language, DEFAULT_LANGUAGE, sizeof (config->language));
+
 	config->u2diag			= -1;
 	config->reset_datacard		=  1;
 	config->callingpres		= -1;
 	config->call_waiting 		= CALL_WAITING_AUTO;
-	
+
 	config->mindtmfgap		= DEFAULT_MINDTMFGAP;
 	config->mindtmfduration		= DEFAULT_MINDTMFDURATION;
 	config->mindtmfinterval		= DEFAULT_MINDTMFINTERVAL;
@@ -74,6 +75,10 @@ EXPORT_DEF void dc_sconfig_fill(struct ast_config * cfg, const char * cat, struc
 		if (!strcasecmp (v->name, "context"))
 		{
 			ast_copy_string (config->context, v->value, sizeof (config->context));
+		}
+		if (!strcasecmp (v->name, "exten"))
+		{
+			ast_copy_string (config->exten, v->value, sizeof (config->exten));
 		}
 		else if (!strcasecmp (v->name, "language"))
 		{

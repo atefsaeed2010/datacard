@@ -77,7 +77,7 @@ typedef struct pvt
 	struct timeval		dtmf_end_time;			/*!< time of end of last DTMF digit */
 
 	int			timeout;			/*!< used to set the timeout for data */
-#define DATA_READ_TIMEOUT	10000
+#define DATA_READ_TIMEOUT	10000				/* 10 seconds */
 
 	unsigned long		channel_instanse;		/*!< number of channels created on this device */
 	unsigned int		rings;				/*!< ring/ccwa  number distributed to at_response_clcc() */
@@ -97,7 +97,7 @@ typedef struct pvt
 	char			firmware[32];
 	char			imei[17];
 	char			imsi[17];
-	char			number[128];
+	char			subscriber_number[128];
 	char			location_area_code[8];
 	char			cell_id[8];
 	char			sms_scenter[20];
@@ -125,6 +125,7 @@ typedef struct pvt
 	unsigned int		sim_last_used:1;		/*!< mark the last used device */
 	unsigned int		d_read_result:1;		/*!< for response parsing, may move to reader thread stack */
 	unsigned int		restarting:1;			/*!< if non-zero request to restart device */
+	unsigned int		has_subscriber_number:1;	/*!< subscriber_number field is valid */
 
 	pvt_config_t		settings;			/*!< all device settings from config file */
 	pvt_stat_t		stat;				/*!< various statistics */
