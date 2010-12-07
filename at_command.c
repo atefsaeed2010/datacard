@@ -29,8 +29,9 @@
 #include "chan_datacard.h"		/* struct pvt */
 #include "pdu.h"			/* build_pdu() */
 
-static const char cmd_chld2[] = "AT+CHLD=2\r";
-static const char cmd_clcc[] = "AT+CLCC\r";
+static const char cmd_chld1x[]   = "AT+CHLD=1%d\r";
+static const char cmd_chld2[]    = "AT+CHLD=2\r";
+static const char cmd_clcc[]     = "AT+CLCC\r";
 static const char cmd_ddsetex2[] = "AT^DDSETEX=2\r";
 
 /*!
@@ -568,7 +569,7 @@ EXPORT_DEF int at_enque_dial(struct cpvt* cpvt, const char * number, int clir)
 	char * tmp = NULL;
 	at_queue_cmd_t cmds[6];
 	
-	if(pvt->chan_count[CALL_STATE_ACTIVE] && CPVT_TEST_FLAG(cpvt, CALL_FLAG_HOLD_OTHER))
+	if(pvt->chan_count[CALL_STATE_ACTIVE] > 0 && CPVT_TEST_FLAG(cpvt, CALL_FLAG_HOLD_OTHER))
 	{
 		ATQ_CMD_INIT_ST(cmds[0], CMD_AT_CHLD_2, cmd_chld2);
 /*  enable this cause response_clcc() see all calls are held and insert 'AT+CHLD=2'
@@ -841,10 +842,11 @@ EXPORT_DEF int at_enque_hangup (struct cpvt* cpvt, int call_idx)
 
 	if(cpvt == &pvt->sys_chan || cpvt->dir == CALL_DIR_INCOMING || (cpvt->state != CALL_STATE_INIT && cpvt->state != CALL_STATE_DIALING))
 	{
+		/* FIXME: other channels may be in RELEASED or INIT state */
 		if(pvt->chansno > 1)
 		{
 			cmds[0].cmd = CMD_AT_CHLD_1x;
-			err = at_fill_generic_cmd(&cmds[0], "AT+CHLD=1%d\r", call_idx);
+			err = at_fill_generic_cmd(&cmds[0], cmd_chld1x, call_idx);
 			if(err)
 				return err;
 		}
@@ -885,3 +887,13 @@ EXPORT_DEF int at_enque_clcc (struct cpvt* cpvt)
 
 	return at_queue_insert_const(cpvt, &at_cmd, 1, 1);
 }
+
+EXPORT_DEF void at_hangup_immediality(struct cpvt* cpvt)
+{
+	char buf[20];
+	int length = snprintf(buf, sizeof(buf), cmd_chld1x, cpvt->call_idx);
+
+	if(length > 0)
+		at_write(cpvt->pvt, buf, length);
+}
+

@@ -344,7 +344,7 @@ badconf:
 	}
 
 	AST_RWLIST_UNLOCK (&gpublic->devices);
-	if (!pvt || !is_dial_possible(pvt, opts, NULL))
+	if (!pvt || !ready4voice_call(pvt, NULL, opts))
 	{
 		if (pvt)
 		{
@@ -955,7 +955,7 @@ static int channel_devicestate (void* data)
 		ast_mutex_lock (&pvt->lock);
 		if (pvt->connected)
 		{
-			if (is_dial_possible(pvt, CALL_FLAG_NONE, NULL))
+			if (is_dial_possible(pvt, CALL_FLAG_NONE))
 			{
 				res = AST_DEVICE_NOT_INUSE;
 			}
@@ -1080,15 +1080,15 @@ EXPORT_DEF void channel_change_state(struct cpvt * cpvt, unsigned newstate, int 
 
 			case CALL_STATE_RELEASED:
 				channel_disactivate(cpvt);
-				/* from +CEND: */
+				/* from +CEND, restart or disconnect */
 
+				/* drop channel -> cpvt reference */
+				cpvt->channel->tech_pvt = NULL;
+				cpvt_free(cpvt);
 				if (channel_queue_hangup (cpvt, cause))
 				{
 					ast_log (LOG_ERROR, "[%s] Error queueing hangup...\n", PVT_ID(pvt));
 				}
-				/* drop channel -> cpvt reference */
-				cpvt->channel->tech_pvt = NULL;
-				cpvt_free(cpvt);
 
 				break;
 		}
@@ -1148,7 +1148,14 @@ EXPORT_DEF struct ast_channel* channel_new (struct pvt* pvt, int ast_state, cons
 			set_channel_vars(pvt, channel);
 
 			if(dnid != NULL && dnid[0] != 0)
+				pbx_builtin_setvar_helper(channel, "CALLERID(dnid)", dnid);
+/*
+#if ASTERISK_VERSION_NUM >= 10800
+				channel->dialed.number.str = ast_strdup(dnid);
+#else
 				channel->cid.cid_dnid = ast_strdup(dnid);
+#endif
+*/
 			ast_jb_configure (channel, &CONF_GLOBAL(jbconf));
 
 			ast_module_ref (self_module());

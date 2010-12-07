@@ -399,7 +399,7 @@ static char* cli_reset (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a
 #/* */
 static char* cli_restart (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
-	struct pvt* pvt;
+	const char * msg;
 
 	switch (cmd)
 	{
@@ -423,19 +423,8 @@ static char* cli_restart (struct ast_cli_entry* e, int cmd, struct ast_cli_args*
 		return CLI_SHOWUSAGE;
 	}
 
-	pvt = find_device (a->argv[2]);
-	if (pvt)
-	{
-		ast_mutex_lock (&pvt->lock);
-		pvt->restarting = 1;
-		ast_mutex_unlock (&pvt->lock);
-	
-		ast_cli (a->fd, "[%s] Schedule restarting\n", a->argv[2]);
-	}
-	else
-	{
-		ast_cli (a->fd, "Device %s not found\n", a->argv[2]);
-	}
+	msg = schedule_restart (a->argv[2], NULL);
+	ast_cli (a->fd, "[%s] %s\n", a->argv[2], msg);
 
 	return CLI_SUCCESS;
 }

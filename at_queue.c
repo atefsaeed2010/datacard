@@ -143,7 +143,7 @@ static int at_queue_add (struct cpvt* cpvt, const at_queue_cmd_t* cmds, unsigned
  */
 
 #/* */
-static int at_write (struct pvt* pvt, const char* buf, size_t count)
+EXPORT_DEF int at_write (struct pvt* pvt, const char* buf, size_t count)
 {
 	ssize_t	out_count;
 	unsigned errs = 10;

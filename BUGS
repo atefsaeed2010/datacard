@@ -14,3 +14,7 @@ kill device. Device not responding on commands but still sending ^BOOT: and ^RSS
 6) white noise on x86_64
 
 7) Some characters wrong encoded for SMS
+
+8) command removed from queue by timeout when response already in read buffer
+
+9) cpvt locking

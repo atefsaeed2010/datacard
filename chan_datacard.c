@@ -127,60 +127,90 @@ static int device_status (int fd)
 	return tcgetattr (fd, &t);
 }
 
-static int disconnect_datacard (struct pvt* pvt)
+static void disconnect_datacard (struct pvt* pvt)
 {
 	struct cpvt * cpvt, * next;
 	
 	if (pvt->chansno)
 	{
-		ast_debug (1, "[%s] Datacard disconnected, hanging up owners\n", PVT_ID(pvt));
+		ast_debug (1, "[%s] Datacard disconnecting, hanging up channels\n", PVT_ID(pvt));
 		
 		for(cpvt = pvt->chans.first; cpvt; cpvt = next)
 		{
 			next = cpvt->entry.next;
+			at_hangup_immediality(cpvt);
 			CPVT_RESET_FLAG(cpvt, CALL_FLAG_NEED_HANGUP);
-			channel_queue_hangup (cpvt, 0);
+			channel_change_state(cpvt, CALL_STATE_RELEASED, 0);
 		}
 	}
+	at_queue_flush(pvt);
+	pvt->last_dialed_cpvt = NULL;
 
 	close (pvt->data_fd);
 	close (pvt->audio_fd);
-	
 	pvt->data_fd		= -1;
 	pvt->audio_fd		= -1;
 
+	ast_dsp_digitreset(pvt->dsp);
+	pvt_on_remove_last_channel(pvt);
+/*	pvt->a_write_rb */
+
+	pvt->dtmf_digit = 0;
+	pvt->rings = 0;
+
+	if(pvt->restarting)
+	{
+		pvt->restarting = 0;
+	}
+//	else
+	{
+		/* unaffected in case of restart */
+		pvt->use_ucs2_encoding = 0;
+		pvt->cusd_use_7bit_encoding = 0;
+		pvt->cusd_use_ucs2_decoding = 0;
+		pvt->gsm_reg_status = -1;
+		pvt->rssi = 0;
+		pvt->linkmode = 0;
+		pvt->linksubmode = 0;
+		ast_copy_string (pvt->provider_name, "NONE", sizeof (pvt->provider_name));
+		pvt->manufacturer[0] = '\0';
+		pvt->model[0] = '\0';
+		pvt->firmware[0] = '\0';
+		pvt->imei[0] = '\0';
+		pvt->imsi[0] = '\0';
+		pvt->has_subscriber_number = 0;
+		ast_copy_string (pvt->subscriber_number, "Unknown", sizeof (pvt->subscriber_number));
+		pvt->location_area_code[0] = '\0';
+		pvt->cell_id[0] = '\0';
+		pvt->sms_scenter[0] = '\0';
+
+		pvt->gsm_registered	= 0;
+		pvt->has_sms = 0;
+		pvt->has_voice = 0;
+		pvt->has_call_waiting = 0;
+		pvt->use_pdu = 0;
+	}
+
 	pvt->connected		= 0;
 	pvt->initialized	= 0;
-	pvt->gsm_registered	= 0;
 	pvt->use_pdu		= 0;
 	pvt->has_call_waiting	= 0;
 
-	pvt->gsm_reg_status	= -1;
-
-	pvt->manufacturer[0]	= '\0';
-	pvt->model[0]		= '\0';
-	pvt->firmware[0]	= '\0';
-	pvt->imei[0]		= '\0';
-	pvt->imsi[0]		= '\0';
-	pvt->location_area_code[0]= '\0';
-	pvt->cell_id[0]		= '\0';
-	pvt->sms_scenter[0]	= '\0';
-
-	pvt->dtmf_digit		= 0;
+	/* FIXME: LOST real device state */
+	pvt->dialing = 0;
+	pvt->ring = 0;
+	pvt->cwaiting = 0;
+	pvt->outgoing_sms = 0;
+	pvt->incoming_sms = 0;
+	pvt->volume_sync_step = VOLUME_SYNC_BEGIN;
 	
-	ast_copy_string (pvt->provider_name, "NONE", sizeof (pvt->provider_name));
-	pvt->has_subscriber_number = 0;
-	ast_copy_string (pvt->subscriber_number, "Unknown", sizeof (pvt->subscriber_number));
-
-	at_queue_flush(pvt);
-
 	ast_verb (3, "Datacard %s has disconnected\n", PVT_ID(pvt));
+	ast_debug (1, "[%s] Datacard disconnected\n", PVT_ID(pvt));
 
 #ifdef BUILD_MANAGER
 	manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Disconnect\r\nDevice: %s\r\n", PVT_ID(pvt));
 #endif
-
-	return 1;
+	/* TODO: wakeup discovery thread after some delay */
 }
 
 /*!
@@ -199,16 +229,23 @@ static void* do_monitor_phone (void* data)
 	struct ringbuffer rb;
 	struct iovec	iov[2];
 	int		iovcnt;
+	char		dev[sizeof(PVT_ID(pvt))];
+	int 		fd;
+	int		read_result = 0;
 
 	rb_init (&rb, buf, sizeof (buf));
 	pvt->timeout = DATA_READ_TIMEOUT;
 
 	ast_mutex_lock (&pvt->lock);
-
+	
+	/* 4 reduce locking time make copy of this readonly fields */
+	fd = pvt->data_fd;
+	ast_copy_string(dev, PVT_ID(pvt), sizeof(dev));
+	
 	/* anybody can write some to device before me, and not read results, clean pending results here */
-	for (t = 0; at_wait (pvt, &t); t = 0)
+	for (t = 0; at_wait (fd, &t); t = 0)
 	{
-		iovcnt = at_read (pvt, &rb);
+		iovcnt = at_read (fd, dev, &rb);
 		ast_debug (4, "[%s] drop %u bytes of pending data before initialization\n", PVT_ID(pvt), (unsigned)rb_used(&rb));
 		/* drop readed */
 		rb_init (&rb, buf, sizeof (buf));
@@ -236,9 +273,9 @@ static void* do_monitor_phone (void* data)
 			ast_log (LOG_ERROR, "Lost connection to Datacard %s\n", PVT_ID(pvt));
 			goto e_cleanup;
 		}
+
 		if(pvt->restarting)
 		{
-			pvt->restarting = 0;
 			ast_log (LOG_NOTICE, "[%s] Restarting by request\n", PVT_ID(pvt));
 			goto e_restart;
 		}
@@ -248,7 +285,7 @@ static void* do_monitor_phone (void* data)
 		ast_mutex_unlock (&pvt->lock);
 
 
-		if (!at_wait (pvt, &t))
+		if (!at_wait (fd, &t))
 		{
 			ast_mutex_lock (&pvt->lock);
 			if (!pvt->initialized)
@@ -271,23 +308,22 @@ static void* do_monitor_phone (void* data)
 			}
 		}
 
-
-		ast_mutex_lock (&pvt->lock);
-
-		if (at_read (pvt, &rb))
+		if (at_read (fd, dev, &rb))
 		{
+			ast_mutex_lock (&pvt->lock);
 			goto e_cleanup;
 		}
-		while ((iovcnt = at_read_result_iov (pvt, &rb, iov)) > 0)
+		while ((iovcnt = at_read_result_iov (dev, &read_result, &rb, iov)) > 0)
 		{
 			at_res = at_read_result_classification (&rb, iov[0].iov_len + iov[1].iov_len);
 
+			ast_mutex_lock (&pvt->lock);
 			if (at_response (pvt, iov, iovcnt, at_res))
 			{
 				goto e_cleanup;
 			}
+			ast_mutex_unlock (&pvt->lock);
 		}
-		ast_mutex_unlock (&pvt->lock);
 	}
 
 	ast_mutex_lock (&pvt->lock);
@@ -297,6 +333,9 @@ e_cleanup:
 	{
 		ast_verb (3, "Error initializing Datacard %s\n", PVT_ID(pvt));
 	}
+	/* it real disconnect */
+	pvt->restarting = 0;
+
 e_restart:
 	disconnect_datacard (pvt);
 
@@ -367,7 +406,8 @@ EXPORT_DEF void pvt_on_create_1st_channel(struct pvt* pvt)
 {
 	rb_init (&pvt->a_write_rb, pvt->a_write_buf, sizeof (pvt->a_write_buf));
 
-	pvt->a_timer = ast_timer_open ();
+	if(!pvt->a_timer)
+		pvt->a_timer = ast_timer_open ();
 
 /* FIXME: do on each channel switch */
 	ast_dsp_digitreset (pvt->dsp);
@@ -417,7 +457,7 @@ EXPORT_DEF int pvt_get_pseudo_call_idx(const struct pvt * pvt)
 #undef SET_BIT
 
 #/* */
-EXPORT_DEF int is_dial_possible(const struct pvt * pvt, int opts, const struct cpvt * ignore_cpvt)
+static int is_dial_possible2(const struct pvt * pvt, int opts, const struct cpvt * ignore_cpvt)
 {
 	struct cpvt * cpvt;
 	int hold = 0;
@@ -428,42 +468,51 @@ EXPORT_DEF int is_dial_possible(const struct pvt * pvt, int opts, const struct c
 		return 0;
 
 	AST_LIST_TRAVERSE(&pvt->chans, cpvt, entry) {
-		if(cpvt != ignore_cpvt)
+		switch(cpvt->state)
 		{
-			switch(cpvt->state)
-			{
-				case CALL_STATE_DIALING:
-				case CALL_STATE_ALERTING:
-				case CALL_STATE_INCOMING:
-				case CALL_STATE_WAITING:
-				case CALL_STATE_INIT:
+			case CALL_STATE_INIT:
+				if(cpvt != ignore_cpvt)
 					return 0;
+				break;
 
-				case CALL_STATE_ACTIVE:
-					if(hold || !use_call_waiting)
-						return 0;
-					active++;
-					break;
-				case CALL_STATE_ONHOLD:
-					if(active || !use_call_waiting)
-						return 0;
-					hold++;
-					break;
-				case CALL_STATE_RELEASED:
-					;
-			}
+			case CALL_STATE_DIALING:
+			case CALL_STATE_ALERTING:
+			case CALL_STATE_INCOMING:
+			case CALL_STATE_WAITING:
+				return 0;
+
+			case CALL_STATE_ACTIVE:
+				if(hold || !use_call_waiting)
+					return 0;
+				active++;
+				break;
+
+			case CALL_STATE_ONHOLD:
+				if(active || !use_call_waiting)
+					return 0;
+				hold++;
+				break;
+
+			case CALL_STATE_RELEASED:
+				;
 		}
 	}
 	return 1;
 }
 
 #/* */
-EXPORT_DEF int ready4voice_call(const struct pvt* pvt, const struct cpvt * ignore_cpvt, int opts)
+EXPORT_DEF int is_dial_possible(const struct pvt * pvt, int opts)
+{
+	return is_dial_possible2(pvt, opts, NULL);
+}
+
+#/* */
+EXPORT_DEF int ready4voice_call(const struct pvt* pvt, const struct cpvt * current_cpvt, int opts)
 {
 	if(!pvt->connected || !pvt->initialized || !pvt->has_voice || !pvt->gsm_registered)
 		return 0;
 
-	return is_dial_possible(pvt, opts, ignore_cpvt);
+	return is_dial_possible2(pvt, opts, current_cpvt);
 }
 
 #/* */
@@ -477,7 +526,7 @@ EXPORT_DEF const char* pvt_str_state(const struct pvt* pvt)
 		state = "Not initialized";
 	else if(!pvt->gsm_registered)
 		state = "GSM not registered";
-	else if(!is_dial_possible(pvt, CALL_FLAG_NONE, NULL))
+	else if(!is_dial_possible(pvt, CALL_FLAG_NONE))
 		state = "Busy";
 	else if(pvt->outgoing_sms || pvt->incoming_sms)
 		state = "SMS";
@@ -501,16 +550,16 @@ EXPORT_DEF struct ast_str* pvt_str_state_ex(const struct pvt* pvt)
 		if(pvt->ring || pvt->chan_count[CALL_STATE_INCOMING])
 			ast_str_append (&buf, 0, "Ring ");
 
-		if(pvt->dialing || (pvt->chan_count[CALL_STATE_DIALING] + pvt->chan_count[CALL_STATE_ALERTING]))
+		if(pvt->dialing || (pvt->chan_count[CALL_STATE_INIT] + pvt->chan_count[CALL_STATE_DIALING] + pvt->chan_count[CALL_STATE_ALERTING]) > 0)
 			ast_str_append (&buf, 0, "Dialing ");
 
 		if(pvt->cwaiting || pvt->chan_count[CALL_STATE_WAITING])
 			ast_str_append (&buf, 0, "Waiting ");
 
-		if(pvt->chan_count[CALL_STATE_ACTIVE])
+		if(pvt->chan_count[CALL_STATE_ACTIVE] > 0)
 			ast_str_append (&buf, 0, "Active %u ", pvt->chan_count[CALL_STATE_ACTIVE]);
 
-		if(pvt->chan_count[CALL_STATE_ONHOLD])
+		if(pvt->chan_count[CALL_STATE_ONHOLD] > 0)
 			ast_str_append (&buf, 0, "Held %u ", pvt->chan_count[CALL_STATE_ONHOLD]);
 
 		if(pvt->incoming_sms)

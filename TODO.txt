@@ -20,11 +20,10 @@ added 20.11.2010
 
 8) LED control
 
-9) SMS receive in Unicode
+	9) SMS receive in Unicode
 		send in PDU added at 27.11.2010 r45
 		send in UCS-2 added at 05.12.2010 r72
 		receive side done at 06.12.2010 r75
-	TODO: USSD check with AT+CMGF=0
 
 10) Automatic device discovery by IMEI or IMSI
 
@@ -69,6 +68,8 @@ added 24.11.2010
     22.3) exten
 	added 06.12.2010 r83
 
+23) 
+
 24) reconfigure on fly
 
 	25) implement command "datacard show version"
@@ -86,3 +87,7 @@ added 06.12.2010
 	SRR and validity done 06.12.2010 in r75
 
 29) incoming SMS: pass up raw PDU, raw message, SCTS, SCA, UDH, PID?, fields of DCS 
+
+30) incoming reports
+
+31) outgoing SMS: send in 7Bit or 8Bit if possible
