@@ -57,7 +57,7 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 		astman_append (s, "Firmware: %s\r\n", pvt->firmware);
 		astman_append (s, "IMEI: %s\r\n", pvt->imei);
 		astman_append (s, "IMSI: %s\r\n", pvt->imsi);
-		astman_append (s, "Number: %s\r\n", pvt->number);
+		astman_append (s, "Subscriber Number: %s\r\n", pvt->subscriber_number);
 		astman_append (s, "SMS Service Center: %s\r\n", pvt->sms_scenter);
 		astman_append (s, "Use CallingPres: %s\r\n", CONF_SHARED(pvt, usecallingpres) ? "Yes" : "No");
 		astman_append (s, "Default CallingPres: %s\r\n", CONF_SHARED(pvt, callingpres) < 0 ? "<Not set>" : ast_describe_caller_presentation (CONF_SHARED(pvt, callingpres)));

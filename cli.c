@@ -84,7 +84,7 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 			pvt->firmware,
 			pvt->imei,
 			pvt->imsi,
-			pvt->number
+			pvt->subscriber_number
 		);
 		ast_mutex_unlock (&pvt->lock);
 	}
@@ -147,7 +147,7 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "  Firmware                : %s\n", pvt->firmware);
 		ast_cli (a->fd, "  IMEI                    : %s\n", pvt->imei);
 		ast_cli (a->fd, "  IMSI                    : %s\n", pvt->imsi);
-		ast_cli (a->fd, "  Number                  : %s\n", pvt->number);
+		ast_cli (a->fd, "  Subscriber Number       : %s\n", pvt->subscriber_number);
 		ast_cli (a->fd, "  SMS Service Center      : %s\n", pvt->sms_scenter);
 		ast_cli (a->fd, "  Use CallingPres         : %s\n", CONF_SHARED(pvt, usecallingpres) ? "Yes" : "No");
 		ast_cli (a->fd, "  Default CallingPres     : %s\n", CONF_SHARED(pvt, callingpres) < 0 ? "<Not set>" : ast_describe_caller_presentation (CONF_SHARED(pvt, callingpres)));

@@ -347,7 +347,7 @@ static const char*  parse_cmgr_text (char** str, size_t len, char* oa, size_t oa
 				number = *str;
 				break;
 			case 2:
-				str[-1] = 0;
+				(*str)[-1] = 0;
 				/* TODO: check encoding */
 				*oa_enc = STR_ENCODING_UNKNOWN;
 				if(oa_len < (size_t)(*str - number))

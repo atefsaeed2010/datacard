@@ -831,7 +831,9 @@ static int at_response_conn (struct pvt* pvt, const char* str)
 static int start_pbx(struct pvt* pvt, const char * number, int call_idx, call_state_t state)
 {
 	struct cpvt* cpvt;
-	struct ast_channel* channel = channel_new (pvt, AST_STATE_RING, number, call_idx, CALL_DIR_INCOMING, state);
+
+	/* TODO: pass also Subscriber number or other DID info for exten  */
+	struct ast_channel* channel = channel_new (pvt, AST_STATE_RING, number, call_idx, CALL_DIR_INCOMING, state, pvt->has_subscriber_number ? pvt->subscriber_number : CONF_SHARED(pvt, exten));
 
 	if (!channel)
 	{
@@ -845,6 +847,7 @@ static int start_pbx(struct pvt* pvt, const char * number, int call_idx, call_st
 		return -1;
 	}
 	cpvt = channel->tech_pvt;
+// FIXME: not execute if channel_new() failed
 	CPVT_SET_FLAGS(cpvt, CALL_FLAG_NEED_HANGUP);
 
 	if (ast_pbx_start (channel))
@@ -1361,11 +1364,14 @@ static int at_response_cnum (struct pvt* pvt, char* str, size_t len)
 
 	if (number)
 	{
-		ast_copy_string (pvt->number, number, sizeof (pvt->number));
+		ast_copy_string (pvt->subscriber_number, number, sizeof (pvt->subscriber_number));
+		if(pvt->subscriber_number[0] != 0)
+			pvt->has_subscriber_number = 1;
 		return 0;
 	}
 
-	ast_copy_string (pvt->number, "Unknown", sizeof (pvt->number));
+	ast_copy_string (pvt->subscriber_number, "Unknown", sizeof (pvt->subscriber_number));
+	pvt->has_subscriber_number = 0;
 
 	return -1;
 }

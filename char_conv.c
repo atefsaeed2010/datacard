@@ -49,60 +49,70 @@ static ssize_t convert_string (const char* in, size_t in_length, char* out, size
 	return (out_ptr - out);
 }
 
+#/* convert 1 hex digits of PDU to byte, return < 0 on error */
+EXPORT_DEF int parse_hexdigit(int hex)
+{
+	if(hex >= '0' && hex <= '9')
+		return hex - '0';
+	if(hex >= 'a' && hex <= 'f')
+		return hex - 'a' + 10;
+	if(hex >= 'A' && hex <= 'F')
+		return hex - 'A' + 10;
+	return -1;
+}
+
 static ssize_t hexstr_to_8bitchars (const char* in, size_t in_length, char* out, size_t out_size)
 {
-	size_t i;
-	size_t x;
-	int hexval = 0;
-	char buf[] = "  ";
+	int d1, d2;
 
-	in_length = in_length / 2;
+	/* odd number of chars check */
+	if (in_length & 0x1)
+		return -EINVAL;
 
-	/* FIXME: odd number of chars check */
+	in_length = in_length >> 1;
+
 	if (out_size - 1 < in_length)
 	{
-		return -1;
+		return -ENOMEM;
 	}
-
-	for (i = 0, x = 0; i < in_length; i++)
+	out_size = in_length;
+	
+	for (; in_length; --in_length)
 	{
-		// SPEED: remove memcpy , remove sscanf
-		memcpy (buf, in + i * 2, 2);
-		if (sscanf (buf, "%x", &hexval) != 1)
-		{
-			return -1;
-		}
-		out[x] = hexval;
-		x++;
+		d1 = parse_hexdigit(*in++);
+		if(d1 < 0)
+			return -EINVAL;
+		d2 = parse_hexdigit(*in++);
+		if(d2 < 0)
+			return -EINVAL;
+		*out++ = (d1 << 4) | d2;
 	}
 
-	out[x] = '\0';
+	*out = 0;
 
-	return x;
+	return out_size;
 }
 
 static ssize_t chars8bit_to_hexstr (const char* in, size_t in_length, char* out, size_t out_size)
 {
-	size_t i;
-	size_t x;
-	char buf[] = "  ";
+	static const char hex_table[] = "0123456789ABCDEF";
+	const unsigned char *in2 = (const unsigned char *)in;	/* for save time of first & 0x0F */
 
 	if (out_size - 1 < in_length * 2)
 	{
 		return -1;
 	}
-
-	for (i = 0, x = 0; i < in_length; i++)
+	out_size = in_length * 2;
+	
+	for (; in_length; --in_length, ++in2)
 	{
-		// SPEED: remove memcpy  direct snprintf to out
-		snprintf (buf,sizeof (buf),"%.2X", in[i]);
-		memcpy (out + x, buf, 2);
-		x = x + 2;
+		*out++ = hex_table[*in2 >> 4];
+		*out++ = hex_table[*in2 & 0xF];
 	}
 
-	out[x] = '\0';
+	*out = 0;
 
-	return x;
+	return out_size;
 }
 
 static ssize_t hexstr_ucs2_to_utf8 (const char* in, size_t in_length, char* out, size_t out_size)
@@ -241,13 +251,13 @@ static ssize_t hexstr_7bit_to_char (const char* in, size_t in_length, char* out,
 ssize_t just_copy (const char* in, size_t in_length, char* out, size_t out_size)
 {
 	// FIXME: or copy out_size-1 bytes only ?
-	if (in_length + 1 <= out_size)
+	if (in_length <= out_size - 1)
 	{
 		memcpy(out, in, in_length);
 		out[in_length] = 0;
 		return in_length;
 	}
-	return -EINVAL;
+	return -ENOMEM;
 }
 
 typedef ssize_t (*coder) (const char* in, size_t in_length, char* out, size_t out_size);

@@ -357,7 +357,7 @@ badconf:
 		return NULL;
 	}
 
-	channel = channel_new (pvt, AST_STATE_DOWN, NULL, pvt_get_pseudo_call_idx(pvt), CALL_DIR_OUTGOING, CALL_STATE_INIT);
+	channel = channel_new (pvt, AST_STATE_DOWN, NULL, pvt_get_pseudo_call_idx(pvt), CALL_DIR_OUTGOING, CALL_STATE_INIT, NULL);
 
 	ast_mutex_unlock (&pvt->lock);
 
@@ -1095,8 +1095,28 @@ EXPORT_DEF void channel_change_state(struct cpvt * cpvt, unsigned newstate, int 
 	}
 }
 
+#/* */
+static void set_channel_vars(struct pvt* pvt, struct ast_channel* channel)
+{
+	unsigned idx;
+	channel_var_t dev_vars[] = 
+	{
+		{ "DATACARD", PVT_ID(pvt) },
+		{ "PROVIDER", pvt->provider_name },
+		{ "IMEI", pvt->imei },
+		{ "IMSI", pvt->imsi },
+		{ "CNUMBER", pvt->subscriber_number },
+	};
+	
+	ast_string_field_set (channel, language, CONF_SHARED(pvt, language));
+
+	for(idx = 0; idx < ITEMS_OF(dev_vars); ++idx)
+		pbx_builtin_setvar_helper (channel, dev_vars[idx].name, dev_vars[idx].value);
+
+}
+
 /* NOTE: called from device and current levels with locked pvt */
-EXPORT_DEF struct ast_channel* channel_new (struct pvt* pvt, int ast_state, const char* cid_num, int call_idx, unsigned dir, call_state_t state)
+EXPORT_DEF struct ast_channel* channel_new (struct pvt* pvt, int ast_state, const char* cid_num, int call_idx, unsigned dir, call_state_t state, const char* dnid)
 {
 	struct ast_channel* channel;
 	struct cpvt * cpvt;
@@ -1105,9 +1125,9 @@ EXPORT_DEF struct ast_channel* channel_new (struct pvt* pvt, int ast_state, cons
 	if (cpvt)
 	{
 #if ASTERISK_VERSION_NUM >= 10800
-		channel = ast_channel_alloc (1, ast_state, cid_num, PVT_ID(pvt), NULL, 0, CONF_SHARED(pvt, context), 0, 0, "Datacard/%s-%02u%08lx", PVT_ID(pvt), call_idx, pvt->channel_instanse);
+		channel = ast_channel_alloc (1, ast_state, cid_num, PVT_ID(pvt), NULL, dnid, CONF_SHARED(pvt, context), 0, 0, "Datacard/%s-%02u%08lx", PVT_ID(pvt), call_idx, pvt->channel_instanse);
 #else
-		channel = ast_channel_alloc (1, ast_state, cid_num, PVT_ID(pvt), 0, 0, CONF_SHARED(pvt, context), 0, "Datacard/%s-%02u%08lx", PVT_ID(pvt), call_idx, pvt->channel_instanse);
+		channel = ast_channel_alloc (1, ast_state, cid_num, PVT_ID(pvt), NULL, dnid, CONF_SHARED(pvt, context), 0, "Datacard/%s-%02u%08lx", PVT_ID(pvt), call_idx, pvt->channel_instanse);
 #endif
 		if (channel)
 		{
@@ -1124,14 +1144,11 @@ EXPORT_DEF struct ast_channel* channel_new (struct pvt* pvt, int ast_state, cons
 			{
 				channel->rings = 1;
 			}
+			
+			set_channel_vars(pvt, channel);
 
-			pbx_builtin_setvar_helper (channel, "DATACARD",		PVT_ID(pvt));
-			pbx_builtin_setvar_helper (channel, "PROVIDER",		pvt->provider_name);
-			pbx_builtin_setvar_helper (channel, "IMEI",		pvt->imei);
-			pbx_builtin_setvar_helper (channel, "IMSI",		pvt->imsi);
-			pbx_builtin_setvar_helper (channel, "CNUMBER",		pvt->number);
-
-			ast_string_field_set (channel, language, CONF_SHARED(pvt, language));
+			if(dnid != NULL && dnid[0] != 0)
+				channel->cid.cid_dnid = ast_strdup(dnid);
 			ast_jb_configure (channel, &CONF_GLOBAL(jbconf));
 
 			ast_module_ref (self_module());
@@ -1219,42 +1236,11 @@ EXPORT_DEF int channel_queue_hangup (struct cpvt * cpvt, int hangupcause)
 	return 0;
 }
 
-#if 0
-/* NOTE: bg: called from device level with pvt locked */
-EXPORT_DEF struct ast_channel* channel_local_request (struct pvt* pvt, const char* cid_name, const char* cid_num)
-{
-	struct ast_channel*	channel;
-	int			cause = 0;
-
-#if ASTERISK_VERSION_NUM >= 10800
-	if (!(channel = ast_request ("Local", AST_FORMAT_AUDIO_MASK, NULL, PVT_ID(pvt), &cause)))
-#else
-	if (!(channel = ast_request ("Local", AST_FORMAT_AUDIO_MASK, PVT_ID(pvt), &cause)))
-#endif
-	{
-		ast_log (LOG_ERROR, "Unable to request channel Local/%s\n", PVT_ID(pvt));
-		return channel;
-	}
-
-	ast_set_callerid (channel, cid_num, cid_name, cid_num);
-	pbx_builtin_setvar_helper (channel, "DATACARD",	PVT_ID(pvt));
-	pbx_builtin_setvar_helper (channel, "PROVIDER",	pvt->provider_name);
-	pbx_builtin_setvar_helper (channel, "IMEI",	pvt->imei);
-	pbx_builtin_setvar_helper (channel, "IMSI",	pvt->imsi);
-	pbx_builtin_setvar_helper (channel, "CNUMBER", pvt->number);
-
-	ast_string_field_set (channel, language, CONF_SHARED(pvt, language));
-
-	return channel;
-}
-#endif
-
 /* NOTE: bg: called from device level with pvt locked */
 EXPORT_DECL void channel_local_start (struct pvt* pvt, const char* exten, const char* number, channel_var_t* vars)
 {
 	struct ast_channel*	channel;
 	int			cause = 0;
-	unsigned		idx;
 	char			channel_name[1024];
 
 	snprintf (channel_name, sizeof (channel_name), "%s@%s", exten, CONF_SHARED(pvt, context));
@@ -1266,19 +1252,9 @@ EXPORT_DECL void channel_local_start (struct pvt* pvt, const char* exten, const 
 #endif
 	if (channel)
 	{
-		channel_var_t dev_vars[] = 
-		{
-			{ "PROVIDER", pvt->provider_name },
-			{ "IMEI", pvt->imei },
-			{ "IMSI", pvt->imsi },
-			{ "CNUMBER", pvt->number },
-		};
-	
+		set_channel_vars(pvt, channel);
 		ast_set_callerid (channel, number, PVT_ID(pvt), number);
-		ast_string_field_set (channel, language, CONF_SHARED(pvt, language));
 
-		for(idx = 0; idx < ITEMS_OF(dev_vars); ++idx)
-			pbx_builtin_setvar_helper (channel, dev_vars[idx].name, dev_vars[idx].value);
 		for(; vars->name; ++vars)
 			pbx_builtin_setvar_helper (channel, vars->name, vars->value);
 
