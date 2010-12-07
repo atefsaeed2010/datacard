@@ -160,11 +160,11 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 
 				pvt->has_voice = 1;
 				break;
-
+/*
 			case CMD_AT_CLIP:
 				ast_debug (1, "[%s] Calling line indication disabled\n", PVT_ID(pvt));
 				break;
-
+*/
 			case CMD_AT_CSSN:
 				ast_debug (1, "[%s] Supplementary Service Notification enabled successful\n", PVT_ID(pvt));
 				break;
@@ -392,11 +392,11 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 					}
 				}
 				break;
-
+/*
 			case CMD_AT_CLIP:
 				ast_log (LOG_ERROR, "[%s] Error enabling calling line indication\n", PVT_ID(pvt));
 				goto e_return;
-
+*/
 			case CMD_AT_CSSN:
 				ast_log (LOG_ERROR, "[%s] Error Supplementary Service Notification activation failed\n", PVT_ID(pvt));
 				goto e_return;
@@ -977,7 +977,7 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 		/* unhold first held call */
 		if(all == held)
 		{
-/* HW BUG 2: when no active call exist not way to enable voice again on activated from hold call
+/* HW BUG 2: when no active call exists not way to enable voice again on activated from hold call
 	call will be activated but no voice
 */
 			ast_debug (1, "[%s] all %u call held, try activate some\n",  PVT_ID(pvt), all);
@@ -1176,8 +1176,9 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 		res = str_recode (RECODE_DECODE, oa_enc, oa, strlen(oa), from_number_utf8_str, sizeof (from_number_utf8_str));
 		if (res < 0)
 		{
-			ast_log (LOG_ERROR, "[%s] Error parsing SMS from_number (convert HEX UCS-2 to UTF-8): %s\n", PVT_ID(pvt), oa);
+			ast_log (LOG_ERROR, "[%s] Error parsing SMS from_number: %s\n", PVT_ID(pvt), oa);
 			number = oa;
+			return 0;
 		}
 		else
 			number = from_number_utf8_str;
@@ -1185,7 +1186,10 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 		msg_len = strlen(msg);
 		res = str_recode (RECODE_DECODE, msg_enc, msg, msg_len, sms_utf8_str, sizeof (sms_utf8_str));
 		if (res < 0)
-			ast_log (LOG_ERROR, "[%s] Error parsing SMS from_number (convert HEX UCS-2 to UTF-8): %s\n", PVT_ID(pvt), msg);
+		{
+			ast_log (LOG_ERROR, "[%s] Error parsing SMS text: %s\n", PVT_ID(pvt), msg);
+			return 0;
+		}
 		else
 		{
 			msg = sms_utf8_str;
@@ -1569,6 +1573,7 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 	size_t		len;
 	const struct at_queue_cmd*	ecmd;
 
+	if(iov[0].iov_len + iov[1].iov_len > 0)
 	{
 		len = iov[0].iov_len + iov[1].iov_len - 1;
 

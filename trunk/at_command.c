@@ -126,7 +126,7 @@ EXPORT_DEF const char* at_cmd2str (at_cmd_t cmd)
 
 		"AT+CHUP",
 		"AT+CIMI",
-		"AT+CLIP",
+//		"AT+CLIP",
 		"AT+CLIR",
 
 		"AT+CLVL",
@@ -204,7 +204,7 @@ EXPORT_DEF int at_enque_initialization(struct cpvt* cpvt, at_cmd_t from_command)
 	static const char cmd16[] = "AT+CNUM\r";
 
 	static const char cmd17[] = "AT^CVOICE?\r";
-	static const char cmd18[] = "AT+CLIP=0\r";
+//	static const char cmd18[] = "AT+CLIP=0\r";
 	static const char cmd19[] = "AT+CSSN=1,1\r";
 	static const char cmd21[] = "AT+CSCS=\"UCS2\"\r";
 
@@ -234,7 +234,7 @@ EXPORT_DEF int at_enque_initialization(struct cpvt* cpvt, at_cmd_t from_command)
 		ATQ_CMD_DECLARE_ST(CMD_AT_CVOICE, cmd17),	/* read the current voice mode, and return sampling rate、data bit、frame period */
 
 		ATQ_CMD_DECLARE_ST(CMD_AT_CSCA, cmd6),		/* Get SMS Service center address */
-		ATQ_CMD_DECLARE_ST(CMD_AT_CLIP, cmd18),		/* disable  Calling line identification presentation in unsolicited response +CLIP: <number>,<type>[,<subaddr>,<satype>[,[<alpha>][,<CLI validitity>]] */
+//		ATQ_CMD_DECLARE_ST(CMD_AT_CLIP, cmd18),		/* disable  Calling line identification presentation in unsolicited response +CLIP: <number>,<type>[,<subaddr>,<satype>[,[<alpha>][,<CLI validitity>]] */
 		ATQ_CMD_DECLARE_ST(CMD_AT_CSSN, cmd19),		/* activate Supplementary Service Notification with CSSI and CSSU */
 		ATQ_CMD_DECLARE_DYN(CMD_AT_CMGF),		/* Set Message Format */
 
@@ -386,14 +386,23 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 
 	at_cmd[0].data = ast_strdup (buf);
 	if(!at_cmd[0].data)
-		return -5;
+		return -ENOMEM;
 
+	res = strlen (msg);
 
 	if(!pvt->use_pdu)
 	{
 		if (pvt->use_ucs2_encoding)
 		{
-			res = str_recode (RECODE_ENCODE, STR_ENCODING_UCS2_HEX, msg, strlen (msg), pdu_buf, sizeof(pdu_buf) - 2);
+			/* NOTE: bg: i test limit of no response is 133, but for +CMS ERROR: ?  */
+			/* message limit in 178 octet of TPDU (w/o SCA) Headers: Type(1)+MR(1)+DA(3..12)+PID(1)+DCS(1)+VP(0,1,7)+UDL(1) = 8..24 (usually 14)  */
+			if(res > 70)
+			{
+				ast_log (LOG_ERROR, "[%s] SMS message too long, 70 symbols max\n", PVT_ID(pvt));
+				return -4;
+			}
+			
+			res = str_recode (RECODE_ENCODE, STR_ENCODING_UCS2_HEX, msg, res, pdu_buf, sizeof(pdu_buf) - 2);
 			if (res < 0)
 			{
 				ast_free (at_cmd[0].data);
@@ -406,6 +415,12 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 		}
 		else
 		{
+			if(res > 140)
+			{
+				ast_log (LOG_ERROR, "[%s] SMS message too long, 140 symbols max\n", PVT_ID(pvt));
+				return -4;
+			}
+			
 			at_cmd[1].length = snprintf (pdu_buf, sizeof(pdu_buf), "%.160s\x1a", msg);
 		}
 	}
@@ -414,7 +429,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 	if(!at_cmd[1].data)
 	{
 		ast_free (at_cmd[0].data);
-		return -5;
+		return -ENOMEM;
 	}
 
 	return at_queue_insert(cpvt, at_cmd, ITEMS_OF(at_cmd), 0);

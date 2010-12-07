@@ -269,7 +269,7 @@
 #define PDU_DCS_76(dcs)				((dcs) & PDU_DCS_76_MASK)
 
 #define ROUND_UP2(x)		(((x) + 1) & (0xFFFFFFFF << 1))
-#define LENGTH2BYTES(x)		(((x) + 1)/2)
+#define LENGTH2OCTETS(x)	(((x) + 1)/2)
 
 #/* get digit code, 0 if invalid  */
 EXPORT_DEF char pdu_digit2code(char digit)
@@ -440,7 +440,7 @@ static int pdu_parse_number(char ** pdu, size_t * pdu_length, unsigned digits, i
 
 	begin = *pdu;
 	*toa = pdu_parse_byte(pdu, pdu_length);
-	if(*toa)
+	if(*toa >= 0)
 	{
 		unsigned syms = ROUND_UP2(digits);
 		if(syms <= *pdu_length)
@@ -505,6 +505,15 @@ static int pdu_parse_timestamp(char ** pdu, size_t * length)
 	return -EINVAL;
 }
 
+#/* */
+static int check_encoding(const char* msg, unsigned length)
+{
+	for(; length; --length, ++msg)
+		if(*msg & 0x80)
+			return PDU_DCS_ALPABET_UCS2;
+	return PDU_DCS_ALPABET_7BIT;
+}
+
 /*!
  * \brief Build PDU text for SMS
  * \param buffer -- pointer to place where PDU will be stored
@@ -526,9 +535,20 @@ EXPORT_DEF int pdu_build(char* buffer, size_t length, const char* csca, const ch
 	int csca_toa = NUMBER_TYPE_INTERNATIONAL;
 	int dst_toa = NUMBER_TYPE_INTERNATIONAL;
 	int pdutype= PDUTYPE_MTI_SMS_SUBMIT | PDUTYPE_RD_ACCEPT | PDUTYPE_VPF_RELATIVE | PDUTYPE_SRR_NOT_REQUESTED | PDUTYPE_UDHI_NO_HEADER | PDUTYPE_RP_IS_NOT_SET;
+	int dcs;
+	unsigned dst_len;
+	unsigned csa_len;
+	unsigned msg_len;
 
-	/* TODO: detect msg encoding and use 7Bit 8Bit or UCS-2 */
-	int dcs = PDU_DCS_ALPABET_UCS2;
+	/* detect msg encoding and use 7Bit or UCS-2, not use 8Bit */
+	msg_len = strlen(msg);
+	dcs = check_encoding(msg, msg_len);
+
+	/* cannot exceed 140 octets for no compressed or cannot exceed 160 septets for compressed */
+	if((dcs == PDU_DCS_ALPABET_UCS2 && msg_len > 70) || msg_len > 160)
+	{
+		return -E2BIG;
+	}
 
 	if(csca[0] == '+')
 		csca++;
@@ -537,14 +557,8 @@ EXPORT_DEF int pdu_build(char* buffer, size_t length, const char* csca, const ch
 		dst++;
 
 	/* count length of strings */
-	/* cannot exceed 140 octets for no compressed or cannot exceed 160 septets for compressed */
-	unsigned msg_len = strlen(msg);
-	if(msg_len > 70)
-	{
-		return -E2BIG;
-	}
-	unsigned csa_len = strlen(csca);
-	unsigned dst_len = strlen(dst);
+	csa_len = strlen(csca);
+	dst_len = strlen(dst);
 
 	/* check buffer has enougth space */
 	if(length < ((csa_len == 0 ? 2 : 4 + ROUND_UP2(csa_len)) + 8 + ROUND_UP2(dst_len) + 8 + msg_len * 4 + 4))
@@ -555,7 +569,7 @@ EXPORT_DEF int pdu_build(char* buffer, size_t length, const char* csca, const ch
 	/* Address of SMSC */
 	if(csa_len)
 	{
-		len += snprintf(buffer + len, length - len, "%02X%02X", 1 + LENGTH2BYTES(csa_len), csca_toa);
+		len += snprintf(buffer + len, length - len, "%02X%02X", 1 + LENGTH2OCTETS(csa_len), csca_toa);
 		len += pdu_store_number(buffer + len, csca, csa_len);
 		*sca_len = len;
 	}
@@ -583,14 +597,18 @@ EXPORT_DEF int pdu_build(char* buffer, size_t length, const char* csca, const ch
 	/* TP-Validity-Period */
 	/* TP-User-Data-Length */
 	/* TP-User-Data */
-	data_len = str_recode(RECODE_ENCODE, STR_ENCODING_UCS2_HEX, msg, msg_len, buffer + len + 8, length - len - 11);
+	data_len = str_recode(RECODE_ENCODE, dcs == PDU_DCS_ALPABET_UCS2 ? STR_ENCODING_UCS2_HEX : STR_ENCODING_7BIT_HEX, msg, msg_len, buffer + len + 8, length - len - 11);
 	if(data_len < 0)
 	{
 		return -EINVAL;
 	}
+	if(dcs == PDU_DCS_ALPABET_UCS2)
+		data_len /= 2;
+	else
+		data_len = msg_len;
 	/* TODO: also check message limit in 178 octet of TPDU (w/o SCA) */
 	tmp = buffer[len + 8];
-	len += snprintf(buffer + len, length - len, "%02X%02X%02X%02X", PDU_PID_SMS, dcs, pdu_relative_validity(valid_minutes), data_len / 2);
+	len += snprintf(buffer + len, length - len, "%02X%02X%02X%02X", PDU_PID_SMS, dcs, pdu_relative_validity(valid_minutes), data_len);
 	buffer[len] = tmp;
 
 	len += data_len;

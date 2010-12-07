@@ -86,7 +86,6 @@ static int opentty (char* dev)
 		ast_log (LOG_WARNING, "Unable to open '%s'\n", dev);
 		return -1;
 	}
-
 	if (tcgetattr (fd, &term_attr) != 0)
 	{
 		ast_log (LOG_WARNING, "tcgetattr() failed '%s'\n", dev);
@@ -225,7 +224,7 @@ static void* do_monitor_phone (void* data)
 	at_res_t	at_res;
 	const struct at_queue_cmd * ecmd;
 	int		t;
-	char		buf[4*1024];
+	char		buf[2*1024];
 	struct ringbuffer rb;
 	struct iovec	iov[2];
 	int		iovcnt;
@@ -242,7 +241,8 @@ static void* do_monitor_phone (void* data)
 	fd = pvt->data_fd;
 	ast_copy_string(dev, PVT_ID(pvt), sizeof(dev));
 	
-	/* anybody can write some to device before me, and not read results, clean pending results here */
+	/* anybody wrote some to device before me, and not read results, clean pending results here */
+
 	for (t = 0; at_wait (fd, &t); t = 0)
 	{
 		iovcnt = at_read (fd, dev, &rb);
@@ -310,8 +310,7 @@ static void* do_monitor_phone (void* data)
 
 		if (at_read (fd, dev, &rb))
 		{
-			ast_mutex_lock (&pvt->lock);
-			goto e_cleanup;
+			break;
 		}
 		while ((iovcnt = at_read_result_iov (dev, &read_result, &rb, iov)) > 0)
 		{
@@ -325,7 +324,6 @@ static void* do_monitor_phone (void* data)
 			ast_mutex_unlock (&pvt->lock);
 		}
 	}
-
 	ast_mutex_lock (&pvt->lock);
 
 e_cleanup:

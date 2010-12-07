@@ -27,4 +27,5 @@ typedef enum {
 /* recode in both directions */
 EXPORT_DECL ssize_t str_recode(recode_direction_t dir, str_encoding_t encoding, const char* in, size_t in_length, char* out, size_t out_size);
 EXPORT_DECL int parse_hexdigit(int hex);
+
 #endif /* CHAN_DATACARD_CHAR_CONV_H_INCLUDED */

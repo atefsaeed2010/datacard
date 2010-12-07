@@ -25,7 +25,7 @@ typedef enum {
 
 	CMD_AT_CHUP,
 	CMD_AT_CIMI,
-	CMD_AT_CLIP,
+//	CMD_AT_CLIP,
 	CMD_AT_CLIR,
 
 	CMD_AT_CLVL,

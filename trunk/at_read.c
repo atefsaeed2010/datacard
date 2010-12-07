@@ -114,8 +114,6 @@ EXPORT_DEF int at_read_result_iov (const char * dev, int * read_result, struct r
 	int	res;
 	size_t	s;
 
-/* FIXME: +CME ERROR:
-*/
 	s = rb_used (rb);
 	if (s > 0)
 	{
@@ -203,7 +201,7 @@ EXPORT_DEF int at_read_result_iov (const char * dev, int * read_result, struct r
 	return 0;
 }
 
-EXPORT_DEF at_res_t at_read_result_classification (struct ringbuffer * rb, unsigned len)
+EXPORT_DEF at_res_t at_read_result_classification (struct ringbuffer * rb, size_t len)
 {
 	at_res_t at_res = RES_UNKNOWN;
 	unsigned idx;
