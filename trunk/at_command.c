@@ -324,7 +324,7 @@ EXPORT_DEF int at_enque_cops (struct cpvt* cpvt)
  * \param msg -- utf-8 encoded message
  */
 
-EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const char* msg, unsigned validity_min, int report_req)
+EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const char* msg, unsigned validity_minutes, int report_req)
 {
 	int sca_len;
 	ssize_t res;
@@ -340,10 +340,10 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 	if(pvt->use_pdu)
 	{
 		/* set default validity period */
-		if(validity_min <= 0)
-			validity_min = 3 * 24 * 60;
-/*		res = pdu_build(pdu_buf, sizeof(pdu_buf), pvt->sms_scenter, destination, msg, validity_min, report_req, &sca_len);*/
-		res = pdu_build(pdu_buf, sizeof(pdu_buf), "", destination, msg, validity_min, report_req, &sca_len);
+		if(validity_minutes <= 0)
+			validity_minutes = 3 * 24 * 60;
+/*		res = pdu_build(pdu_buf, sizeof(pdu_buf), pvt->sms_scenter, destination, msg, validity_minutes, report_req, &sca_len);*/
+		res = pdu_build(pdu_buf, sizeof(pdu_buf), "", destination, msg, validity_minutes, report_req, &sca_len);
 		if(res <= 0) 
 		{
 			if(res == -E2BIG)
