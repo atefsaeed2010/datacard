@@ -137,11 +137,13 @@ static const struct datacard_application
 	{
 		"DatacardSendSMS", 
 		app_send_sms_exec, 
-		"DatacardSendSMS(Device,Dest,Message)", 
-		"DatacardSendSMS(Device,Dest,Message)\n"
-		"  Device  - Id of device from datacard.conf\n"
-		"  Dest    - destination\n"
-		"  Message - text of the message\n"
+		"DatacardSendSMS(Device,Dest,Message,Validity,Report)", 
+		"DatacardSendSMS(Device,Dest,Message,Validity,Report)\n"
+		"  Device   - Id of device from datacard.conf\n"
+		"  Dest     - destination\n"
+		"  Message  - text of the message\n"
+		"  Validity - Validity period in minutes\n"
+		"  Report   - Boolean flag for report request\n"
 	}
 };
 
