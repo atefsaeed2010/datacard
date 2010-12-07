@@ -83,6 +83,8 @@ static int app_send_sms_exec (attribute_unused struct ast_channel* channel, cons
 		AST_APP_ARG (device);
 		AST_APP_ARG (number);
 		AST_APP_ARG (message);
+		AST_APP_ARG (validity);
+		AST_APP_ARG (report);
 	);
 
 	if (ast_strlen_zero (data))
@@ -105,16 +107,8 @@ static int app_send_sms_exec (attribute_unused struct ast_channel* channel, cons
 		ast_log (LOG_ERROR, "NULL destination for message -- SMS will not be sent\n");
 		return -1;
 	}
-
-/* its possible to send empty SMS message
-	if (ast_strlen_zero (args.message))
-	{
-		ast_log (LOG_ERROR, "NULL Message to be sent -- SMS will not be sent\n");
-		return -1;
-	}
-*/
-
-	msg = send_sms(args.device, args.number, args.message, &status);
+	
+	msg = send_sms(args.device, args.number, args.message, args.validity, args.report, &status);
 	if(!status)
 		ast_log (LOG_ERROR, "[%s] %s\n", args.device, msg);
 	return !status;

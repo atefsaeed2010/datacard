@@ -324,7 +324,7 @@ EXPORT_DEF int at_enque_cops (struct cpvt* cpvt)
  * \param msg -- utf-8 encoded message
  */
 
-EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const char* msg)
+EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const char* msg, unsigned validity_min, int report_req)
 {
 	int sca_len;
 	ssize_t res;
@@ -339,8 +339,11 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 
 	if(pvt->use_pdu)
 	{
-/*		res = pdu_build(pdu_buf, sizeof(pdu_buf), pvt->sms_scenter, destination, msg, 3*24*60, 0, &sca_len);*/
-		res = pdu_build(pdu_buf, sizeof(pdu_buf), "", destination, msg, 3*24*60, 0, &sca_len);
+		/* set default validity period */
+		if(validity_min <= 0)
+			validity_min = 3 * 24 * 60;
+/*		res = pdu_build(pdu_buf, sizeof(pdu_buf), pvt->sms_scenter, destination, msg, validity_min, report_req, &sca_len);*/
+		res = pdu_build(pdu_buf, sizeof(pdu_buf), "", destination, msg, validity_min, report_req, &sca_len);
 		if(res <= 0) 
 		{
 			if(res == -E2BIG)
@@ -502,11 +505,12 @@ EXPORT_DEF int at_enque_dtmf (struct cpvt* cpvt, char digit)
  * \return 0 on success
  */
 
-EXPORT_DEF int at_enque_set_ccwa (struct cpvt* cpvt, call_waiting_t call_waiting)
+EXPORT_DEF int at_enque_set_ccwa (struct cpvt* cpvt, attribute_unused const char * unused1, attribute_unused const char * unused2, unsigned call_waiting)
 {
 	static const char cmd_ccwa_get[] = "AT+CCWA=1,2,1\r";
 	static const char cmd_ccwa_set[] = "AT+CCWA=%d,%d,%d\r";
 	int err;
+	call_waiting_t value;
 	at_queue_cmd_t cmds[] = {
 		ATQ_CMD_DECLARE_DYNI(CMD_AT_CCWA_SET),			/* Set Call-Waiting On/Off */
 		ATQ_CMD_DECLARE_ST(CMD_AT_CCWA_STATUS, cmd_ccwa_get),	/* Query CCWA Status for Voice Call */
@@ -517,6 +521,7 @@ EXPORT_DEF int at_enque_set_ccwa (struct cpvt* cpvt, call_waiting_t call_waiting
 	
 	if(call_waiting == CALL_WAITING_DISALLOWED || call_waiting == CALL_WAITING_ALLOWED)
 	{
+		value = call_waiting;
 		err = call_waiting == CALL_WAITING_ALLOWED ? 1 : 0;
 		err = at_fill_generic_cmd(&cmds[0], cmd_ccwa_set, err, err, CCWA_CLASS_VOICE);
 		if(err)
@@ -524,10 +529,11 @@ EXPORT_DEF int at_enque_set_ccwa (struct cpvt* cpvt, call_waiting_t call_waiting
 	}
 	else
 	{
+		value = CALL_WAITING_AUTO;
 		pcmd++;
 		count--;
 	}
-	CONF_SHARED(cpvt->pvt, call_waiting) = call_waiting;
+	CONF_SHARED(cpvt->pvt, call_waiting) = value;
 
 	return at_queue_insert(cpvt, pcmd, count, 0);
 }

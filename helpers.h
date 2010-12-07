@@ -19,7 +19,7 @@ EXPORT_DECL int get_at_clir_value (struct pvt* pvt, int clir);
 
 /* return status string of sending, status arg is optional */
 EXPORT_DECL const char* send_ussd(const char* dev_name, const char* ussd, int * status);
-EXPORT_DECL const char* send_sms(const char* dev_name, const char* number, const char* message, int * status);
+EXPORT_DECL const char* send_sms(const char* dev_name, const char* number, const char* message, const char * validity, const char * report, int * status);
 EXPORT_DECL const char* send_reset(const char* dev_name, int * status);
 EXPORT_DECL const char* send_ccwa_set(const char* dev_name, call_waiting_t enable, int * status);
 EXPORT_DECL const char* send_at_command(const char* dev_name, const char* command);
