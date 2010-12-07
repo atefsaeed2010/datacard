@@ -923,7 +923,10 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 					}
 					else if(dir == CALL_DIR_INCOMING && (state == CALL_STATE_INCOMING || state == CALL_STATE_WAITING))
 					{
-						return start_pbx(pvt, number, call_idx, state);
+						/* TODO: give dialplan level user tool for checking device is voice enabled or not  */
+						if(start_pbx(pvt, number, call_idx, state) == 0 && !pvt->has_voice)
+							ast_log (LOG_ERROR, "[%s] pbx started for device not voice capable\n", PVT_ID(pvt));
+						
 					}
 
 					all++;

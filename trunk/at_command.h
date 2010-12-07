@@ -90,5 +90,5 @@ EXPORT_DECL int at_enque_volsync (struct cpvt* cpvt);
 EXPORT_DECL int at_enque_clcc (struct cpvt* cpvt);
 EXPORT_DECL int at_enque_activate (struct cpvt* cpvt);
 EXPORT_DECL int at_enque_flip_hold (struct cpvt* cpvt);
-
+EXPORT_DECL void at_hangup_immediality(struct cpvt* cpvt);
 #endif /* CHAN_DATACARD_AT_SEND_H_INCLUDED */

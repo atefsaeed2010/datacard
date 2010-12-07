@@ -12,6 +12,8 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <signal.h>				/* SIGURG */
+
 #include <asterisk.h>
 #include <asterisk/lock.h>			/* AST_RWLIST_RDLOCK AST_RWLIST_TRAVERSE AST_RWLIST_UNLOCK */
 #include <asterisk/callerid.h>			/*  AST_PRES_* */
@@ -188,3 +190,28 @@ EXPORT_DEF const char* send_at_command(const char* dev_name, const char* command
 	return send2(dev_name, NULL, 0, "Error adding command", "Command queued for execute", (at_cmd_f)at_enque_unknown_cmd, command, NULL, 0, 0);
 }
 
+#/* */
+EXPORT_DECL const char* schedule_restart(const char* dev_name, int * status)
+{
+	const char * msg;
+	struct pvt * pvt = find_device (dev_name);
+	if (pvt)
+	{
+		ast_mutex_lock (&pvt->lock);
+		pvt->restarting = 1;
+		pthread_kill (pvt->monitor_thread, SIGURG);
+		ast_mutex_unlock (&pvt->lock);
+		
+		msg = "Restart scheduled";
+		if(status)
+			*status = 1;
+	}
+	else
+	{
+		msg = "Device not found";
+		if(status)
+			*status = 0;
+	}
+	
+	return msg;
+}

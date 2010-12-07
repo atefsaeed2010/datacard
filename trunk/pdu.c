@@ -527,14 +527,13 @@ EXPORT_DEF int pdu_build(char* buffer, size_t length, const char* csca, const ch
 	int dst_toa = NUMBER_TYPE_INTERNATIONAL;
 	int pdutype= PDUTYPE_MTI_SMS_SUBMIT | PDUTYPE_RD_ACCEPT | PDUTYPE_VPF_RELATIVE | PDUTYPE_SRR_NOT_REQUESTED | PDUTYPE_UDHI_NO_HEADER | PDUTYPE_RP_IS_NOT_SET;
 
-	/* TODO: detect msg encoding use 7Bit 8Bit or UCS-2 */
+	/* TODO: detect msg encoding and use 7Bit 8Bit or UCS-2 */
 	int dcs = PDU_DCS_ALPABET_UCS2;
 
-	/* TODO: check numbers */
 	if(csca[0] == '+')
 		csca++;
 
-	if(dst[0] == '+') 
+	if(dst[0] == '+')
 		dst++;
 
 	/* count length of strings */

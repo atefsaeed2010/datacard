@@ -354,6 +354,34 @@ static int manager_reset (struct mansession* s, const struct message* m)
 	return 0;
 }
 
+static int manager_restart (struct mansession* s, const struct message* m)
+{
+	const char*	device	= astman_get_header (m, "Device");
+//	const char*	id	= astman_get_header (m, "ActionID");
+
+//	char		idtext[256] = "";
+	char		buf[256];
+	const char*	msg;
+	int		status;
+
+	if (ast_strlen_zero (device))
+	{
+		astman_send_error (s, m, "Device not specified");
+		return 0;
+	}
+/*
+	if (!ast_strlen_zero (id))
+	{
+		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
+	}
+*/
+	msg = schedule_restart(device, &status);
+	snprintf (buf, sizeof (buf), "[%s] %s", device, msg);
+	(status ? astman_send_ack : astman_send_error)(s, m, buf);
+
+	return 0;
+}
+
 static const struct datacard_manager
 {
 	int		(*func)(struct mansession* s, const struct message* m);
@@ -410,7 +438,16 @@ static const struct datacard_manager
 	"Variables: (Names marked with * are required)\n"
 	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
 	"	*Device:  <device>	The datacard which should be reset.\n"
-	}
+	},
+	{
+	manager_restart,
+	"DatacardRestart", 
+	"Restart a datacard.", 
+	"Description: Restart a datacard.\n\n"
+	"Variables: (Names marked with * are required)\n"
+	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
+	"	*Device:  <device>	The datacard which should be reset.\n"
+	},
 };
 
 EXPORT_DEF void manager_register()

@@ -123,7 +123,6 @@ typedef struct pvt
 	unsigned int		group_last_used:1;		/*!< mark the last used device */
 	unsigned int		prov_last_used:1;		/*!< mark the last used device */
 	unsigned int		sim_last_used:1;		/*!< mark the last used device */
-	unsigned int		d_read_result:1;		/*!< for response parsing, may move to reader thread stack */
 	unsigned int		restarting:1;			/*!< if non-zero request to restart device */
 	unsigned int		has_subscriber_number:1;	/*!< subscriber_number field is valid */
 
@@ -146,8 +145,8 @@ typedef struct public_state
 EXPORT_DECL public_state_t * gpublic;
 
 EXPORT_DECL int pvt_get_pseudo_call_idx(const struct pvt * pvt);
-EXPORT_DECL int ready4voice_call(const struct pvt* pvt, const struct cpvt * ignore_cpvt, int opts);
-EXPORT_DECL int is_dial_possible(const struct pvt * pvt, int opts, const struct cpvt * ignore_cpvt);
+EXPORT_DECL int ready4voice_call(const struct pvt* pvt, const struct cpvt * current_cpvt, int opts);
+EXPORT_DECL int is_dial_possible(const struct pvt * pvt, int opts);
 EXPORT_DECL const char* pvt_str_state(const struct pvt* pvt);
 EXPORT_DECL struct ast_str* pvt_str_state_ex(const struct pvt* pvt);
 EXPORT_DECL const char * GSM_regstate2str(int gsm_reg_status);

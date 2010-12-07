@@ -30,17 +30,17 @@
 
 /*!
  * \brief Wait for activity on an socket
- * \param pvt -- pvt struct
+ * \param fd -- file descriptor
  * \param ms  -- pointer to an int containing a timeout in ms
  * \return 0 on timeout and the socket fd (non-zero) otherwise
  * \retval 0 timeout
  */
 
-EXPORT_DEF int at_wait (struct pvt* pvt, int* ms)
+EXPORT_DEF int at_wait (int fd, int* ms)
 {
 	int exception, outfd;
 
-	outfd = ast_waitfor_n_fd (&pvt->data_fd, 1, ms, &exception);
+	outfd = ast_waitfor_n_fd (&fd, 1, ms, &exception);
 
 	if (outfd < 0)
 	{
@@ -50,7 +50,7 @@ EXPORT_DEF int at_wait (struct pvt* pvt, int* ms)
 	return outfd;
 }
 
-EXPORT_DEF int at_read (struct pvt* pvt, struct ringbuffer* rb)
+EXPORT_DEF int at_read (int fd, const char * dev, struct ringbuffer* rb)
 {
 	struct iovec	iov[2];
 	int		iovcnt;
@@ -61,13 +61,13 @@ EXPORT_DEF int at_read (struct pvt* pvt, struct ringbuffer* rb)
 
 	if (iovcnt > 0)
 	{
-		n = readv (pvt->data_fd, iov, iovcnt);
+		n = readv (fd, iov, iovcnt);
 
 		if (n < 0)
 		{
 			if (errno != EINTR && errno != EAGAIN)
 			{
-				ast_debug (1, "[%s] readv() error: %d\n", PVT_ID(pvt), errno);
+				ast_debug (1, "[%s] readv() error: %d\n", dev, errno);
 				return -1;
 			}
 
@@ -81,7 +81,7 @@ EXPORT_DEF int at_read (struct pvt* pvt, struct ringbuffer* rb)
 		rb_write_upd (rb, n);
 
 		ast_debug (5, "[%s] receive %zu byte, used %zu, free %zu, read %zu, write %zu\n", 
-				PVT_ID(pvt), n, rb_used (rb), rb_free (rb), rb->read, rb->write);
+				dev, n, rb_used (rb), rb_free (rb), rb->read, rb->write);
 
 		iovcnt = rb_read_all_iov (rb, iov);
 
@@ -89,13 +89,13 @@ EXPORT_DEF int at_read (struct pvt* pvt, struct ringbuffer* rb)
 		{
 			if (iovcnt == 2)
 			{
-				ast_debug (5, "[%s] [%.*s%.*s]\n", PVT_ID(pvt),
+				ast_debug (5, "[%s] [%.*s%.*s]\n", dev,
 						(int) iov[0].iov_len, (char*) iov[0].iov_base,
 							(int) iov[1].iov_len, (char*) iov[1].iov_base);
 			}
 			else
 			{
-				ast_debug (5, "[%s] [%.*s]\n", PVT_ID(pvt),
+				ast_debug (5, "[%s] [%.*s]\n", dev,
 						(int) iov[0].iov_len, (char*) iov[0].iov_base);
 			}
 		}
@@ -103,12 +103,12 @@ EXPORT_DEF int at_read (struct pvt* pvt, struct ringbuffer* rb)
 		return 0;
 	}
 
-	ast_log (LOG_ERROR, "[%s] at cmd receive buffer overflow\n", PVT_ID(pvt));
+	ast_log (LOG_ERROR, "[%s] at cmd receive buffer overflow\n", dev);
 
 	return -1;
 }
 
-EXPORT_DEF int at_read_result_iov (struct pvt* pvt, struct ringbuffer* rb, struct iovec iov[2])
+EXPORT_DEF int at_read_result_iov (const char * dev, int * read_result, struct ringbuffer* rb, struct iovec iov[2])
 {
 	int	iovcnt = 0;
 	int	res;
@@ -119,27 +119,27 @@ EXPORT_DEF int at_read_result_iov (struct pvt* pvt, struct ringbuffer* rb, struc
 	s = rb_used (rb);
 	if (s > 0)
 	{
-/*		ast_debug (5, "[%s] d_read_result %d len %d input [%.*s]\n", PVT_ID(pvt), pvt->d_read_result, s, MIN(s, rb->size - rb->read), (char*)rb->buffer + rb->read);
+/*		ast_debug (5, "[%s] d_read_result %d len %d input [%.*s]\n", dev, *read_result, s, MIN(s, rb->size - rb->read), (char*)rb->buffer + rb->read);
 */
 		
-		if (pvt->d_read_result == 0)
+		if (*read_result == 0)
 		{
 			res = rb_memcmp (rb, "\r\n", 2);
 			if (res == 0)
 			{
 				rb_read_upd (rb, 2);
-				pvt->d_read_result = 1;
+				*read_result = 1;
 
-				return at_read_result_iov (pvt, rb, iov);
+				return at_read_result_iov (dev, read_result, rb, iov);
 			}
 			else if (res > 0)
 			{
 				if (rb_memcmp (rb, "\n", 1) == 0)
 				{
-					ast_debug (5, "[%s] multiline response\n", PVT_ID(pvt));
+					ast_debug (5, "[%s] multiline response\n", dev);
 					rb_read_upd (rb, 1);
 
-					return at_read_result_iov (pvt, rb, iov);
+					return at_read_result_iov (dev, read_result, rb, iov);
 				}
 
 				if (rb_read_until_char_iov (rb, iov, '\r') > 0)
@@ -149,7 +149,7 @@ EXPORT_DEF int at_read_result_iov (struct pvt* pvt, struct ringbuffer* rb, struc
 
 				rb_read_upd (rb, s);
 
-				return at_read_result_iov (pvt, rb, iov);
+				return at_read_result_iov (dev, read_result, rb, iov);
 			}
 
 			return 0;
@@ -161,7 +161,7 @@ EXPORT_DEF int at_read_result_iov (struct pvt* pvt, struct ringbuffer* rb, struc
 				iovcnt = rb_read_n_iov (rb, iov, 8);
 				if (iovcnt > 0)
 				{
-					pvt->d_read_result = 0;
+					*read_result = 0;
 				}
 
 				return iovcnt;
@@ -169,11 +169,11 @@ EXPORT_DEF int at_read_result_iov (struct pvt* pvt, struct ringbuffer* rb, struc
 			else if (rb_memcmp (rb, "\r\n+CSSU:", 8) == 0 || rb_memcmp (rb, "\r\n+CMS ERROR:", 13) == 0 ||  rb_memcmp (rb, "\r\n+CMGS:", 8) == 0)
 			{
 				rb_read_upd (rb, 2);
-				return at_read_result_iov (pvt, rb, iov);
+				return at_read_result_iov (dev, read_result, rb, iov);
 			}
 			else if (rb_memcmp (rb, "> ", 2) == 0)
 			{
-				pvt->d_read_result = 0;
+				*read_result = 0;
 				return rb_read_n_iov (rb, iov, 2);
 			}
 			else if (rb_memcmp (rb, "+CMGR:", 6) == 0 || rb_memcmp (rb, "+CNUM:", 6) == 0 || rb_memcmp (rb, "ERROR+CNUM:", 11) == 0 || rb_memcmp (rb, "+CLCC:", 6) == 0)
@@ -181,7 +181,7 @@ EXPORT_DEF int at_read_result_iov (struct pvt* pvt, struct ringbuffer* rb, struc
 				iovcnt = rb_read_until_mem_iov (rb, iov, "\n\r\nOK\r\n", 7);
 				if (iovcnt > 0)
 				{
-					pvt->d_read_result = 0;
+					*read_result = 0;
 				}
 
 				return iovcnt;
@@ -191,7 +191,7 @@ EXPORT_DEF int at_read_result_iov (struct pvt* pvt, struct ringbuffer* rb, struc
 				iovcnt = rb_read_until_mem_iov (rb, iov, "\r\n", 2);
 				if (iovcnt > 0)
 				{
-					pvt->d_read_result = 0;
+					*read_result = 0;
 					s = iov[0].iov_len + iov[1].iov_len + 1;
 
 					return rb_read_n_iov (rb, iov, s);
