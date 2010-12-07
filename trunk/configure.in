@@ -154,18 +154,6 @@ AC_DEFUN([AC_CHECK_DESTDIR], [
 
 AC_CHECK_DESTDIR([/usr/lib/asterisk/modules /usr/local/lib/asterisk/modules /opt/local/lib/asterisk/modules])
 
-case "$target_os" in
-    linux*)
-	LDFLAGS="-shared -Xlinker -x"
-	;;
-    freebsd*)
-	LDFLAGS="-shared -Xlinker -x -L/usr/local/lib"
-	;;
-    darwin*)
-	LDFLAGS="-dynamic -bundle -Xlinker -macosx_version_min -Xlinker 10.4 -Xlinker -undefined -Xlinker dynamic_lookup -force_flat_namespace -L/opt/local/lib"
-	[ `/usr/bin/sw_vers -productVersion | cut -c1-4` == "10.6" ] && LDFLAGS="$LDFLAGS /usr/lib/bundle1.o"
-esac
-
 dnl Checks for library functions.
 AC_FUNC_MEMCMP
 AC_CHECK_FUNCS([memchr memmove memset memmem strcasecmp strchr strncasecmp strtol])
@@ -184,6 +172,20 @@ fi
 if test "x$enable_apps" = "xyes" ; then
   AC_DEFINE([BUILD_APPLICATIONS],[1],[Build extention applications])
 fi
+
+case "$target_os" in
+    linux*)
+	DC_LDFLAGS="-shared -Xlinker -x"
+	;;
+    freebsd*)
+	DC_LDFLAGS="-shared -Xlinker -x -L/usr/local/lib"
+	;;
+    darwin*)
+	DC_LDFLAGS="-dynamic -bundle -Xlinker -macosx_version_min -Xlinker 10.4 -Xlinker -undefined -Xlinker dynamic_lookup -force_flat_namespace -L/opt/local/lib"
+	[ `/usr/bin/sw_vers -productVersion | cut -c1-4` == "10.6" ] && DC_LDFLAGS="$DC_LDFLAGS /usr/lib/bundle1.o"
+esac
+
+LDFLAGS="$LDFLAGS $DC_LDFLAGS"
 
 dnl AC_DEFINE_UNQUOTED([MODULE_], "$PACKAGE_", [])
 dnl AC_DEFINE_UNQUOTED([MODULE_], "$PACKAGE_", [])
