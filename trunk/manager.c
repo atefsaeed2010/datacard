@@ -98,9 +98,9 @@ static int manager_send_ussd (struct mansession* s, const struct message* m)
 {
 	const char*	device	= astman_get_header (m, "Device");
 	const char*	ussd	= astman_get_header (m, "USSD");
-	const char*	id	= astman_get_header (m, "ActionID");
+//	const char*	id	= astman_get_header (m, "ActionID");
 
-	char		idtext[256] = "";
+//	char		idtext[256] = "";
 	char		buf[256];
 	const char*	msg;
 	int		status;
@@ -116,12 +116,12 @@ static int manager_send_ussd (struct mansession* s, const struct message* m)
 		astman_send_error (s, m, "USSD not specified");
 		return 0;
 	}
-
+/*
 	if (!ast_strlen_zero (id))
 	{
 		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
 	}
-
+*/
 	msg = send_ussd(device, ussd, &status);
 	snprintf (buf, sizeof (buf), "[%s] %s", device, msg);
 	(status ? astman_send_ack : astman_send_error)(s, m, buf);
@@ -135,9 +135,11 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
 	const char*	device	= astman_get_header (m, "Device");
 	const char*	number	= astman_get_header (m, "Number");
 	const char*	message	= astman_get_header (m, "Message");
-	const char*	id	= astman_get_header (m, "ActionID");
+	const char*	validity= astman_get_header (m, "Validity");
+	const char*	report	= astman_get_header (m, "Report");
+//	const char*	id	= astman_get_header (m, "ActionID");
 
-	char		idtext[256] = "";
+//	char		idtext[256] = "";
 	char		buf[256];
 	const char*	msg;
 	int		status;
@@ -159,13 +161,14 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
 		astman_send_error (s, m, "Message not specified");
 		return 0;
 	}
-
+/*
 	if (!ast_strlen_zero (id))
 	{
 		snprintf (idtext, sizeof(idtext), "ActionID: %s\r\n", id);
 	}
-	
-	msg = send_sms(device, number, message, &status);
+*/
+
+	msg = send_sms(device, number, message, validity, report, &status);
 	snprintf (buf, sizeof (buf), "[%s] %s", device, msg);
 	(status ? astman_send_ack : astman_send_error)(s, m, buf);
 
@@ -285,9 +288,9 @@ static int manager_ccwa_set (struct mansession* s, const struct message* m)
 {
 	const char*	device	= astman_get_header (m, "Device");
 	const char*	value	= astman_get_header (m, "Value");
-	const char*	id	= astman_get_header (m, "ActionID");
+//	const char*	id	= astman_get_header (m, "ActionID");
 
-	char		idtext[256] = "";
+//	char		idtext[256] = "";
 	char		buf[256];
 	const char*	msg;
 	int		status;
@@ -309,11 +312,12 @@ static int manager_ccwa_set (struct mansession* s, const struct message* m)
 		return 0;
 	}
 
+/*
 	if (!ast_strlen_zero (id))
 	{
 		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
 	}
-
+*/
 
 	msg = send_ccwa_set(device, enable, &status);
 	snprintf (buf, sizeof (buf), "[%s] %s", device, msg);
@@ -325,9 +329,9 @@ static int manager_ccwa_set (struct mansession* s, const struct message* m)
 static int manager_reset (struct mansession* s, const struct message* m)
 {
 	const char*	device	= astman_get_header (m, "Device");
-	const char*	id	= astman_get_header (m, "ActionID");
+//	const char*	id	= astman_get_header (m, "ActionID");
 
-	char		idtext[256] = "";
+//	char		idtext[256] = "";
 	char		buf[256];
 	const char*	msg;
 	int		status;
@@ -337,12 +341,12 @@ static int manager_reset (struct mansession* s, const struct message* m)
 		astman_send_error (s, m, "Device not specified");
 		return 0;
 	}
-
+/*
 	if (!ast_strlen_zero (id))
 	{
 		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
 	}
-
+*/
 	msg = send_reset(device, &status);
 	snprintf (buf, sizeof (buf), "[%s] %s", device, msg);
 	(status ? astman_send_ack : astman_send_error)(s, m, buf);

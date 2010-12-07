@@ -96,10 +96,10 @@ EXPORT_DEF int get_at_clir_value (struct pvt* pvt, int clir)
 	return res;
 }
 
-typedef int (*at_cmd_f)(struct cpvt*, const char*, const char*);
+typedef int (*at_cmd_f)(struct cpvt*, const char*, const char*, unsigned, int);
 
 #/* */
-static const char* send2(const char* dev_name, int * status, int online, at_cmd_f func, const char* arg1, const char* arg2, const char* emsg, const char* okmsg)
+static const char* send2(const char* dev_name, int * status, int online, const char* emsg, const char* okmsg, at_cmd_f func, const char* arg1, const char* arg2, unsigned arg3, int arg4)
 {
 	struct pvt* pvt;
 	const char* msg;
@@ -112,7 +112,7 @@ static const char* send2(const char* dev_name, int * status, int online, at_cmd_
 		ast_mutex_lock (&pvt->lock);
 		if (pvt->connected && (!online || (pvt->initialized && pvt->gsm_registered)))
 		{
-			if ((*func) (&pvt->sys_chan, arg1, arg2))
+			if ((*func) (&pvt->sys_chan, arg1, arg2, arg3, arg4))
 			{
 				msg = emsg;
 				ast_log (LOG_ERROR, "[%s] %s\n", PVT_ID(pvt), emsg);
@@ -139,19 +139,32 @@ static const char* send2(const char* dev_name, int * status, int online, at_cmd_
 EXPORT_DEF const char* send_ussd(const char* dev_name, const char* ussd, int * status)
 {
 	if(is_valid_ussd_string(ussd))
-		return send2(dev_name, status, 1, (at_cmd_f)at_enque_cusd, ussd, NULL, 
-			"Error adding USSD command to queue", "USSD queued for send");
+		return send2(dev_name, status, 1, "Error adding USSD command to queue", "USSD queued for send", (at_cmd_f)at_enque_cusd, ussd, 0, 0, 0);
 	if(status)
 		*status = 0;
 	return "Invalid USSD";
 }
 
 #/* */
-EXPORT_DEF const char * send_sms(const char * dev_name, const char * number, const char * message, int * status)
+EXPORT_DEF const char * send_sms(const char * dev_name, const char * number, const char * message, const char * validity, const char * report, int * status)
 {
 	if(is_valid_phone_number(number))
-		return send2(dev_name, status, 1, at_enque_sms, number, message, 
-				"Error adding SMS commands to queue", "SMS queued for send");
+	{
+		int val = 0;
+		int srr = 0;
+		
+		if(validity)
+		{
+			val = strtol (validity, NULL, 10);
+			if(val <= 0)
+				val = 0;
+		}
+		
+		if(report)
+			srr = ast_true (report);
+
+		return send2(dev_name, status, 1, "Error adding SMS commands to queue", "SMS queued for send", at_enque_sms, number, message, val, srr);
+	}
 	if(status)
 		*status = 0;
 	return "Invalid destination number";
@@ -160,24 +173,18 @@ EXPORT_DEF const char * send_sms(const char * dev_name, const char * number, con
 #/* */
 EXPORT_DEF const char* send_reset(const char* dev_name, int * status)
 {
-	return send2(dev_name, status, 0, (at_cmd_f)at_enque_reset, NULL, NULL, 
-			"Error adding reset command to queue", "Reset command queued for execute");
+	return send2(dev_name, status, 0, "Error adding reset command to queue", "Reset command queued for execute", (at_cmd_f)at_enque_reset, 0, 0, 0, 0);
 }
 
 #/* */
 EXPORT_DEF const char* send_ccwa_set(const char* dev_name, call_waiting_t enable, int * status)
 {
-/* FIXME: 64bit compiler complain here
-*/
-	return send2(dev_name, status, 1, (at_cmd_f)at_enque_set_ccwa, (const char*)enable, 
-			NULL, "Error adding CCWA commands to queue", 
-			"Call-Waiting commands queued for execute");
+	return send2(dev_name, status, 1, "Error adding CCWA commands to queue", "Call-Waiting commands queued for execute", (at_cmd_f)at_enque_set_ccwa, 0, 0, enable, 0);
 }
 
 #/* */
 EXPORT_DEF const char* send_at_command(const char* dev_name, const char* command)
 {
-	return send2(dev_name, NULL, 0, (at_cmd_f)at_enque_unknown_cmd, command, 
-			NULL, "Error adding command", "Command queued for execute");
+	return send2(dev_name, NULL, 0, "Error adding command", "Command queued for execute", (at_cmd_f)at_enque_unknown_cmd, command, NULL, 0, 0);
 }
 

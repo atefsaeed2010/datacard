@@ -60,11 +60,14 @@ added 24.11.2010
 	
 22) Add more API commands
 
-    23) 'disable' option in device section
+    22.1) 'disable' option in device section
 	done 27.11.2010 at r46 with [defaults]
 
-    24) [global] with template settings
+    22.2) [global] with template settings
 	done 27.11.2010 at r46 with [defaults]. Also available asterisk template feature for config files
+
+    22.3) exten
+	added 06.12.2010 r83
 
 24) reconfigure on fly
 
@@ -79,8 +82,7 @@ added 06.12.2010
 
 27) Remove Call waiting status duplicated messages
 
-28) outgoing SMS: SRR, validity, SC address
+28) outgoing SMS: set SRR, validity, SC address
+	SRR and validity done 06.12.2010 in r75
 
-29) incoming SMS: raw PDU, raw message, SCTS, SCA, UDH, PID?, fields of DCS 
-
-
+29) incoming SMS: pass up raw PDU, raw message, SCTS, SCA, UDH, PID?, fields of DCS 

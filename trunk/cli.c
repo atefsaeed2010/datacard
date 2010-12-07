@@ -307,7 +307,7 @@ static char* cli_sms (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 		}
 	}
 
-	msg = send_sms(a->argv[2], a->argv[3], ast_str_buffer(buf), NULL);
+	msg = send_sms(a->argv[2], a->argv[3], ast_str_buffer(buf), 0, 0, NULL);
 	ast_free (buf);
 	ast_cli(a->fd, "[%s] %s\n", a->argv[2], msg);
 
