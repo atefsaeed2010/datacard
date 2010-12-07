@@ -361,7 +361,7 @@ static const char*  parse_cmgr_text (char** str, size_t len, char* oa, size_t oa
 				return 0;
 		}
 	}
-	return "Can't parse CMGR text";
+	return "Can't parse +CMGR response text";
 }
 
 static const char* parse_cmgr_pdu (char** str, size_t len, char* oa, size_t oa_len, str_encoding_t* oa_enc, char** msg, str_encoding_t* msg_enc)
@@ -402,7 +402,7 @@ static const char* parse_cmgr_pdu (char** str, size_t len, char* oa, size_t oa_l
 				return pdu_parse(str, tpdu_length, oa, oa_len, oa_enc, msg, msg_enc);
 		}
 	}
-	return "Can't parse CMGR text";
+	return "Can't parse +CMGR response";
 }
 
 /*!
@@ -419,7 +419,7 @@ static const char* parse_cmgr_pdu (char** str, size_t len, char* oa, size_t oa_l
 
 EXPORT_DEF const char* at_parse_cmgr (char** str, size_t len, char* oa, size_t oa_len, str_encoding_t* oa_enc, char** msg, str_encoding_t* msg_enc)
 {
-	const char* rv = "Can't parse CMGR first line";
+	const char* rv = "Can't parse +CMGR response line";
 
 	/* skip "+CMGR:" */
 	*str += 6;
