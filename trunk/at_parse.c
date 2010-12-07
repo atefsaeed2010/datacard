@@ -329,12 +329,12 @@ static const char*  parse_cmgr_text (char** str, size_t len, char* oa, size_t oa
 	 * OK<CR><LF>
 	 */
 	
-	static const char char_search[] = {',', '"', '"', '\n', '\r'};
+	static const char char_search[] = {',', '"', '"', '\n'};
 	char* sym;
 	char* number = NULL;
 	unsigned i;
 	
-	for(i = 0; i < ITEMS_OF(char_search); ++i)
+	for(i = 0; len > 0 && i < ITEMS_OF(char_search); ++i)
 	{
 		sym = memchr(*str, char_search[i], len);
 		if(!sym)
@@ -347,18 +347,18 @@ static const char*  parse_cmgr_text (char** str, size_t len, char* oa, size_t oa
 				number = *str;
 				break;
 			case 2:
-				(*str)[-1] = 0;
+				str[0][-1] = 0;
 				/* TODO: check encoding */
-				*oa_enc = STR_ENCODING_UNKNOWN;
 				if(oa_len < (size_t)(*str - number))
 					return "Not enought space for store number";
+				*oa_enc = STR_ENCODING_UNKNOWN;
 				memcpy(oa, number, *str - number);
 				break;
 			case 3:
 				*msg = *str;
 				/* TODO: check encoding */
 				*msg_enc = STR_ENCODING_UNKNOWN;
-				return 0;
+				return NULL;
 		}
 	}
 	return "Can't parse +CMGR response text";
@@ -384,7 +384,7 @@ static const char* parse_cmgr_pdu (char** str, size_t len, char* oa, size_t oa_l
 	unsigned i;
 	int tpdu_length = 0;
 
-	for(i = 0; i < ITEMS_OF(char_search); ++i)
+	for(i = 0; len > 0 && i < ITEMS_OF(char_search); ++i)
 	{
 		sym = memchr(*str, char_search[i], len);
 		if(!sym)
@@ -436,7 +436,8 @@ EXPORT_DEF const char* at_parse_cmgr (char** str, size_t len, char* oa, size_t o
 	{
 		/* check PDU or TEXT mode */
 		const char* (*fptr)(char** str, size_t len, char* num, size_t num_len, str_encoding_t * oa_enc, char** msg, str_encoding_t * msg_enc);
-		fptr = *str[0] == '"' ? parse_cmgr_text : parse_cmgr_pdu;
+		fptr = str[0][0] == '"' ? parse_cmgr_text : parse_cmgr_pdu;
+
 		rv = (*fptr)(str, len, oa, oa_len, oa_enc, msg, msg_enc);
 	}
 
