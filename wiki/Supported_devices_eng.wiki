@@ -17,6 +17,7 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 
 <table border="3" align="left" valign="middle">
 <tbody>
+
 <tr>
 <th>Device\Feature</th>
 <th>Voice</th>
@@ -25,7 +26,6 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 <th>Note</th>
 </tr>
 
-
 <tr>
 <td>E150</td>
 <td>-</td>
@@ -33,7 +33,6 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 <td>?</td>
 <td>One way voice</td>
 </tr>
-
 
 <tr>
 <td>E1550</td>
@@ -83,7 +82,6 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 <td>?</td>
 <td>test required</td>
 </tr>
-
 
 <tr>
 <td>E169</td>
@@ -141,7 +139,7 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 <td> </td>
 </tr>
 
-
+<tr>
 <td>E270</td>
 <td>-</td>
 <td>+</td>
@@ -156,7 +154,6 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 <td>?</td>
 <td>test required</td>
 </tr>
-
 
 <tr>
 <td>K3520</td>
@@ -182,7 +179,6 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 <td> </td>
 </tr>
 
-
 <tr>
 <td>K3765</td>
 <td>+</td>
@@ -190,7 +186,6 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 <td>+</td>
 <td> </td>
 </tr>
-
 
 </tbody>
 </table>
