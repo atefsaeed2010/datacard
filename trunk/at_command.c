@@ -493,6 +493,17 @@ EXPORT_DEF int at_enque_dtmf (struct cpvt* cpvt, char digit)
 {
 	switch (digit)
 	{
+		case 'a':
+		case 'b':
+		case 'c':
+		case 'd':
+			digit = toupper(digit);
+			// passthru
+		case 'A':
+		case 'B':
+		case 'C':
+		case 'D':
+
 		case '0':
 		case '1':
 		case '2':
@@ -503,13 +514,9 @@ EXPORT_DEF int at_enque_dtmf (struct cpvt* cpvt, char digit)
 		case '7':
 		case '8':
 		case '9':
+
 		case '*':
-/*
-		case 'A':
-		case 'B':
-		case 'C':
-		case 'D':
-*/
+		case '#':
 			return at_enque_generic(cpvt, CMD_AT_DTMF, 1, "AT^DTMF=%d,%c\r", cpvt->call_idx, digit);
 	}
 	return -1;
