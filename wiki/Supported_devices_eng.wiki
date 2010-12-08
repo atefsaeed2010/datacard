@@ -184,12 +184,13 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 <td>+</td>
 <td>+</td>
 <td>+</td>
-<td> </td>
+<td>&nbsp;</td>
 </tr>
 
 </tbody>
 </table>
 
+<p />
 <br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
 == Credits ==
 Thanks to Paco for the idea and information
