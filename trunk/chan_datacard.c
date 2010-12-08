@@ -139,7 +139,7 @@ static void disconnect_datacard (struct pvt* pvt)
 			next = cpvt->entry.next;
 			at_hangup_immediality(cpvt);
 			CPVT_RESET_FLAG(cpvt, CALL_FLAG_NEED_HANGUP);
-			channel_change_state(cpvt, CALL_STATE_RELEASED, 0);
+			change_channel_state(cpvt, CALL_STATE_RELEASED, 0);
 		}
 	}
 	at_queue_flush(pvt);

@@ -357,7 +357,7 @@ badconf:
 		return NULL;
 	}
 
-	channel = channel_new (pvt, AST_STATE_DOWN, NULL, pvt_get_pseudo_call_idx(pvt), CALL_DIR_OUTGOING, CALL_STATE_INIT, NULL);
+	channel = new_channel (pvt, AST_STATE_DOWN, NULL, pvt_get_pseudo_call_idx(pvt), CALL_DIR_OUTGOING, CALL_STATE_INIT, NULL);
 
 	ast_mutex_unlock (&pvt->lock);
 
@@ -446,7 +446,7 @@ static int channel_call (struct ast_channel* channel, char* dest, attribute_unus
 }
 
 #/* */
-static void channel_disactivate(struct cpvt* cpvt)
+static void disactivate_channel(struct cpvt* cpvt)
 {
 	if(cpvt->channel && CPVT_TEST_FLAG(cpvt, CALL_FLAG_ACTIVATED))
 	{
@@ -456,7 +456,7 @@ static void channel_disactivate(struct cpvt* cpvt)
 }
 
 #/* */
-static void channel_activate_onlyone(struct cpvt* cpvt)
+static void activate_only1_channel(struct cpvt* cpvt)
 {
 	struct cpvt* cpvt2;
 	struct pvt* pvt = cpvt->pvt;
@@ -468,7 +468,7 @@ static void channel_activate_onlyone(struct cpvt* cpvt)
 	{
 		if(cpvt2 != cpvt)
 		{
-			channel_disactivate(cpvt2);
+			disactivate_channel (cpvt2);
 		}
 	}
 	
@@ -511,9 +511,10 @@ static int channel_hangup (struct ast_channel* channel)
 				ast_log (LOG_ERROR, "[%s] Error adding AT+CHUP command to queue, call not terminated!\n", PVT_ID(pvt));
 			else
 				CPVT_RESET_FLAG(cpvt, CALL_FLAG_NEED_HANGUP);
+
 		}
 
-		channel_disactivate(cpvt);
+		disactivate_channel (cpvt);
 
 		/* drop cpvt->channel reference */
 		cpvt->channel = NULL;
@@ -641,7 +642,7 @@ again:
 	}
 }
 
-static void channel_timing_write (struct pvt* pvt)
+static void timing_write (struct pvt* pvt)
 {
 	size_t		used;
 	int		iovcnt;
@@ -721,7 +722,7 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 	if (pvt->a_timer && channel->fdno == 1)
 	{
 		ast_timer_ack (pvt->a_timer, 1);
-		channel_timing_write (pvt);
+		timing_write (pvt);
 		ast_debug (7, "[%s] *** timing ***\n", PVT_ID(pvt));
 	}
 	else
@@ -1012,9 +1013,10 @@ static int channel_indicate (struct ast_channel* channel, int condition, const v
 }
 
 
-#/* NOTE: called from device level with locked pvt */
+// TODO: move to cpvt.c
 /* FIXME: protection for cpvt->channel if exists */
-EXPORT_DEF void channel_change_state(struct cpvt * cpvt, unsigned newstate, int cause)
+#/* NOTE: called from device level with locked pvt */
+EXPORT_DEF void change_channel_state(struct cpvt * cpvt, unsigned newstate, int cause)
 {
 	struct pvt* pvt;
 	call_state_t oldstate = cpvt->state;
@@ -1028,6 +1030,33 @@ EXPORT_DEF void channel_change_state(struct cpvt * cpvt, unsigned newstate, int 
 		pvt->chan_count[newstate]++;
 
 		ast_debug (1, "[%s] Call idx %d change state from '%s' to '%s' has%s channel\n", PVT_ID(pvt), cpvt->call_idx, call_state2str(oldstate), call_state2str(newstate), cpvt->channel ? "" : "'t");
+
+		/* update bits of devstate cache */
+		switch(newstate)
+		{
+			case CALL_STATE_ACTIVE:
+			case CALL_STATE_RELEASED:
+				/* no split to incoming/outgoing because these states not intersect */
+				switch(oldstate)
+				{
+					case CALL_STATE_INIT:
+					case CALL_STATE_DIALING:
+					case CALL_STATE_ALERTING:
+						pvt->dialing = 0;
+						break;
+					case CALL_STATE_INCOMING:
+						pvt->ring = 0;
+						break;
+					case CALL_STATE_WAITING:
+						pvt->cwaiting = 0;
+						break;
+					default:;
+				}
+				break;
+			default:;
+		}
+
+		/* check channel is dead */
 		if(!cpvt->channel)
 		{
 			/* channel already dead */
@@ -1038,32 +1067,33 @@ EXPORT_DEF void channel_change_state(struct cpvt * cpvt, unsigned newstate, int 
 			return;
 		}
 
+		/* for live channel */
 		switch(newstate)
 		{
 			case CALL_STATE_DIALING:
 				/* from ^ORIG:idx,y */
-				channel_activate_onlyone(cpvt);
-				channel_queue_control (cpvt, AST_CONTROL_PROGRESS);
+				activate_only1_channel(cpvt);
+				queue_control_channel (cpvt, AST_CONTROL_PROGRESS);
 				ast_setstate (cpvt->channel, AST_STATE_DIALING);
 				break;
 
 			case CALL_STATE_ALERTING:
-				channel_activate_onlyone(cpvt);
-				channel_queue_control (cpvt, AST_CONTROL_RINGING);
+				activate_only1_channel(cpvt);
+				queue_control_channel (cpvt, AST_CONTROL_RINGING);
 				ast_setstate (cpvt->channel, AST_STATE_RINGING);
 				break;
 
 			case CALL_STATE_ACTIVE:
-				channel_activate_onlyone(cpvt);
+				activate_only1_channel(cpvt);
 				if (oldstate == CALL_STATE_ONHOLD)
 				{
 					ast_debug (1, "[%s] Unhold call idx %d\n", PVT_ID(pvt), cpvt->call_idx);
-					channel_queue_control (cpvt, AST_CONTROL_UNHOLD);
+					queue_control_channel (cpvt, AST_CONTROL_UNHOLD);
 				}
 				else if (cpvt->dir == CALL_DIR_OUTGOING)
 				{
 					ast_debug (1, "[%s] Remote end answered on call idx %d\n", PVT_ID(pvt), cpvt->call_idx);
-					channel_queue_control (cpvt, AST_CONTROL_ANSWER);
+					queue_control_channel (cpvt, AST_CONTROL_ANSWER);
 				}
 				else /* if (cpvt->answered) */
 				{
@@ -1073,19 +1103,19 @@ EXPORT_DEF void channel_change_state(struct cpvt * cpvt, unsigned newstate, int 
 				break;
 
 			case CALL_STATE_ONHOLD:
-				channel_disactivate(cpvt);
+				disactivate_channel(cpvt);
 				ast_debug (1, "[%s] Hold call idx %d\n", PVT_ID(pvt), cpvt->call_idx);
-				channel_queue_control (cpvt, AST_CONTROL_HOLD);
+				queue_control_channel (cpvt, AST_CONTROL_HOLD);
 				break;
 
 			case CALL_STATE_RELEASED:
-				channel_disactivate(cpvt);
+				disactivate_channel(cpvt);
 				/* from +CEND, restart or disconnect */
 
 				/* drop channel -> cpvt reference */
 				cpvt->channel->tech_pvt = NULL;
 				cpvt_free(cpvt);
-				if (channel_queue_hangup (cpvt, cause))
+				if (queue_hangup_channel (cpvt, cause))
 				{
 					ast_log (LOG_ERROR, "[%s] Error queueing hangup...\n", PVT_ID(pvt));
 				}
@@ -1116,7 +1146,7 @@ static void set_channel_vars(struct pvt* pvt, struct ast_channel* channel)
 }
 
 /* NOTE: called from device and current levels with locked pvt */
-EXPORT_DEF struct ast_channel* channel_new (struct pvt* pvt, int ast_state, const char* cid_num, int call_idx, unsigned dir, call_state_t state, const char* dnid)
+EXPORT_DEF struct ast_channel* new_channel (struct pvt* pvt, int ast_state, const char* cid_num, int call_idx, unsigned dir, call_state_t state, const char* dnid)
 {
 	struct ast_channel* channel;
 	struct cpvt * cpvt;
@@ -1169,7 +1199,7 @@ EXPORT_DEF struct ast_channel* channel_new (struct pvt* pvt, int ast_state, cons
 
 /* NOTE: bg: hmm ast_queue_control() say no need channel lock, trylock got deadlock up to 30 seconds here */
 /* NOTE: called from device and current levels with pvt locked */
-EXPORT_DEF int channel_queue_control (struct cpvt * cpvt, enum ast_control_frame_type control)
+EXPORT_DEF int queue_control_channel (struct cpvt * cpvt, enum ast_control_frame_type control)
 {
 /*
 	for (;;)
@@ -1203,8 +1233,8 @@ EXPORT_DEF int channel_queue_control (struct cpvt * cpvt, enum ast_control_frame
 }
 
 /* NOTE: bg: hmm ast_queue_hangup() say no need channel lock before call, trylock got deadlock up to 30 seconds here */
-/* NOTE: bg: called from device level and channel_change_state() with pvt locked */
-EXPORT_DEF int channel_queue_hangup (struct cpvt * cpvt, int hangupcause)
+/* NOTE: bg: called from device level and change_channel_state() with pvt locked */
+EXPORT_DEF int queue_hangup_channel (struct cpvt * cpvt, int hangupcause)
 {
 /*
 	for (;;)
@@ -1244,7 +1274,7 @@ EXPORT_DEF int channel_queue_hangup (struct cpvt * cpvt, int hangupcause)
 }
 
 /* NOTE: bg: called from device level with pvt locked */
-EXPORT_DECL void channel_local_start (struct pvt* pvt, const char* exten, const char* number, channel_var_t* vars)
+EXPORT_DECL void start_local_channel (struct pvt* pvt, const char* exten, const char* number, channel_var_t* vars)
 {
 	struct ast_channel*	channel;
 	int			cause = 0;
