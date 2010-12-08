@@ -424,9 +424,9 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 
 						pvt->timeout = DATA_READ_TIMEOUT;
 						pvt->initialized = 1;
-						ast_verb (3, "Datacard %s initialized and ready\n", PVT_ID(pvt));
+					/* FIXME: say 'initialized and ready' but disconnect */
+//						ast_verb (3, "Datacard %s initialized and ready\n", PVT_ID(pvt));
 					}
-
 					goto e_return;
 				}
 				break;
@@ -465,7 +465,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 			case CMD_AT_CHUP:
 			case CMD_AT_CHLD_1x:
 				ast_log (LOG_ERROR, "[%s] Error sending hangup for call idx %d\n", PVT_ID(pvt), task->cpvt->call_idx);
-				goto e_return;
+				break;
 
 			case CMD_AT_CMGR:
 				pvt->incoming_sms = 0;
