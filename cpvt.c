@@ -55,6 +55,7 @@ EXPORT_DEF void cpvt_free(struct cpvt* cpvt)
 {
 	pvt_t * pvt = cpvt->pvt;
 	struct cpvt * found;
+	struct at_queue_task * task;
 
 	ast_debug (3, "[%s] destroy cpvt for call_idx %d dir %d state '%s' flags %d has%s channel\n",  PVT_ID(pvt), cpvt->call_idx, cpvt->dir, call_state2str(cpvt->state), cpvt->flags, cpvt->channel ? "" : "'t");
 	AST_LIST_TRAVERSE_SAFE_BEGIN(&pvt->chans, found, entry) {
@@ -71,20 +72,16 @@ EXPORT_DEF void cpvt_free(struct cpvt* cpvt)
 	if(PVT_NO_CHANS(pvt))
 		pvt_on_remove_last_channel(pvt);
 
-	/* also remove task from queue */
-/* BUG: bad idea remove command when response to which now expected
-	AST_LIST_TRAVERSE_SAFE_BEGIN(&pvt->at_queue, task, entry) {
+	/* relink task to sys_chan */
+	AST_LIST_TRAVERSE(&pvt->at_queue, task, entry) {
 		if(task->cpvt == cpvt)
 		{
-			AST_LIST_REMOVE_CURRENT(entry);
-			at_queue_free(entry);
+			task->cpvt = &pvt->sys_chan;
 		}
 	}
-	AST_LIST_TRAVERSE_SAFE_END;
-*/
 	/* drop last_dialed_cpvt if need */
 	if(pvt->last_dialed_cpvt == cpvt)
-		pvt->last_dialed_cpvt = 0;
+		pvt->last_dialed_cpvt = NULL;
 
 	ast_free(cpvt);
 }

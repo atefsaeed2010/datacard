@@ -69,11 +69,11 @@ typedef struct at_queue_task
 {
 	AST_LIST_ENTRY (at_queue_task) entry;
 
-	unsigned		cmdsno;
-	unsigned		cindex;
+	unsigned	cmdsno;
+	unsigned	cindex;
 	struct cpvt*	cpvt;
 
-	at_queue_cmd_t		cmds[0];
+	at_queue_cmd_t	cmds[0];
 } at_queue_task_t;
 
 

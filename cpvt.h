@@ -31,6 +31,7 @@ typedef enum {
 	CALL_FLAG_HOLD_OTHER	= 1,				/* external from dial() */
 	CALL_FLAG_NEED_HANGUP	= 2,				/* internal */
 	CALL_FLAG_ACTIVATED	= 4,				/* fds attached to channel */
+	CALL_FLAG_ALIVE		= 8,				/* listed in CLCC */
 } call_flag_t;
 
 

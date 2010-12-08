@@ -200,7 +200,8 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 
 			case CMD_AT_D:
 				pvt->dialing = 1;
-				pvt->last_dialed_cpvt = task->cpvt;
+				if(task->cpvt != &pvt->sys_chan)
+					pvt->last_dialed_cpvt = task->cpvt;
 				/* passthrow */
 
 			case CMD_AT_A:
@@ -231,7 +232,7 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 			case CMD_AT_CHUP:
 			case CMD_AT_CHLD_1x:
 				CPVT_RESET_FLAG(task->cpvt, CALL_FLAG_NEED_HANGUP);
-				ast_debug (1, "[%s] Successful hangup for call idx ?\n", PVT_ID(pvt));
+				ast_debug (1, "[%s] Successful hangup for call idx %d\n", PVT_ID(pvt), task->cpvt->call_idx);
 				break;
 
 			case CMD_AT_CMGS:
@@ -379,6 +380,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 
 			case CMD_AT_CVOICE:
 				ast_debug (1, "[%s] Datacard has NO voice support\n", PVT_ID(pvt));
+				ast_log (LOG_WARNING, "[%s] Datacard has NO voice support\n", PVT_ID(pvt));
 
 				pvt->has_voice = 0;
 
@@ -439,7 +441,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 			case CMD_AT_A:
 			case CMD_AT_CHLD_2x:
 				ast_log (LOG_ERROR, "[%s] Answer failed for call idx %d\n", PVT_ID(pvt), task->cpvt->call_idx);
-				channel_queue_hangup (task->cpvt, 0);
+				queue_hangup_channel (task->cpvt, 0);
 				break;
 
 			case CMD_AT_CLIR:
@@ -453,7 +455,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 				/* passthru */
 			case CMD_AT_D:
 				ast_log (LOG_ERROR, "[%s] Dial failed\n", PVT_ID(pvt));
-				channel_queue_control (task->cpvt, AST_CONTROL_CONGESTION);
+				queue_control_channel (task->cpvt, AST_CONTROL_CONGESTION);
 				break;
 
 			case CMD_AT_DDSETEX:
@@ -603,11 +605,12 @@ static int at_response_orig (struct pvt* pvt, const char* str)
 		
 		if(call_index >= MIN_CALL_IDX && call_index <= MAX_CALL_IDX)
 		{
-			/* assign call idx */
-/*			cpvt->dir = CALL_DIR_OUTGOING;
+			/* set REAL call idx */
+/* WARNING if direction mismatch
+			cpvt->dir = CALL_DIR_OUTGOING;
 */
 			cpvt->call_idx = call_index;
-			channel_change_state(cpvt, CALL_STATE_DIALING, 0);
+			change_channel_state(cpvt, CALL_STATE_DIALING, 0);
 /* TODO: move to CONN ? */
 			if(pvt->volume_sync_step == VOLUME_SYNC_BEGIN)
 			{
@@ -705,36 +708,12 @@ static int at_response_cend (struct pvt* pvt, const char* str)
 	cpvt = pvt_find_cpvt(pvt, call_index);
 	if (cpvt)
 	{
-		if (cpvt->dir == CALL_DIR_INCOMING)
-		{
-			switch(cpvt->state)
-			{
-				case CALL_STATE_INCOMING:
-					pvt->ring = 0;
-					break;
-				case CALL_STATE_WAITING:
-					pvt->cwaiting = 0;
-					break;
-				default:;
-			}
-		}
-		else
-		{
-			switch(cpvt->state)
-			{
-				case CALL_STATE_INIT:
-				case CALL_STATE_DIALING:
-				case CALL_STATE_ALERTING:
-					pvt->dialing = 0;
-				default:;
-			}
-		}
-		CPVT_RESET_FLAG(cpvt, CALL_FLAG_NEED_HANGUP);
-		channel_change_state(cpvt, CALL_STATE_RELEASED, cc_cause);
+		CPVT_RESET_FLAG (cpvt, CALL_FLAG_NEED_HANGUP);
+		change_channel_state (cpvt, CALL_STATE_RELEASED, cc_cause);
 	}
 	else
 	{
-		ast_log (LOG_ERROR, "[%s] CEND event for unknown call idx '%d'\n", PVT_ID(pvt), call_index);
+//		ast_log (LOG_ERROR, "[%s] CEND event for unknown call idx '%d'\n", PVT_ID(pvt), call_index);
 	}
 
 	return 0;
@@ -804,26 +783,18 @@ static int at_response_conn (struct pvt* pvt, const char* str)
 		cpvt = pvt_find_cpvt(pvt, call_index);
 		if(cpvt)
 		{
-/* FIXME: delay until CLCC handle; as is create time when both channels in active state and read/write one device
+/* FIXME: delay until CLCC handle?
 */
-			channel_change_state(cpvt, CALL_STATE_ACTIVE, 0);
-			if (cpvt->dir == CALL_DIR_OUTGOING)
-			{
-				pvt->dialing = 0;
-			}
-			else if(cpvt->state == CALL_STATE_WAITING)
-			{
-				pvt->cwaiting = 0;
-			}
+			change_channel_state(cpvt, CALL_STATE_ACTIVE, 0);
 		}
 		else
 		{
 			at_enque_hangup(&pvt->sys_chan, call_index);
-			ast_log (LOG_ERROR, "[%s] CONN event for non-existing call idx %d, hangup!\n", PVT_ID(pvt), call_index);
+			ast_log (LOG_ERROR, "[%s] answered incoming call with not exists call idx %d, hanging up!\n", PVT_ID(pvt), call_index);
 		}
 	}
 	else
-		ast_log (LOG_ERROR, "[%s] CONN event for non-voice call type '%d' index %d!\n", PVT_ID(pvt), call_type, call_index);
+		ast_log (LOG_ERROR, "[%s] answered not voice incoming call type '%d' idx %d, skipped\n", PVT_ID(pvt), call_type, call_index);
 	return 0;
 }
 
@@ -833,7 +804,7 @@ static int start_pbx(struct pvt* pvt, const char * number, int call_idx, call_st
 	struct cpvt* cpvt;
 
 	/* TODO: pass also Subscriber number or other DID info for exten  */
-	struct ast_channel* channel = channel_new (pvt, AST_STATE_RING, number, call_idx, CALL_DIR_INCOMING, state, pvt->has_subscriber_number ? pvt->subscriber_number : CONF_SHARED(pvt, exten));
+	struct ast_channel* channel = new_channel (pvt, AST_STATE_RING, number, call_idx, CALL_DIR_INCOMING, state, pvt->has_subscriber_number ? pvt->subscriber_number : CONF_SHARED(pvt, exten));
 
 	if (!channel)
 	{
@@ -890,9 +861,15 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 
 	if (pvt->initialized)
 	{
+		/* I think man is good until he proves the reverse */
+		AST_LIST_TRAVERSE(&pvt->chans, cpvt, entry)
+		{
+			CPVT_RESET_FLAG(cpvt, CALL_FLAG_ALIVE);
+		}
+		
 		for(;;)
 		{
-			if(sscanf(str, "+CLCC:%u,%u,%u,%u,%u,\"%200[+0-9*#]\",%u", &call_idx, &dir, &state, &mode, &mpty, number, &type) == 7)
+			if(sscanf(str, "+CLCC:%u,%u,%u,%u,%u,\"%200[+0-9*#ABCabc]\",%u", &call_idx, &dir, &state, &mode, &mpty, number, &type) == 7)
 			{
 				ast_debug (3, "[%s] CLCC callidx %u dir %u state %u mode %u mpty %u number %s type %u\n",  PVT_ID(pvt), call_idx, dir, state, mode, mpty, number, type);
 				if(mode == CLCC_CALL_TYPE_VOICE && state <= CALL_STATE_WAITING)
@@ -900,6 +877,8 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 					cpvt = pvt_find_cpvt(pvt, call_idx);
 					if(cpvt)
 					{
+						/* cpvt alive */
+						CPVT_SET_FLAGS(cpvt, CALL_FLAG_ALIVE);
 						if(dir == cpvt->dir)
 						{
 							if(dir == CALL_DIR_INCOMING && (state == CALL_STATE_INCOMING || state == CALL_STATE_WAITING))
@@ -913,12 +892,12 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 							}
 							if(state != cpvt->state)
 							{
-								channel_change_state(cpvt, state, 0);
+								change_channel_state(cpvt, state, 0);
 							}
 						}
 						else
 						{
-							ast_log (LOG_ERROR, "[%s] CLCC listed call idx %d with different dir %d/%d\n", PVT_ID(pvt), cpvt->call_idx, dir, cpvt->dir);
+							ast_log (LOG_ERROR, "[%s] CLCC call idx %d direction mismatch %d/%d\n", PVT_ID(pvt), cpvt->call_idx, dir, cpvt->dir);
 						}
 					}
 					else if(dir == CALL_DIR_INCOMING && (state == CALL_STATE_INCOMING || state == CALL_STATE_WAITING))
@@ -934,19 +913,21 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 					{
 						case CALL_STATE_WAITING:
 							pvt->cwaiting = 1;
-/*							pvt->ring = 0;
+							pvt->ring = 0;
 							pvt->dialing = 0;
-*/
 							break;
+
 						case CALL_STATE_ONHOLD:
 							held++;
 							break;
+
 						case CALL_STATE_DIALING:
 						case CALL_STATE_ALERTING:
 							pvt->dialing = 1;
 							pvt->cwaiting = 0;
 							pvt->ring = 0;
 							break;
+
 						case CALL_STATE_INCOMING:
 							pvt->ring = 1;
 							pvt->dialing = 0;
@@ -972,7 +953,8 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 					continue;
 				}
 			}
-			break;
+			/* or -1 ? */
+			return 0;
 		}
 		/* unhold first held call */
 		if(all == held)
@@ -985,6 +967,13 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 			{
 				ast_log (LOG_ERROR, "[%s] can't flip active and hold/waiting calls \n", PVT_ID(pvt));
 			}
+		}
+
+		/* dead cpvt only here */
+		AST_LIST_TRAVERSE(&pvt->chans, cpvt, entry)
+		{
+			if(!CPVT_TEST_FLAG(cpvt, CALL_FLAG_ALIVE))
+				change_channel_state(cpvt, CALL_STATE_RELEASED, 0);
 		}
 	}
 	return 0;
@@ -1200,8 +1189,8 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 		ast_base64encode (text_base64, (unsigned char*)msg, msg_len, sizeof(text_base64));
 
 #ifdef BUILD_MANAGER
-		manager_event_new_sms(pvt, number, msg);
-		manager_event_new_sms_base64(pvt, number, text_base64);
+		manager_event_new_sms (pvt, number, msg);
+		manager_event_new_sms_base64 (pvt, number, text_base64);
 #endif
 		{
 			channel_var_t vars[] = 
@@ -1210,7 +1199,7 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 				{ "SMS_BASE64", text_base64 },
 				{ NULL, NULL },
 			};
-			channel_local_start(pvt, "sms", number, vars);
+			start_local_channel (pvt, "sms", number, vars);
 		}
 	    }
 	    else
@@ -1310,7 +1299,7 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 			{ "USSD_BASE64", text_base64 },
 			{ NULL, NULL },
 		};
-		channel_local_start(pvt, "ussd", "ussd", vars);
+		start_local_channel(pvt, "ussd", "ussd", vars);
 	}
 
 	return 0;
@@ -1554,7 +1543,7 @@ static void at_response_busy(struct pvt* pvt, enum ast_control_frame_type contro
 	if(cpvt)
 	{
 		CPVT_SET_FLAGS(cpvt, CALL_FLAG_NEED_HANGUP);
-		channel_queue_control (cpvt, control);
+		queue_control_channel (cpvt, control);
 	}
 }
 
