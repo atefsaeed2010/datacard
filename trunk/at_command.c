@@ -493,6 +493,7 @@ EXPORT_DEF int at_enque_dtmf (struct cpvt* cpvt, char digit)
 {
 	switch (digit)
 	{
+/* unsupported, but AT^DTMF=1,22 OK and "2" sent
 		case 'a':
 		case 'b':
 		case 'c':
@@ -503,7 +504,7 @@ EXPORT_DEF int at_enque_dtmf (struct cpvt* cpvt, char digit)
 		case 'B':
 		case 'C':
 		case 'D':
-
+*/
 		case '0':
 		case '1':
 		case '2':
