@@ -54,6 +54,8 @@ static int parse_dial_string(char * dialstr, const char** number, int * opts)
 
 		if (!strcasecmp(options, "holdother"))
 			lopts = CALL_FLAG_HOLD_OTHER;
+//		else if (!strcasecmp(options, "conference"))
+//			lopts = CALL_FLAG_HOLD_OTHER | CALL_FLAG_CONFERENCE;
 		else
 		{
 			ast_log (LOG_WARNING, "Invalid options in chan_datacard\n");
@@ -77,14 +79,32 @@ static int parse_dial_string(char * dialstr, const char** number, int * opts)
 	return 0;
 }
 
-/* TODO: add check when request 'holdother' what requestor is not on same device 
-   TODO: simplify by move common code to functions
-*/
+
 #if ASTERISK_VERSION_NUM >= 10800
-static struct ast_channel* channel_request (attribute_unused const char* type, format_t format, attribute_unused const struct ast_channel *requestor, void* data, int* cause)
-#else
+#/* */
+static int can_dial(struct pvt* pvt, int opts, const struct ast_channel* requestor)
+{
+	/* not allow hold requester channel :) */
+	/* FIXME: requestor may be just proxy/masquerade for real channel */
+	//	use ast_bridged_channel(chan) ?
+	//	use requestor->tech->get_base_channel() ?
+	if((opts & CALL_FLAG_HOLD_OTHER) == CALL_FLAG_HOLD_OTHER)
+		if(requestor && requestor->tech == &channel_tech && requestor->tech_pvt && ((struct cpvt*)requestor->tech_pvt)->pvt == pvt)
+			return 0;
+	return ready4voice_call(pvt, NULL, opts);
+}
+
+/* TODO: add check when request 'holdother' what requestor is not on same device for 1.6 */
+
+#define CAN_DIAL_PVT(pvt, opts)		can_dial(pvt, opts, requestor)
+//   TODO: simplify by move common code to functions
+static struct ast_channel* channel_request (attribute_unused const char* type, format_t format, attribute_unused const struct ast_channel* requestor, void* data, int* cause)
+
+#else /* #if ASTERISK_VERSION_NUM >= 10800 */
+#define CAN_DIAL_PVT(pvt, opts)		ready4voice_call(pvt, NULL, opts)
 static struct ast_channel* channel_request (attribute_unused const char* type, int format, void* data, int* cause)
-#endif
+
+#endif /* #if ASTERISK_VERSION_NUM >= 10800 */
 {
 #if ASTERISK_VERSION_NUM >= 10800
 	format_t		oldformat;
@@ -134,15 +154,6 @@ static struct ast_channel* channel_request (attribute_unused const char* type, i
 
 	if (((dest_dev[0] == 'g') || (dest_dev[0] == 'G')) && ((dest_dev[1] >= '0') && (dest_dev[1] <= '9')))
 	{
-/*
-		if(opts == CALL_OPTION_CONFERENCE)
-		{
-badconf:
-			ast_log (LOG_WARNING, "option 'conference' uncompatible in chan_datacard channel_request()\n");
-			*cause = AST_CAUSE_INCOMPATIBLE_DESTINATION;
-			return NULL;
-		}
-*/
 		errno = 0;
 		group = (int) strtol (&dest_dev[1], (char**) NULL, 10);
 		if (errno != EINVAL)
@@ -151,7 +162,7 @@ badconf:
 			{
 				ast_mutex_lock (&pvt->lock);
 
-				if (CONF_SHARED(pvt, group) == group && ready4voice_call(pvt, NULL, opts))
+				if (CONF_SHARED(pvt, group) == group && CAN_DIAL_PVT(pvt, opts))
 				{
 					break;
 				}
@@ -204,7 +215,7 @@ badconf:
 				pvt = gpublic->round_robin[j];
 
 				ast_mutex_lock (&pvt->lock);
-				if (ready4voice_call(pvt, NULL, opts))
+				if (CAN_DIAL_PVT(pvt, opts))
 				{
 					pvt->group_last_used = 1;
 					break;
@@ -256,7 +267,7 @@ badconf:
 			pvt = gpublic->round_robin[j];
 
 			ast_mutex_lock (&pvt->lock);
-			if (ready4voice_call(pvt, NULL, opts))
+			if (CAN_DIAL_PVT(pvt, opts))
 			{
 				pvt->prov_last_used = 1;
 				break;
@@ -308,7 +319,7 @@ badconf:
 			pvt = gpublic->round_robin[j];
 
 			ast_mutex_lock (&pvt->lock);
-			if (ready4voice_call(pvt, NULL, opts))
+			if (CAN_DIAL_PVT(pvt, opts))
 			{
 				pvt->sim_last_used = 1;
 				break;
@@ -344,7 +355,7 @@ badconf:
 	}
 
 	AST_RWLIST_UNLOCK (&gpublic->devices);
-	if (!pvt || !ready4voice_call(pvt, NULL, opts))
+	if (!pvt || !CAN_DIAL_PVT(pvt, opts))
 	{
 		if (pvt)
 		{
@@ -401,6 +412,7 @@ static int channel_call (struct ast_channel* channel, char* dest, attribute_unus
 
 	ast_mutex_lock (&pvt->lock);
 
+// FIXME: check if bridged on same device with CALL_FLAG_HOLD_OTHER
 	if (!ready4voice_call(pvt, cpvt, opts))
 	{
 		ast_mutex_unlock (&pvt->lock);

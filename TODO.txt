@@ -8,15 +8,20 @@ added 20.11.2010
 
 3) Extended device name 'i:' 's:' for DEVICE_STATE() and DatacardStatus()
 
-4) automatic gain control for rxgain/txgain
-
-    5) Make context setting optional with 'default' as default value
-	20.11.2010 already exists in base 175 rev. exported
+	4) automatic gain control for rxgain/txgain
+		exists solution:
+			download speex library http://www.speex.org
+			build/install 
+			rebuild asterisk with speex and func_speex
+			Set(AGC(rx)=8000) in dialplan
+		
+	5) Make context setting optional with 'default' as default value
+		20.11.2010 already exists in base 175 rev. exported
 
 6) Conference support
 
-    7) Remove warning 'Don't know how to indicate condition 20'
-	done at 20.11.2010
+	7) Remove warning 'Don't know how to indicate condition 20'
+		done at 20.11.2010
 
 8) LED control
 
@@ -36,9 +41,9 @@ added 24.11.2010
 
 13) Device files locking
 
-    14) SMS PDU mode
-	duplicate for 9)
-	    added from internal source at 25.11.2010
+	14) SMS PDU mode
+		duplicate for 9)
+			added from internal source at 25.11.2010
 
 15) Do a lot of testing with the channel driver
 
@@ -59,16 +64,16 @@ added 24.11.2010
 	
 22) Add more API commands
 
-    22.1) 'disable' option in device section
-	done 27.11.2010 at r46 with [defaults]
+	22.1) 'disable' option in device section
+		done 27.11.2010 at r46 with [defaults]
 
-    22.2) [global] with template settings
-	done 27.11.2010 at r46 with [defaults]. Also available asterisk template feature for config files
+	22.2) [global] with template settings
+		done 27.11.2010 at r46 with [defaults]. Also available asterisk template feature for config files
 
-    22.3) exten
-	added 06.12.2010 r83
+	22.3) exten
+		added 06.12.2010 r83
 
-23) 
+23)
 
 24) reconfigure on fly
 
@@ -86,8 +91,9 @@ added 06.12.2010
 28) outgoing SMS: set SRR, validity, SC address
 	SRR and validity done 06.12.2010 in r75
 
-29) incoming SMS: pass up raw PDU, raw message, SCTS, SCA, UDH, PID?, fields of DCS 
+29) incoming SMS: pass up raw PDU, raw message, SCA, SCTS, PID, UDH,  fields of DCS
 
-30) incoming reports
+30) incoming SMS reports
 
-31) outgoing SMS: send in 7Bit or 8Bit if possible
+	31) outgoing SMS: send in 7Bit or 8Bit if possible
+		done at 08.12.2010 in r81
