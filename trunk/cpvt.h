@@ -28,10 +28,11 @@ typedef enum {
 
 typedef enum {
 	CALL_FLAG_NONE		= 0,
-	CALL_FLAG_HOLD_OTHER	= 1,				/* external from dial() */
+	CALL_FLAG_HOLD_OTHER	= 1,				/* external from dial() hold other calls and dial here */
 	CALL_FLAG_NEED_HANGUP	= 2,				/* internal */
 	CALL_FLAG_ACTIVATED	= 4,				/* fds attached to channel */
 	CALL_FLAG_ALIVE		= 8,				/* listed in CLCC */
+	CALL_FLAG_CONFERENCE	= 16,				/* extenal from dial() begin conference after activate this call */
 } call_flag_t;
 
 
@@ -49,6 +50,7 @@ typedef struct cpvt {
 	call_state_t		state;				/*!< see also call_state_t */
 	int			flags;				/*!< see also call_flag_t */
 
+/* TODO: join with flags */
 	unsigned int		dir:1;				/*!< call direction */
 #define CALL_DIR_OUTGOING	0
 #define CALL_DIR_INCOMING	1
