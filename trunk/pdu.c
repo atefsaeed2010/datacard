@@ -536,6 +536,7 @@ EXPORT_DEF int pdu_build(char* buffer, size_t length, const char* csca, const ch
 	int dst_toa = NUMBER_TYPE_INTERNATIONAL;
 	int pdutype= PDUTYPE_MTI_SMS_SUBMIT | PDUTYPE_RD_ACCEPT | PDUTYPE_VPF_RELATIVE | PDUTYPE_SRR_NOT_REQUESTED | PDUTYPE_UDHI_NO_HEADER | PDUTYPE_RP_IS_NOT_SET;
 	int dcs;
+	
 	unsigned dst_len;
 	unsigned csa_len;
 	unsigned msg_len;
@@ -545,7 +546,7 @@ EXPORT_DEF int pdu_build(char* buffer, size_t length, const char* csca, const ch
 	dcs = check_encoding(msg, msg_len);
 
 	/* cannot exceed 140 octets for no compressed or cannot exceed 160 septets for compressed */
-	if((dcs == PDU_DCS_ALPABET_UCS2 && msg_len > 70) || msg_len > 160)
+	if(((PDU_DCS_ALPABET(dcs) == PDU_DCS_ALPABET_UCS2) && msg_len > 70) || (PDU_DCS_ALPABET(dcs) == PDU_DCS_ALPABET_8BIT && msg_len > 140) || msg_len > 160)
 	{
 		return -E2BIG;
 	}
@@ -591,24 +592,25 @@ EXPORT_DEF int pdu_build(char* buffer, size_t length, const char* csca, const ch
 
 	/*  Destination address */
 	len += pdu_store_number(buffer + len, dst, dst_len);
-	
-	/* TP-PID. Protocol identifier  */
-	/* TP-DCS. Data coding scheme */
-	/* TP-Validity-Period */
-	/* TP-User-Data-Length */
-	/* TP-User-Data */
+
+	/* TODO: also check message limit in 178 octet of TPDU (w/o SCA) */
+	/* forward TP-User-Data */
 	data_len = str_recode(RECODE_ENCODE, dcs == PDU_DCS_ALPABET_UCS2 ? STR_ENCODING_UCS2_HEX : STR_ENCODING_7BIT_HEX, msg, msg_len, buffer + len + 8, length - len - 11);
 	if(data_len < 0)
 	{
 		return -EINVAL;
 	}
+
+	/* calc UDL */
 	if(dcs == PDU_DCS_ALPABET_UCS2)
-		data_len /= 2;
-	else
-		data_len = msg_len;
-	/* TODO: also check message limit in 178 octet of TPDU (w/o SCA) */
+		msg_len = data_len / 2;
+
+	/* TP-PID. Protocol identifier  */
+	/* TP-DCS. Data coding scheme */
+	/* TP-Validity-Period */
+	/* TP-User-Data-Length */
 	tmp = buffer[len + 8];
-	len += snprintf(buffer + len, length - len, "%02X%02X%02X%02X", PDU_PID_SMS, dcs, pdu_relative_validity(valid_minutes), data_len);
+	len += snprintf(buffer + len, length - len, "%02X%02X%02X%02X", PDU_PID_SMS, dcs, pdu_relative_validity(valid_minutes), msg_len);
 	buffer[len] = tmp;
 
 	len += data_len;
