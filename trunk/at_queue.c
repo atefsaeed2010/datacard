@@ -129,30 +129,29 @@ static int at_queue_add (struct cpvt* cpvt, const at_queue_cmd_t* cmds, unsigned
 	return 0;
 }
 
+
 /*!
- * \brief Write to data fd
- * \param pvt -- pvt structure
+ * \brief Write to fd
+ * \param fd -- file descriptor
  * \param buf -- buffer to write
  * \param count -- number of bytes to write
  *
  * This function will write count characters from buf. It will always write
  * count chars unless it encounters an error.
  *
- * \retval -1 error
- * \retval  0 success
+ * \retval number of bytes wrote
  */
 
 #/* */
-EXPORT_DEF int at_write (struct pvt* pvt, const char* buf, size_t count)
+EXPORT_DEF size_t write_all (int fd, const char* buf, size_t count)
 {
-	ssize_t	out_count;
+	ssize_t out_count;
+	size_t total = 0;
 	unsigned errs = 10;
 	
-	ast_debug (5, "[%s] [%.*s]\n", PVT_ID(pvt), (int) count, buf);
-
 	while (count > 0)
 	{
-		out_count = write (pvt->data_fd, buf, count);
+		out_count = write (fd, buf, count);
 		if (out_count <= 0)
 		{
 			if(errno == EINTR || errno == EAGAIN)
@@ -161,15 +160,43 @@ EXPORT_DEF int at_write (struct pvt* pvt, const char* buf, size_t count)
 				if(errs != 0)
 					continue;
 			}
-			ast_debug (1, "[%s] write() error: %d\n", PVT_ID(pvt), errno);
-			return -1;
+			break;
 		}
 		errs = 10;
 		count -= out_count;
 		buf += out_count;
+		total += out_count;
 	}
+	return total;
+}
 
-	return 0;
+/*!
+ * \brief Write to fd
+ * \param pvt -- pvt structure
+ * \param buf -- buffer to write
+ * \param count -- number of bytes to write
+ *
+ * This function will write count characters from buf. It will always write
+ * count chars unless it encounters an error.
+ *
+ * \retval !0 on error
+ * \retval  0 success
+ */
+
+#/* */
+EXPORT_DEF int at_write (struct pvt* pvt, const char* buf, size_t count)
+{
+	int failed;
+	
+	ast_debug (5, "[%s] [%.*s]\n", PVT_ID(pvt), (int) count, buf);
+
+	failed = write_all(pvt->data_fd, buf, count) != count;
+	if(failed)
+	{
+		ast_debug (1, "[%s] write() error: %d\n", PVT_ID(pvt), errno);
+	}
+	
+	return failed;
 }
 
 /*!

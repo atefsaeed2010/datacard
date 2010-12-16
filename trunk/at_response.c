@@ -133,6 +133,7 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 			case CMD_AT_CCWA_SET:
 			case CMD_AT_CCWA_STATUS:
 			case CMD_AT_CHLD_2:
+			case CMD_AT_CHLD_3:
 			case CMD_AT_CSCA:
 			case CMD_AT_CLCC:
 			case CMD_AT_CLIR:
@@ -231,7 +232,7 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 				break;
 			case CMD_AT_CHUP:
 			case CMD_AT_CHLD_1x:
-				CPVT_RESET_FLAG(task->cpvt, CALL_FLAG_NEED_HANGUP);
+				CPVT_RESET_FLAGS(task->cpvt, CALL_FLAG_NEED_HANGUP);
 				ast_debug (1, "[%s] Successful hangup for call idx %d\n", PVT_ID(pvt), task->cpvt->call_idx);
 				break;
 
@@ -322,7 +323,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 			case CMD_AT_E:
 			case CMD_AT_CLCC:
 				ast_log (LOG_ERROR, "[%s] Command '%s' failed\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd));
-				/* mean also disconnected from device */
+				/* mean disconnected from device */
 				goto e_return;
 
 			/* not critical errors */
@@ -441,7 +442,12 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 			case CMD_AT_A:
 			case CMD_AT_CHLD_2x:
 				ast_log (LOG_ERROR, "[%s] Answer failed for call idx %d\n", PVT_ID(pvt), task->cpvt->call_idx);
-				queue_hangup_channel (task->cpvt, 0);
+				queue_hangup (task->cpvt->channel, 0);
+				break;
+
+			case CMD_AT_CHLD_3:
+				ast_log (LOG_ERROR, "[%s] Can't begin conference call idx %d\n", PVT_ID(pvt), task->cpvt->call_idx);
+				queue_hangup(task->cpvt->channel, 0);
 				break;
 
 			case CMD_AT_CLIR:
@@ -708,8 +714,8 @@ static int at_response_cend (struct pvt* pvt, const char* str)
 	cpvt = pvt_find_cpvt(pvt, call_index);
 	if (cpvt)
 	{
-		CPVT_RESET_FLAG (cpvt, CALL_FLAG_NEED_HANGUP);
-		change_channel_state (cpvt, CALL_STATE_RELEASED, cc_cause);
+		CPVT_RESET_FLAGS(cpvt, CALL_FLAG_NEED_HANGUP);
+		change_channel_state(cpvt, CALL_STATE_RELEASED, cc_cause);
 	}
 	else
 	{
@@ -786,6 +792,8 @@ static int at_response_conn (struct pvt* pvt, const char* str)
 /* FIXME: delay until CLCC handle?
 */
 			change_channel_state(cpvt, CALL_STATE_ACTIVE, 0);
+			if(CPVT_TEST_FLAG(cpvt, CALL_FLAG_CONFERENCE))
+				at_enque_conference(cpvt);
 		}
 		else
 		{
@@ -821,6 +829,7 @@ static int start_pbx(struct pvt* pvt, const char * number, int call_idx, call_st
 // FIXME: not execute if channel_new() failed
 	CPVT_SET_FLAGS(cpvt, CALL_FLAG_NEED_HANGUP);
 
+	// ast_pbx_start() usually failed if asterisk.conf minmemfree set too low, try drop buffer cache sync && echo 3 > /proc/sys/vm/drop_caches
 	if (ast_pbx_start (channel))
 	{
 		channel->tech_pvt = NULL;
@@ -828,7 +837,7 @@ static int start_pbx(struct pvt* pvt, const char * number, int call_idx, call_st
 		
 		ast_hangup (channel);
 		ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming call\n", PVT_ID(pvt));
-
+		// TODO: count fails and reset incoming when count reach limit ?
 		return -1;
 	}
 
@@ -864,7 +873,7 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 		/* I think man is good until he proves the reverse */
 		AST_LIST_TRAVERSE(&pvt->chans, cpvt, entry)
 		{
-			CPVT_RESET_FLAG(cpvt, CALL_FLAG_ALIVE);
+			CPVT_RESET_FLAGS(cpvt, CALL_FLAG_ALIVE);
 		}
 		
 		for(;;)
@@ -881,6 +890,10 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 						CPVT_SET_FLAGS(cpvt, CALL_FLAG_ALIVE);
 						if(dir == cpvt->dir)
 						{
+							if(mpty)
+								CPVT_SET_FLAGS(cpvt, CALL_FLAG_MULTIPARTY);
+							else
+								CPVT_RESET_FLAGS(cpvt, CALL_FLAG_MULTIPARTY);
 							if(dir == CALL_DIR_INCOMING && (state == CALL_STATE_INCOMING || state == CALL_STATE_WAITING))
 							{
 								if(cpvt->channel)

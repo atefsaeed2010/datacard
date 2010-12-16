@@ -10,16 +10,15 @@
 #define CHAN_DATACARD_H_INCLUDED
 
 #include <asterisk.h>
-#include <asterisk/frame.h>		/* AST_FRIENDLY_OFFSET */
 #include <asterisk/lock.h>
 #include <asterisk/linkedlists.h>
 
-#include "ringbuffer.h"			/* struct ringbuffer */
-#include "cpvt.h"			/* struct cpvt */
-#include "export.h"			/* EXPORT_DECL EXPORT_DEF */
-#include "dc_config.h"			/* pvt_config_t */
+#include "mixbuffer.h"				/* struct mixbuffer */
+//#include "ringbuffer.h"				/* struct ringbuffer */
+#include "cpvt.h"				/* struct cpvt */
+#include "export.h"				/* EXPORT_DECL EXPORT_DEF */
+#include "dc_config.h"				/* pvt_config_t */
 
-#define FRAME_SIZE		320
 #define MODULE_DESCRIPTION	"Datacard Channel Driver"
 
 struct at_queue_task;
@@ -67,10 +66,11 @@ typedef struct pvt
 	struct ast_timer*	a_timer;			/*!< audio write timer */
 
 	char			a_write_buf[FRAME_SIZE * 5];	/*!< audio write buffer */
-	struct ringbuffer	a_write_rb;			/*!< audio ring buffer */
-
-	char			a_read_buf[FRAME_SIZE + AST_FRIENDLY_OFFSET];	/*!< audio read buffer */
-	struct ast_frame	a_read_frame;			/*!< readed frame buffer TODO: move as local to channel_read? */
+	struct mixbuffer	a_write_mixb;			/*!< audio mix buffer */
+//	struct ringbuffer	a_write_rb;			/*!< audio ring buffer */
+	
+//	char			a_read_buf[FRAME_SIZE + AST_FRIENDLY_OFFSET];	/*!< audio read buffer */
+//	struct ast_frame	a_read_frame;			/*!< readed frame buffer */
 
 	char			dtmf_digit;			/*!< last DTMF digit */
 	struct timeval		dtmf_begin_time;		/*!< time of begin of last DTMF digit */

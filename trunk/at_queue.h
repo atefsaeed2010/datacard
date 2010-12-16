@@ -95,5 +95,6 @@ static inline const at_queue_cmd_t * at_queue_task_cmd (const at_queue_task_t * 
 
 /* direct device write, dangerouse */
 EXPORT_DECL int at_write (struct pvt* pvt, const char* buf, size_t count);
+EXPORT_DEF size_t write_all (int fd, const char* buf, size_t count);
 
 #endif /* CHAN_DATACARD_AT_CMD_QUEUE_H_INCLUDED */

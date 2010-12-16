@@ -166,6 +166,7 @@ EXPORT_DEF const char* at_cmd2str (at_cmd_t cmd)
 		"AT+CHLD=1x",
 		"AT+CHLD=2x",
 		"AT+CHLD=2",
+		"AT+CHLD=3",
 		"AT+CLCC"
 	};
 	int idx = cmd;
@@ -178,8 +179,8 @@ EXPORT_DEF const char* at_cmd2str (at_cmd_t cmd)
 
 /*!
  * \brief Enque initialization commands
- * \param pvt -- pvt structure
- * \param cmd -- begin initialization from this command in list
+ * \param cpvt -- cpvt structure
+ * \param from_command -- begin initialization from this command in list
  * \return 0 on success
  */
 EXPORT_DEF int at_enque_initialization(struct cpvt* cpvt, at_cmd_t from_command)
@@ -303,7 +304,7 @@ failure:
 
 /*!
  * \brief Enque the AT+COPS? command
- * \param pvt -- pvt structure
+ * \param cpvt -- cpvt structure
  * \return 0 on success
  */
 
@@ -320,7 +321,7 @@ EXPORT_DEF int at_enque_cops (struct cpvt* cpvt)
 
 /*!
  * \brief Enque an SMS message
- * \param pvt -- pvt structure
+ * \param cpvt -- cpvt structure
  * \param number -- the destination of the message
  * \param msg -- utf-8 encoded message
  */
@@ -437,7 +438,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 
 /*!
  * \brief Enque AT+CUSD.
- * \param pvt -- pvt structure
+ * \param cpvt -- cpvt structure
  * \param code the CUSD code to send
  */
 
@@ -484,7 +485,7 @@ EXPORT_DEF int at_enque_cusd (struct cpvt* cpvt, const char* code)
 
 /*!
  * \brief Enque a DTMF command
- * \param pvt -- pvt structure
+ * \param cpvt -- cpvt structure
  * \param digit -- the dtmf digit to send
  * \return -1 if digis is invalid, 0 on success
  */
@@ -525,7 +526,7 @@ EXPORT_DEF int at_enque_dtmf (struct cpvt* cpvt, char digit)
 
 /*!
  * \brief Enque the AT+CCWA command (disable call waiting)
- * \param pvt -- pvt structure
+ * \param cpvt -- cpvt structure
  * \return 0 on success
  */
 
@@ -564,7 +565,7 @@ EXPORT_DEF int at_enque_set_ccwa (struct cpvt* cpvt, attribute_unused const char
 
 /*!
  * \brief Enque the device reset command (AT+CFUN Operation Mode Setting)
- * \param pvt -- pvt structure
+ * \param cpvt -- cpvt structure
  * \return 0 on success
  */
 
@@ -579,7 +580,7 @@ EXPORT_DEF int at_enque_reset (struct cpvt* cpvt)
 
 /*!
  * \brief Enque a dial commands
- * \param pvt -- pvt structure
+ * \param cpvt -- cpvt structure
  * \param number -- the called number
  * \param clir -- value of clir
  * \return 0 on success
@@ -639,7 +640,7 @@ EXPORT_DEF int at_enque_dial(struct cpvt* cpvt, const char * number, int clir)
 
 /*!
  * \brief Enque a answer commands
- * \param pvt -- pvt structure
+ * \param cpvt -- cpvt structure
  * \return 0 on success
  */
 EXPORT_DEF int at_enque_answer(struct cpvt* cpvt)
@@ -678,7 +679,7 @@ EXPORT_DEF int at_enque_answer(struct cpvt* cpvt)
 
 /*!
  * \brief Enque an activate commands 'Put active calls on hold and activate call x.'
- * \param pvt -- pvt structure
+ * \param cpvt -- cpvt structure
  * \return 0 on success
  */
 EXPORT_DEF int at_enque_activate (struct cpvt* cpvt)
@@ -723,7 +724,7 @@ EXPORT_DEF int at_enque_flip_hold (struct cpvt* cpvt)
 
 /*!
  * \brief Enque user-specified command
- * \param pvt -- pvt structure
+ * \param cpvt -- cpvt structure
  * \param input -- user's command
  * \return 0 on success
  */
@@ -734,7 +735,7 @@ EXPORT_DEF int at_enque_unknown_cmd(struct cpvt* cpvt, const char * input)
 
 /*!
  * \brief Enque commands for reading SMS
- * \param pvt -- pvt structure
+ * \param cpvt -- cpvt structure
  * \param index -- index of message in store
  * \param delete -- if non-zero also enque commands for delete message in store after reading
  * \return 0 on success
@@ -884,7 +885,7 @@ EXPORT_DEF int at_enque_hangup (struct cpvt* cpvt, int call_idx)
 
 /*!
  * \brief Enque AT+CLVL commands for volume synchronization
- * \param pvt -- pvt structure
+ * \param cpvt -- cpvt structure
  * \return 0 on success
  */
 
@@ -901,7 +902,7 @@ EXPORT_DEF int at_enque_volsync (struct cpvt* cpvt)
 
 /*!
  * \brief Enque AT+CLCC command
- * \param pvt -- pvt structure
+ * \param cpvt -- cpvt structure
  * \return 0 on success
  */
 EXPORT_DEF int at_enque_clcc (struct cpvt* cpvt)
@@ -911,6 +912,27 @@ EXPORT_DEF int at_enque_clcc (struct cpvt* cpvt)
 	return at_queue_insert_const(cpvt, &at_cmd, 1, 1);
 }
 
+/*!
+ * \brief Enque AT+CHLD=3 command
+ * \param cpvt -- cpvt structure
+ * \return 0 on success
+ */
+EXPORT_DEF int at_enque_conference (struct cpvt* cpvt)
+{
+	static const char cmd_chld3[] = "AT+CHLD=3\r";
+	static const at_queue_cmd_t cmds[] = {
+		ATQ_CMD_DECLARE_ST(CMD_AT_CHLD_3, cmd_chld3),
+		ATQ_CMD_DECLARE_ST(CMD_AT_CLCC, cmd_clcc),
+		};
+
+	return at_queue_insert_const(cpvt, cmds, ITEMS_OF(cmds), 1);
+}
+
+
+/*!
+ * \brief SEND AT+CHUP command to device IMMEDIALITY
+ * \param cpvt -- cpvt structure
+ */
 EXPORT_DEF void at_hangup_immediality(struct cpvt* cpvt)
 {
 	char buf[20];

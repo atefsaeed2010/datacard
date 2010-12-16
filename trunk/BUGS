@@ -26,3 +26,7 @@ kill device. Device not responding on commands but still sending ^BOOT: and ^RSS
 12) zombi calls
 
 13) HW: device still in sms prompt infinite (only 0x1B can help) if entered more 133 symbols in TEXT UCS-2 mode
+
+14) Sometimes device stops responding to commands
+
+15) SIGSEGV on hangup

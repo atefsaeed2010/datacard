@@ -191,7 +191,7 @@ EXPORT_DEF const char* send_at_command(const char* dev_name, const char* command
 }
 
 #/* */
-EXPORT_DECL const char* schedule_restart(const char* dev_name, int * status)
+EXPORT_DEF const char* schedule_restart(const char* dev_name, int * status)
 {
 	const char * msg;
 	struct pvt * pvt = find_device (dev_name);

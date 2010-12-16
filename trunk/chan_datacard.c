@@ -138,7 +138,7 @@ static void disconnect_datacard (struct pvt* pvt)
 		{
 			next = cpvt->entry.next;
 			at_hangup_immediality(cpvt);
-			CPVT_RESET_FLAG(cpvt, CALL_FLAG_NEED_HANGUP);
+			CPVT_RESET_FLAGS(cpvt, CALL_FLAG_NEED_HANGUP);
 			change_channel_state(cpvt, CALL_STATE_RELEASED, 0);
 		}
 	}
@@ -147,8 +147,8 @@ static void disconnect_datacard (struct pvt* pvt)
 
 	close (pvt->data_fd);
 	close (pvt->audio_fd);
-	pvt->data_fd		= -1;
-	pvt->audio_fd		= -1;
+	pvt->data_fd = -1;
+	pvt->audio_fd = -1;
 
 	ast_dsp_digitreset(pvt->dsp);
 	pvt_on_remove_last_channel(pvt);
@@ -371,6 +371,7 @@ static void* do_discovery (attribute_unused void * data)
 
 				if ((pvt->data_fd = opentty (CONF_UNIQ(pvt, data_tty))) > -1)
 				{
+					// TODO: delay until device activate voice call or at pvt_on_create_1st_channel()
 					if ((pvt->audio_fd = opentty (CONF_UNIQ(pvt, audio_tty))) > -1)
 					{
 						if (start_monitor (pvt))
@@ -402,7 +403,8 @@ static void* do_discovery (attribute_unused void * data)
 #/* */
 EXPORT_DEF void pvt_on_create_1st_channel(struct pvt* pvt)
 {
-	rb_init (&pvt->a_write_rb, pvt->a_write_buf, sizeof (pvt->a_write_buf));
+	mixb_init (&pvt->a_write_mixb, pvt->a_write_buf, sizeof (pvt->a_write_buf));
+//	rb_init (&pvt->a_write_rb, pvt->a_write_buf, sizeof (pvt->a_write_buf));
 
 	if(!pvt->a_timer)
 		pvt->a_timer = ast_timer_open ();
@@ -629,7 +631,7 @@ EXPORT_DEF const char * sys_submode2str(int sys_submode)
 }
 
 #/* */
-EXPORT_DECL char* rssi2dBm(int rssi, char * buf, unsigned len)
+EXPORT_DEF char* rssi2dBm(int rssi, char * buf, unsigned len)
 {
 	if(rssi <= 0)
 	{
