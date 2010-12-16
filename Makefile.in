@@ -3,20 +3,23 @@ PROJS =  chan_datacards.so
 
 chan_datacardm_so_OBJS =  app.o at_command.o at_parse.o at_queue.o at_read.o at_response.o \
 	chan_datacard.o channel.o char_conv.o cli.o helpers.o manager.o \
-	memmem.o ringbuffer.o cpvt.o dc_config.o pdu.o
+	memmem.o ringbuffer.o cpvt.o dc_config.o pdu.o mixbuffer.o
 
 chan_datacards_so_OBJS = single.o
 
+test_OBJS = test1.o ringbuffer.o mixbuffer.o
+
 SOURCES = app.c at_command.c at_parse.c at_queue.c at_read.c at_response.c \
 chan_datacard.c channel.c char_conv.c cli.c cpvt.c dc_config.c helpers.c \
-manager.c memmem.c ringbuffer.c single.c pdu.c
+manager.c memmem.c ringbuffer.c single.c pdu.c mixbuffer.c test1.c
 
 HEADERS = app.h at_command.h at_parse.h at_queue.h at_read.h at_response.h \
 chan_datacard.h channel.h char_conv.h cli.h cpvt.h dc_config.h export.h \
-helpers.h manager.h memmem.h ringbuffer.h pdu.h
+helpers.h manager.h memmem.h ringbuffer.h pdu.h mixbuffer.h
 
 EXTRA_DIST = BUGS COPYRIGHT.txt LICENSE.txt README.txt TODO.txt INSTALL Makefile.in \
-    asteriskforum config.h.in configure.in stamp-h.in etc/* 
+    asteriskforum config.h.in configure.in stamp-h.in etc/datacard.conf \
+    etc/extensions.conf
 
 BUILD_TOOLS = configure config.sub install-sh config.guess
 
@@ -29,8 +32,9 @@ INSTALL = @INSTALL@
 # -DAST_MODULE=\"$(PROJM)\" -D_THREAD_SAFE
 CFLAGS  = @CFLAGS@ -I$(srcdir) @CPPFLAGS@ @DEFS@ @AC_CFLAGS@
 LDFLAGS = @LDFLAGS@ 
-LIBS     = @LIBS@
-DISTNAME = @PACKAGE_TARNAME@-@PACKAGE_VERSION@.r@PACKAGE_REVISION@
+SOLINK  = @SOLINK@
+LIBS    = @LIBS@
+DISTNAME= @PACKAGE_TARNAME@-@PACKAGE_VERSION@.r@PACKAGE_REVISION@
 
 srcdir = @srcdir@
 VPATH = @srcdir@
@@ -53,8 +57,11 @@ $(PROJS): $(chan_datacards_so_OBJS) Makefile
 .c.o:
 	$(CC) $(CFLAGS) $(MAKE_DEPS) -o $@ -c $<
 
+test1: test1.o ringbuffer.o
+	$(LD) $(LDFLAGS) -o $@ $(test_OBJS) $(LIBS)
+
 clean:
-	$(RM) $(PROJM) $(PROJS) *.o *.core .*.d autom4te.cache
+	$(RM) $(PROJM) $(PROJS) *.o *.core .*.d autom4te.cache test1
 
 dist: $(SOURCES) $(HEADERS) $(EXTRA_DIST) $(BUILD_TOOLS)
 	@mkdir $(DISTNAME)

@@ -27,5 +27,4 @@ EXPORT_DECL const char* schedule_restart(const char* dev_name, int * status);
 EXPORT_DECL int is_valid_phone_number(const char* number);
 
 
-
 #endif /* CHAN_DATACARD_HELPERS_H_INCLUDED */

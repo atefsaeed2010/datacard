@@ -5,34 +5,42 @@
 #define CHAN_DATACARD_CPVT_H_INCLUDED
 
 #include <asterisk.h>
-#include <asterisk/linkedlists.h>
+#include <asterisk/linkedlists.h>		/* AST_LIST_ENTRY() */
+#include <asterisk/frame.h>			/* AST_FRIENDLY_OFFSET */
 
-#include "export.h"			/* EXPORT_DECL EXPORT_DEF */
+#include "export.h"				/* EXPORT_DECL EXPORT_DEF */
+#include "mixbuffer.h"				/* struct mixstream */
+
+#define FRAME_SIZE		320
 
 typedef enum {
 	CALL_STATE_MIN		= 0,
 
 /* values from CLCC */
-	CALL_STATE_ACTIVE	= CALL_STATE_MIN,
-	CALL_STATE_ONHOLD,
-	CALL_STATE_DIALING,
-	CALL_STATE_ALERTING,
-	CALL_STATE_INCOMING,
-	CALL_STATE_WAITING,
+	CALL_STATE_ACTIVE	= CALL_STATE_MIN,		/*!< comes from CLCC */
+	CALL_STATE_ONHOLD,					/*!< comes from CLCC */
+	CALL_STATE_DIALING,					/*!< comes from CLCC */
+	CALL_STATE_ALERTING,					/*!< comes from CLCC */
+	CALL_STATE_INCOMING,					/*!< comes from CLCC */
+	CALL_STATE_WAITING,					/*!< comes from CLCC */
 
-	CALL_STATE_RELEASED,
-	CALL_STATE_INIT,
+	CALL_STATE_RELEASED,					/*!< on CEND or channel_hangup() called */
+	CALL_STATE_INIT,					/*!< channel_call() called */
 	CALL_STATE_MAX		= CALL_STATE_INIT
 } call_state_t;
 #define CALL_STATES_NUMBER	(CALL_STATE_MAX - CALL_STATE_MIN + 1)
 
 typedef enum {
 	CALL_FLAG_NONE		= 0,
-	CALL_FLAG_HOLD_OTHER	= 1,				/* external from dial() hold other calls and dial here */
-	CALL_FLAG_NEED_HANGUP	= 2,				/* internal */
-	CALL_FLAG_ACTIVATED	= 4,				/* fds attached to channel */
-	CALL_FLAG_ALIVE		= 8,				/* listed in CLCC */
-	CALL_FLAG_CONFERENCE	= 16,				/* extenal from dial() begin conference after activate this call */
+	CALL_FLAG_HOLD_OTHER	= 1,				/*!< external, from channel_call() hold other calls and dial this number */
+	CALL_FLAG_NEED_HANGUP	= 2,				/*!< internal, require issue AT+CHUP or AT+CHLD=1x for call */
+	CALL_FLAG_ACTIVATED	= 4,				/*!< internal, fd attached to channel fds list */
+	CALL_FLAG_ALIVE		= 8,				/*!< internal, temporary, still listed in CLCC */
+	CALL_FLAG_CONFERENCE	= 16,				/*!< external, from dial() begin conference after activate this call */
+	CALL_FLAG_MASTER	= 32,				/*!< internal, channel fd[0] is pvt->audio_fd and  fd[1] is timer fd */
+	CALL_FLAG_BRIDGE_LOOP	= 64,				/*!< internal, found channel bridged to channel on same device */
+	CALL_FLAG_BRIDGE_CHECK	= 128,				/*!< internal, we already do check for bridge loop */
+	CALL_FLAG_MULTIPARTY	= 256,				/*!< internal, CLCC mpty is 1 */
 } call_flag_t;
 
 
@@ -54,13 +62,28 @@ typedef struct cpvt {
 	unsigned int		dir:1;				/*!< call direction */
 #define CALL_DIR_OUTGOING	0
 #define CALL_DIR_INCOMING	1
+
+	int			rd_pipe[2];			/*!< pipe for split readed from device */
+#define PIPE_READ		0
+#define PIPE_WRITE		1
+
+	struct mixstream	mixstream;			/*!< mix stream */
+	char			a_read_buf[FRAME_SIZE + AST_FRIENDLY_OFFSET];/*!< audio read buffer */
+	struct ast_frame	a_read_frame;			/*!< readed frame buffer */
+	
+//	size_t			write;				/*!< write position in pvt->a_write_buf */
+//	size_t			used;				/*!< bytes used in pvt->a_write_buf */
+//	char			a_write_buf[FRAME_SIZE * 5];	/*!< audio write buffer */
+//	struct ringbuffer	a_write_rb;			/*!< audio ring buffer */
+
 } cpvt_t;
 
 #define CPVT_SET_FLAGS(cpvt, flag)	do { (cpvt)->flags |= (flag); } while(0)
-#define CPVT_RESET_FLAG(cpvt, flag)	do { (cpvt)->flags &= ~((int)flag); } while(0)
+#define CPVT_RESET_FLAGS(cpvt, flag)	do { (cpvt)->flags &= ~((int)flag); } while(0)
 #define CPVT_TEST_FLAG(cpvt, flag)	((cpvt)->flags & (flag))
 #define CPVT_TEST_FLAGS(cpvt, flag)	(((cpvt)->flags & (flag)) == (flag))
 
+#define CPVT_IS_MASTER(cpvt)		CPVT_TEST_FLAG(cpvt, CALL_FLAG_MASTER)
 #define CPVT_IS_ACTIVE(cpvt)		((cpvt)->state == CALL_STATE_ACTIVE)
 #define CPVT_IS_SOUND_SOURCE(cpvt)	((cpvt)->state == CALL_STATE_ACTIVE || (cpvt)->state == CALL_STATE_DIALING || (cpvt)->state == CALL_STATE_ALERTING)
 

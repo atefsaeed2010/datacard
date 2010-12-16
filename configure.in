@@ -2,7 +2,7 @@ dnl init
 dnl AC_REVISION($Revision: 1.30 $)
 AC_PREREQ([2.60])
 AC_INIT([chan_datacard],[1.0],[http://code.google.com/p/datacard/issues/list],[chan_datacard],[http://code.google.com/p/datacard])
-PACKAGE_REVISION="256"
+PACKAGE_REVISION="262"
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_SRCDIR([chan_datacard.c])
 AC_CANONICAL_SYSTEM
@@ -175,18 +175,22 @@ fi
 
 case "$target_os" in
     linux*)
-	DC_LDFLAGS="-shared -Xlinker -x"
+	SOLINK="-shared -Xlinker -x"
+	DC_LDFLAGS=""
 	;;
     freebsd*)
-	DC_LDFLAGS="-shared -Xlinker -x -L/usr/local/lib"
+	SOLINK="-shared -Xlinker -x"
+	DC_LDFLAGS="-L/usr/local/lib"
 	;;
     openbsd*)
-	DC_LDFLAGS="-shared -Xlinker -x -L/usr/local/lib -pthread"
+	SOLINK="-shared -Xlinker -x"
+	DC_LDFLAGS="-L/usr/local/lib -pthread"
 	AC_CFLAGS="$AC_CFLAGS -pthread"
 	;;
     darwin*)
-	DC_LDFLAGS="-dynamic -bundle -Xlinker -macosx_version_min -Xlinker 10.4 -Xlinker -undefined -Xlinker dynamic_lookup -force_flat_namespace -L/opt/local/lib"
-	[ `/usr/bin/sw_vers -productVersion | cut -c1-4` == "10.6" ] && DC_LDFLAGS="$DC_LDFLAGS /usr/lib/bundle1.o"
+	SOLINK="-dynamic -bundle -Xlinker -macosx_version_min -Xlinker 10.4 -Xlinker -undefined -Xlinker dynamic_lookup -force_flat_namespace"
+	DC_LDFLAGS="-L/opt/local/lib"
+	[ `/usr/bin/sw_vers -productVersion | cut -c1-4` == "10.6" ] && SOLINK="$SOLINK /usr/lib/bundle1.o"
 esac
 
 LDFLAGS="$LDFLAGS $DC_LDFLAGS"
@@ -199,6 +203,7 @@ AC_DEFINE_UNQUOTED([MODULE_VERSION], "$PACKAGE_VERSION", [Define to the version 
 AC_DEFINE_UNQUOTED([AST_MODULE],"$PACKAGE_NAME",[name of asterisk module])
 AC_DEFINE_UNQUOTED([PACKAGE_REVISION], "$PACKAGE_REVISION",[Revision of package])
 
+AC_SUBST([SOLINK])
 AC_SUBST([PACKAGE_TARNAME])
 AC_SUBST([PACKAGE_REVISION])
 AC_SUBST([PACKAGE_VERSION])

@@ -1,0 +1,60 @@
+# List AT commands used by chan_datacard
+#  Initialization
+AT
+ATZ
+ATE0
+ATE1
+AT+CGMI
+AT+CSCA?
+AT+CGMM
+AT+CGMR
+AT+CMEE=0
+AT+CGSN
+AT+CIMI
+AT+CPIN?
+AT+COPS=0,0
+AT+CREG=2
+AT+CREG?
+AT+CNUM
+AT^CVOICE?
+#	AT+CLIP=0 	# unused now
+AT+CSSN=1,1
+AT+CSCS="UCS2"
+AT+CPMS="ME","ME","ME"
+AT+CNMI=2,1,0,0,0
+AT+CSQ
+AT^U2DIAG=%d
+AT+CMGF=%d
+AT+COPS?
+AT+CCWA=1,2,1
+AT+CCWA=%d,%d,%d
+
+#  call handling
+ATD%s;
+ATA
+AT+CHLD=2%d
+AT+CHLD=1%d
+AT+CHLD=2
+AT+CLCC
+AT+CHUP
+AT+CLVL=1
+AT+CLVL=5
+
+#  voice call
+AT^DDSETEX=2
+
+# utils
+AT+CUSD=1,"hex",15
+AT^DTMF=%d,%c
+
+#  device reset
+AT+CFUN=1,1
+
+# Calling line restriction
+AT+CLIR=%d
+
+#  messages
+AT+CMGS="num"
+AT+CMGR=%d
+AT+CMGD=%d\r\r
+

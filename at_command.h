@@ -65,6 +65,7 @@ typedef enum {
 	CMD_AT_CHLD_1x,
 	CMD_AT_CHLD_2x,
 	CMD_AT_CHLD_2,
+	CMD_AT_CHLD_3,
 	CMD_AT_CLCC
 } at_cmd_t;
 
@@ -90,5 +91,7 @@ EXPORT_DECL int at_enque_volsync (struct cpvt* cpvt);
 EXPORT_DECL int at_enque_clcc (struct cpvt* cpvt);
 EXPORT_DECL int at_enque_activate (struct cpvt* cpvt);
 EXPORT_DECL int at_enque_flip_hold (struct cpvt* cpvt);
+EXPORT_DECL int at_enque_conference (struct cpvt* cpvt);
 EXPORT_DECL void at_hangup_immediality(struct cpvt* cpvt);
+
 #endif /* CHAN_DATACARD_AT_SEND_H_INCLUDED */

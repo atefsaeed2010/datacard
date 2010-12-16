@@ -97,3 +97,9 @@ added 06.12.2010
 
 	31) outgoing SMS: send in 7Bit or 8Bit if possible
 		done at 08.12.2010 in r81
+
+31) Handling of response errors CLIR for example
+
+32) Control SMS receiving from dialplan
+	(when message received channel Local created rules read message, delete or some other
+)
