@@ -397,17 +397,29 @@ static char* cli_reset (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a
 }
 
 #/* */
-static char* cli_restart (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+static char* cli_restart_event(struct ast_cli_entry* e, int cmd, struct ast_cli_args* a, restart_event_t event)
 {
+	static char * const cmds[] = {
+		"datacard stop",
+		"datacard start",
+		"datacard restart",
+		};
+	static const char * const usage[] = {
+		"Usage: datacard stop <device>\n"
+		"       Stop datacard <device>\n",
+		"Usage: datacard start <device>\n"
+		"       Start datacard <device>\n",
+		"Usage: datacard restart <device>\n"
+		"       Restart datacard <device>\n",
+		};
+
 	const char * msg;
 
 	switch (cmd)
 	{
 		case CLI_INIT:
-			e->command = "datacard restart";
-			e->usage =
-				"Usage: datacard restart <device>\n"
-				"       Restart datacard <device>\n";
+			e->command = cmds[event];
+			e->usage = usage[event];
 			return NULL;
 
 		case CLI_GENERATE:
@@ -423,11 +435,30 @@ static char* cli_restart (struct ast_cli_entry* e, int cmd, struct ast_cli_args*
 		return CLI_SHOWUSAGE;
 	}
 
-	msg = schedule_restart (a->argv[2], NULL);
-	ast_cli (a->fd, "[%s] %s\n", a->argv[2], msg);
+	msg = schedule_restart_event(a->argv[2], event, NULL);
+	ast_cli(a->fd, "[%s] %s\n", a->argv[2], msg);
 
 	return CLI_SUCCESS;
 }
+
+#/* */
+static char* cli_restart(struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+{
+	return cli_restart_event(e, cmd, a, EVENT_RESTART);
+}
+
+#/* */
+static char* cli_stop(struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+{
+	return cli_restart_event(e, cmd, a, EVENT_STOP);
+}
+
+#/* */
+static char* cli_start(struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+{
+	return cli_restart_event(e, cmd, a, EVENT_START);
+}
+
 
 static struct ast_cli_entry cli[] = {
 	AST_CLI_DEFINE (cli_show_devices,	"Show Datacard devices state"),
@@ -439,6 +470,8 @@ static struct ast_cli_entry cli[] = {
 	AST_CLI_DEFINE (cli_ccwa_set,		"Enable/Disable Call-Waiting on the datacard"),
 	AST_CLI_DEFINE (cli_reset,		"Reset datacard"),
 	AST_CLI_DEFINE (cli_restart,		"Restart datacard"),
+	AST_CLI_DEFINE (cli_stop,		"Stop datacard"),
+	AST_CLI_DEFINE (cli_start,		"Start datacard"),
 };
 
 #/* */

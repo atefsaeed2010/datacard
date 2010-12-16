@@ -191,18 +191,36 @@ EXPORT_DEF const char* send_at_command(const char* dev_name, const char* command
 }
 
 #/* */
-EXPORT_DEF const char* schedule_restart(const char* dev_name, int * status)
+EXPORT_DEF const char* schedule_restart_event(const char* dev_name, restart_event_t event, int * status)
 {
 	const char * msg;
 	struct pvt * pvt = find_device (dev_name);
+
 	if (pvt)
 	{
-		ast_mutex_lock (&pvt->lock);
-		pvt->restarting = 1;
-		pthread_kill (pvt->monitor_thread, SIGURG);
-		ast_mutex_unlock (&pvt->lock);
-		
+		pthread_t * thread;
+
 		msg = "Restart scheduled";
+		ast_mutex_lock (&pvt->lock);
+		switch(event)
+		{
+			case EVENT_STOP:
+				msg = "Stop scheduled";
+				pvt->off = 1;
+				// passthru
+			case EVENT_RESTART:
+				pvt->restarting = 1;
+				thread = &pvt->monitor_thread;
+				break;
+			case EVENT_START:
+				msg = "Start scheduled";
+				pvt->off = 0;
+				pvt->restarting = 0;
+				thread = &gpublic->discovery_thread;
+		}
+		ast_mutex_unlock (&pvt->lock);
+		pthread_kill (*thread, SIGURG);
+
 		if(status)
 			*status = 1;
 	}

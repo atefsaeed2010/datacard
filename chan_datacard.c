@@ -59,18 +59,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev: " PACKAGE_REVISION " $")
 #include "channel.h"				/* channel_queue_hangup() */
 #include "dc_config.h"				/* dc_uconfig_fill() dc_gconfig_fill() dc_sconfig_fill()  */
 
-typedef struct
-{
-	pthread_t		discovery_thread;		/* The discovery thread handler */
-	int			unloading_flag;			/* no need mutex or other locking for protect this variable because no concurent r/w and set non-0 atomically */
-} global_state_t;
-
-
-static global_state_t globals = 
-{
-	AST_PTHREADT_NULL,
-	0,
-};
 
 EXPORT_DEF public_state_t * gpublic;
 
@@ -264,7 +252,7 @@ static void* do_monitor_phone (void* data)
 
 
 	/* TODO: also check if voice write failed with ENOENT? */
-	while (globals.unloading_flag == 0)
+	while (gpublic->unloading_flag == 0)
 	{
 		ast_mutex_lock (&pvt->lock);
 
@@ -276,7 +264,7 @@ static void* do_monitor_phone (void* data)
 
 		if(pvt->restarting)
 		{
-			ast_log (LOG_NOTICE, "[%s] Restarting by request\n", PVT_ID(pvt));
+			ast_log (LOG_NOTICE, "[%s] %s by request\n", PVT_ID(pvt), pvt->off ? "Stop" : "Restart");
 			goto e_restart;
 		}
 		
@@ -336,7 +324,7 @@ e_cleanup:
 
 e_restart:
 	disconnect_datacard (pvt);
-
+	pvt->monitor_running = 0;
 	ast_mutex_unlock (&pvt->lock);
 
 	return NULL;
@@ -350,6 +338,8 @@ static inline int start_monitor (struct pvt* pvt)
 		pvt->monitor_thread = AST_PTHREADT_NULL;
 		return 0;
 	}
+	else
+		pvt->monitor_running = 1;
 
 	return 1;
 }
@@ -358,14 +348,15 @@ static void* do_discovery (attribute_unused void * data)
 {
 	struct pvt* pvt;
 	
-	while (globals.unloading_flag == 0)
+	while (gpublic->unloading_flag == 0)
 	{
 		AST_RWLIST_RDLOCK (&gpublic->devices);
 		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
 		{
 			ast_mutex_lock (&pvt->lock);
 
-			if (!pvt->connected)
+			/* prevent start_monitor() multiple times and on turned off devices */
+			if (!pvt->connected && !pvt->off && !pvt->monitor_running)
 			{
 				ast_verb (3, "Datacard %s trying to connect on %s...\n", PVT_ID(pvt), CONF_UNIQ(pvt, data_tty));
 
@@ -391,7 +382,7 @@ static void* do_discovery (attribute_unused void * data)
 		AST_RWLIST_UNLOCK (&gpublic->devices);
 
 		/* Go to sleep (only if we are not unloading) */
-		if (globals.unloading_flag == 0)
+		if (gpublic->unloading_flag == 0)
 		{
 			sleep (CONF_GLOBAL(discovery_interval));
 		}
@@ -462,6 +453,7 @@ static int is_dial_possible2(const struct pvt * pvt, int opts, const struct cpvt
 	struct cpvt * cpvt;
 	int hold = 0;
 	int active = 0;
+	// FIXME: allow HOLD states for CONFERENCE
 	int use_call_waiting = opts & CALL_FLAG_HOLD_OTHER;
 	
 	if(pvt->ring || pvt->cwaiting || pvt->dialing)
@@ -509,7 +501,7 @@ EXPORT_DEF int is_dial_possible(const struct pvt * pvt, int opts)
 #/* */
 EXPORT_DEF int ready4voice_call(const struct pvt* pvt, const struct cpvt * current_cpvt, int opts)
 {
-	if(!pvt->connected || !pvt->initialized || !pvt->has_voice || !pvt->gsm_registered)
+	if(!pvt->connected || !pvt->initialized || !pvt->has_voice || !pvt->gsm_registered || pvt->off || pvt->restarting)
 		return 0;
 
 	return is_dial_possible2(pvt, opts, current_cpvt);
@@ -520,7 +512,11 @@ EXPORT_DEF const char* pvt_str_state(const struct pvt* pvt)
 {
 	const char * state = "Free";
 
-	if(!pvt->connected)
+	if(pvt->off)
+		state = "Stopped";
+	else if(pvt->restarting)
+		state = "Restarting";
+	else if(!pvt->connected)
 		state = "Not connected";
 	else if(!pvt->initialized)
 		state = "Not initialized";
@@ -569,7 +565,16 @@ EXPORT_DEF struct ast_str* pvt_str_state_ex(const struct pvt* pvt)
 			ast_str_append (&buf, 0, "Outgoing SMS");
 
 		if(!ast_str_strlen(buf))
-			ast_str_append (&buf, 0, "Free");
+		{
+			const char* state;
+			if(pvt->off)
+				state = "Stopped";
+			else if(pvt->restarting)
+				state = "Restarting";
+			else
+				state = "Free";
+			ast_str_append (&buf, 0, "%s", state);
+		}
 	}
 
 	return buf;
@@ -784,7 +789,7 @@ static int load_module ()
 	}
 
 	/* Spin the discovery thread */
-	if (ast_pthread_create_background (&globals.discovery_thread, NULL, do_discovery, NULL) < 0)
+	if (ast_pthread_create_background (&gpublic->discovery_thread, NULL, do_discovery, NULL) < 0)
 	{
 		ast_log (LOG_ERROR, "Unable to create discovery thread\n");
 		return AST_MODULE_LOAD_FAILURE;
@@ -830,13 +835,13 @@ static int unload_module ()
 	cli_unregister();
 
 	/* signal everyone we are unloading */
-	globals.unloading_flag = 1;
+	gpublic->unloading_flag = 1;
 
 	/* Kill the discovery thread */
-	if (globals.discovery_thread != AST_PTHREADT_NULL)
+	if (gpublic->discovery_thread != AST_PTHREADT_NULL)
 	{
-		pthread_kill (globals.discovery_thread, SIGURG);
-		pthread_join (globals.discovery_thread, NULL);
+		pthread_kill (gpublic->discovery_thread, SIGURG);
+		pthread_join (gpublic->discovery_thread, NULL);
 	}
 
 	/* Destroy the device list */

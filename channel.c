@@ -95,14 +95,14 @@ static int can_dial(struct pvt* pvt, int opts, const struct ast_channel* request
 	return ready4voice_call(pvt, NULL, opts);
 }
 
-/* TODO: add check when request 'holdother' what requestor is not on same device for 1.6 */
-
 #define CAN_DIAL_PVT(pvt, opts)		can_dial(pvt, opts, requestor)
 //   TODO: simplify by move common code to functions
 static struct ast_channel* channel_request (attribute_unused const char* type, format_t format, attribute_unused const struct ast_channel* requestor, void* data, int* cause)
 
 #else /* #if ASTERISK_VERSION_NUM >= 10800 */
+/* TODO: add check when request 'holdother' what requestor is not on same device for 1.6 */
 #define CAN_DIAL_PVT(pvt, opts)		ready4voice_call(pvt, NULL, opts)
+
 static struct ast_channel* channel_request (attribute_unused const char* type, int format, void* data, int* cause)
 
 #endif /* #if ASTERISK_VERSION_NUM >= 10800 */

@@ -125,6 +125,8 @@ typedef struct pvt
 	unsigned int		sim_last_used:1;		/*!< mark the last used device */
 	unsigned int		restarting:1;			/*!< if non-zero request to restart device */
 	unsigned int		has_subscriber_number:1;	/*!< subscriber_number field is valid */
+	unsigned int		off:1;				/*!< not use this device */
+	unsigned int		monitor_running:1;		/*!< true if monitor thread is running */
 
 	pvt_config_t		settings;			/*!< all device settings from config file */
 	pvt_stat_t		stat;				/*!< various statistics */
@@ -137,6 +139,8 @@ typedef struct pvt
 typedef struct public_state
 {
 	AST_RWLIST_HEAD(devices, pvt)	devices;
+	pthread_t			discovery_thread;		/* The discovery thread handler */
+	int				unloading_flag;			/* no need mutex or other locking for protect this variable because no concurent r/w and set non-0 atomically */
 	ast_mutex_t			round_robin_mtx;
 	struct pvt*			round_robin[256];
 	struct dc_gconfig		global_settings;
