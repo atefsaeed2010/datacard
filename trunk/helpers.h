@@ -14,6 +14,12 @@
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 #endif
 
+typedef enum {
+	EVENT_STOP	= 0,
+	EVENT_START,
+	EVENT_RESTART,
+} restart_event_t;
+
 EXPORT_DECL struct pvt* find_device (const char* name);
 EXPORT_DECL int get_at_clir_value (struct pvt* pvt, int clir);
 
@@ -23,7 +29,7 @@ EXPORT_DECL const char* send_sms(const char* dev_name, const char* number, const
 EXPORT_DECL const char* send_reset(const char* dev_name, int * status);
 EXPORT_DECL const char* send_ccwa_set(const char* dev_name, call_waiting_t enable, int * status);
 EXPORT_DECL const char* send_at_command(const char* dev_name, const char* command);
-EXPORT_DECL const char* schedule_restart(const char* dev_name, int * status);
+EXPORT_DECL const char* schedule_restart_event(const char* dev_name, restart_event_t event, int * status);
 EXPORT_DECL int is_valid_phone_number(const char* number);
 
 

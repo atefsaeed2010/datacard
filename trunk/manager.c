@@ -354,7 +354,8 @@ static int manager_reset (struct mansession* s, const struct message* m)
 	return 0;
 }
 
-static int manager_restart (struct mansession* s, const struct message* m)
+#/* */
+static int manager_restart_event(struct mansession * s, const struct message * m, restart_event_t event)
 {
 	const char*	device	= astman_get_header (m, "Device");
 //	const char*	id	= astman_get_header (m, "ActionID");
@@ -375,11 +376,29 @@ static int manager_restart (struct mansession* s, const struct message* m)
 		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
 	}
 */
-	msg = schedule_restart(device, &status);
+	msg = schedule_restart_event(device, event, &status);
 	snprintf (buf, sizeof (buf), "[%s] %s", device, msg);
 	(status ? astman_send_ack : astman_send_error)(s, m, buf);
 
 	return 0;
+}
+
+#/* */
+static int manager_restart(struct mansession * s, const struct message * m)
+{
+	return manager_restart_event(s, m, EVENT_RESTART);
+}
+
+#/* */
+static int manager_stop(struct mansession * s, const struct message * m)
+{
+	return manager_restart_event(s, m, EVENT_STOP);
+}
+
+#/* */
+static int manager_start(struct mansession * s, const struct message * m)
+{
+	return manager_restart_event(s, m, EVENT_START);
 }
 
 static const struct datacard_manager
@@ -444,6 +463,24 @@ static const struct datacard_manager
 	"DatacardRestart", 
 	"Restart a datacard.", 
 	"Description: Restart a datacard.\n\n"
+	"Variables: (Names marked with * are required)\n"
+	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
+	"	*Device:  <device>	The datacard which should be reset.\n"
+	},
+	{
+	manager_stop,
+	"DatacardStop", 
+	"Stop a datacard.", 
+	"Description: Stop a datacard.\n\n"
+	"Variables: (Names marked with * are required)\n"
+	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
+	"	*Device:  <device>	The datacard which should be reset.\n"
+	},
+	{
+	manager_start,
+	"DatacardStart", 
+	"Start a datacard.", 
+	"Description: Start a datacard.\n\n"
 	"Variables: (Names marked with * are required)\n"
 	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
 	"	*Device:  <device>	The datacard which should be reset.\n"
