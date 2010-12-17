@@ -59,11 +59,99 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev: " PACKAGE_REVISION " $")
 #include "channel.h"				/* channel_queue_hangup() */
 #include "dc_config.h"				/* dc_uconfig_fill() dc_gconfig_fill() dc_sconfig_fill()  */
 
-
 EXPORT_DEF public_state_t * gpublic;
 
-static int opentty (char* dev)
+#/* return length of lockname */
+static int lock_build(const char * devname, char * buf, unsigned length)
 {
+	const char * basename;
+	char resolved_path[PATH_MAX];
+
+	/* follow symlinks */
+	if(realpath(devname, resolved_path) != NULL)
+		devname = resolved_path;
+	
+/*
+	while(1)
+	{
+		len = readlink(devname, symlink, sizeof(symlink) - 1);
+		if(len <= 0)
+			break;
+		symlink[len] = 0;
+		if(symlink[0] == '/')
+			devname = symlink;
+		else
+		{
+			// TODO
+			memmove()
+			memcpy(symlink, devname);
+		}
+	}
+*/
+
+	basename = strrchr(devname, '/');
+	if(basename)
+		basename++;
+	else
+		basename = devname;
+
+	/* TODO: use asterisk build settings for /var/lock */
+	return snprintf(buf, length, "/var/lock/LOCK..%s", basename);
+}
+
+#/* return 0 on error */
+static int lock_create(const char * lockfile)
+{
+	int fd;
+	int len = 0;
+	char pidb[21];
+	
+	fd = open(lockfile, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IRGRP | S_IROTH);
+	if(fd >= 0)
+	{
+		len = snprintf(pidb, sizeof(pidb), "%d", getpid());
+		len = write(fd, pidb, len);
+		close(fd);
+	}
+	return len;
+}
+
+#/* return pid of owner, 0 if free */
+static int lock_try(const char * devname)
+{
+	int fd;
+	int len;
+	int pid = 0;
+	char name[256];
+	char pidb[21];
+
+	lock_build(devname, name, sizeof(name));
+
+	/* FIXME: rise condition: some time between lock check and got lock */
+	fd = open(name, O_RDONLY);
+	if(fd >= 0)
+	{
+		len = read(fd, pidb, sizeof(pidb) - 1);
+		if(len > 0)
+		{
+			pidb[len] = 0;
+			len = strtol(pidb, NULL, 10);
+			if(kill(len, 0) == 0) 
+				pid = len;
+		}
+		close(fd);
+	}
+	if(pid == 0)
+	{
+		unlink(name);
+		lock_create(name);
+	}
+	return pid;
+}
+
+static int opentty (const char* dev)
+{
+	int		pid;
 	int		fd;
 	struct termios	term_attr;
 
@@ -74,8 +162,10 @@ static int opentty (char* dev)
 		ast_log (LOG_WARNING, "Unable to open '%s'\n", dev);
 		return -1;
 	}
+	
 	if (tcgetattr (fd, &term_attr) != 0)
 	{
+		close(fd);
 		ast_log (LOG_WARNING, "tcgetattr() failed '%s'\n", dev);
 		return -1;
 	}
@@ -92,7 +182,27 @@ static int opentty (char* dev)
 		ast_log (LOG_WARNING, "tcsetattr() failed '%s'\n", dev);
 	}
 
+	pid = lock_try(dev);
+	if(pid != 0)
+	{
+		close(fd);
+		ast_log (LOG_WARNING, "'%s' already used by process %d\n", dev, pid);
+		return -1;
+	}
+
 	return fd;
+}
+
+#/* */
+static void closetty(const char * dev, int fd)
+{
+	char name[256];
+
+	close(fd);
+
+	/* remove lock */
+	lock_build(dev, name, sizeof(name));
+	unlink(name);
 }
 
 /*!
@@ -133,8 +243,9 @@ static void disconnect_datacard (struct pvt* pvt)
 	at_queue_flush(pvt);
 	pvt->last_dialed_cpvt = NULL;
 
-	close (pvt->data_fd);
-	close (pvt->audio_fd);
+
+	closetty (CONF_UNIQ(pvt, data_tty), pvt->data_fd);
+	closetty (CONF_UNIQ(pvt, audio_tty), pvt->audio_fd);
 	pvt->data_fd = -1;
 	pvt->audio_fd = -1;
 
@@ -854,8 +965,8 @@ static int unload_module ()
 			pthread_join (pvt->monitor_thread, NULL);
 		}
 
-		close (pvt->audio_fd);
-		close (pvt->data_fd);
+		closetty (CONF_UNIQ(pvt, audio_tty), pvt->audio_fd);
+		closetty (CONF_UNIQ(pvt, data_tty), pvt->data_fd);
 
 		at_queue_flush (pvt);
 
@@ -868,6 +979,7 @@ static int unload_module ()
 	AST_RWLIST_HEAD_DESTROY(&gpublic->devices);
 
 	ast_free(gpublic);
+	gpublic = NULL;
 	return 0;
 }
 
