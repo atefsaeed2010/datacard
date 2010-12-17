@@ -18,7 +18,8 @@ added 20.11.2010
 	5) Make context setting optional with 'default' as default value
 		20.11.2010 already exists in base 175 rev. exported
 
-6) Conference support
+	6) Conference support
+		added 16.12.2010 with Dial() 'conference' option
 
 	7) Remove warning 'Don't know how to indicate condition 20'
 		done at 20.11.2010
@@ -34,13 +35,14 @@ added 20.11.2010
 
 11) Complete fix of DTMF duplication
 
-12) Full support of SMS receive with active voice call
-
+	12) Full support of SMS receive with active voice call
+		feel satisfied at 16.12.2010
 
 added 24.11.2010
 
-13) Device files locking
-
+	13) Device files locking
+		done at 17.12.2010 in r106
+		
 	14) SMS PDU mode
 		duplicate for 9)
 			added from internal source at 25.11.2010
@@ -60,7 +62,7 @@ added 24.11.2010
 		switch to autoconf at 05.12.2010
 
 21) Write a better documentation
-	paritally 
+	done paritally with samples
 	
 22) Add more API commands
 
@@ -73,7 +75,7 @@ added 24.11.2010
 	22.3) exten
 		added 06.12.2010 r83
 
-23)
+23) 
 
 24) reconfigure on fly
 
@@ -88,7 +90,7 @@ added 06.12.2010
 
 27) Remove Call waiting status duplicated messages
 
-28) outgoing SMS: set SRR, validity, SC address
+28) outgoing SMS: set SRR, validity, SC address, on screen mode
 	SRR and validity done 06.12.2010 in r75
 
 29) incoming SMS: pass up raw PDU, raw message, SCA, SCTS, PID, UDH,  fields of DCS
@@ -98,8 +100,20 @@ added 06.12.2010
 	31) outgoing SMS: send in 7Bit or 8Bit if possible
 		done at 08.12.2010 in r81
 
-31) Handling of response errors CLIR for example
+31) Handling of response errors, CLIR for example
 
 32) Control SMS receiving from dialplan
-	(when message received channel Local created rules read message, delete or some other
-)
+	(when message received channel Local created rules read message, delete or some other)
+
+added 17.12.2010
+
+33) Start conference from any channel
+
+34) SMS deletion function
+
+35) receive SMS notification
+
+36) receive on-screen SMS
+
+
+
