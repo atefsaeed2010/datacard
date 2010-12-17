@@ -52,7 +52,7 @@ added 24.11.2010
 	16) Test sending SMS with a new line character in it
 		done at 05.12.2010
 
-17) Find a way how to proper detect remote side alerting
+17) Find a way how to proper detect remote side alerting (GSM 02.40)
 
 18) Add PIN code detection
 
