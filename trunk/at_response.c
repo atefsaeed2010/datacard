@@ -1437,9 +1437,10 @@ static int at_response_creg (struct pvt* pvt, char* str, size_t len)
 
 	if (d)
 	{
+		/* only if gsm_registered 0 -> 1 ? */
+		if(!pvt->gsm_registered)
+			at_enque_set_ccwa(&pvt->sys_chan, 0, 0, CONF_SHARED(pvt, call_waiting));
 		pvt->gsm_registered = 1;
-		/* FIXME: only if gsm_registered 0 -> 1 ? */
-		at_enque_set_ccwa(&pvt->sys_chan, 0, 0, CONF_SHARED(pvt, call_waiting));
 	}
 	else
 	{
