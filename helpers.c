@@ -218,8 +218,9 @@ EXPORT_DEF const char* schedule_restart_event(const char* dev_name, restart_even
 				pvt->restarting = 0;
 				thread = &gpublic->discovery_thread;
 		}
+		if(*thread != AST_PTHREADT_NULL)
+			pthread_kill (*thread, SIGURG);
 		ast_mutex_unlock (&pvt->lock);
-		pthread_kill (*thread, SIGURG);
 
 		if(status)
 			*status = 1;
