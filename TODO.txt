@@ -82,7 +82,7 @@ added 24.11.2010
 	25) implement command "datacard show version"
 		done at 06.12.2010 in r77
 
-	26) implement command "datacard reinitialize device"
+	26) implement command "datacard restart device"
 		done at 06.12.2010 in r77
 
 

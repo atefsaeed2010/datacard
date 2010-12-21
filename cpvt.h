@@ -47,7 +47,7 @@ typedef enum {
 /* */
 typedef struct cpvt {
 	AST_LIST_ENTRY (cpvt)	entry;				/*!< linked list pointers */
-	
+
 	struct ast_channel*	channel;			/*!< Channel pointer */
 	struct pvt		*pvt;				/*!< pointer to device structure */
 
