@@ -741,7 +741,7 @@ static int at_response_csca (struct pvt* pvt, const char* str)
 	 * parse CSCA info in the following format:
 	 * CSCA: <SCA>,<TOSCA>
 	 */
-	if (sscanf (str, "+CSCA: \"%200[+0-9*#]\",%*d", csca) != 1)
+	if (sscanf (str, "+CSCA: \"%200[+0-9*#ABCabc]\",%*d", csca) != 1)
 	{
 		ast_debug (1, "[%s] Could not parse all CSCA parameters\n", PVT_ID(pvt));
 		return 0;
@@ -1035,7 +1035,7 @@ static int at_response_ccwa(struct pvt* pvt, const char* str)
 
 	if (pvt->initialized)
 	{
-		if (sscanf (str, "+CCWA: \"%*[+0-9*#]\",%*d,%d", &class) == 1)
+		if (sscanf (str, "+CCWA: \"%*[+0-9*#ABCabc]\",%*d,%d", &class) == 1)
 		{
 			if (CONF_SHARED(pvt, call_waiting) != CALL_WAITING_DISALLOWED && class == CCWA_CLASS_VOICE)
 			{

@@ -136,11 +136,12 @@ static int lock_try(const char * devname)
 		{
 			pidb[len] = 0;
 			len = strtol(pidb, NULL, 10);
-			if(kill(len, 0) == 0) 
+			if(kill(len, 0) == 0)
 				pid = len;
 		}
 		close(fd);
 	}
+
 	if(pid == 0)
 	{
 		unlink(name);
