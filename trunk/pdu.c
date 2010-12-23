@@ -505,13 +505,13 @@ static int pdu_parse_timestamp(char ** pdu, size_t * length)
 	return -EINVAL;
 }
 
-#/* */
+#/* TODO: remove */
 static int check_encoding(const char* msg, unsigned length)
 {
-	for(; length; --length, ++msg)
-		if(*msg & 0x80)
-			return PDU_DCS_ALPABET_UCS2;
-	return PDU_DCS_ALPABET_7BIT;
+	str_encoding_t possible_enc = get_encoding(RECODE_ENCODE, msg, length);
+	if(possible_enc == STR_ENCODING_7BIT_HEX)
+		return PDU_DCS_ALPABET_7BIT;
+	return PDU_DCS_ALPABET_UCS2;
 }
 
 /*!

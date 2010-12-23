@@ -14,10 +14,6 @@
 
 #include "memmem.h"
 
-#include <asterisk.h>
-#include <asterisk/logger.h>		/* ast_debug() */
-#include <asterisk/utils.h>		/* ast_test_flag() */
-
 #include <stdio.h>			/* NULL */
 #include <errno.h>			/* errno */
 #include <stdlib.h>			/* strtol */
@@ -27,131 +23,96 @@
 #include "chan_datacard.h"
 #include "pdu.h"			/* pdu_parse() */
 
+#/* */
+static unsigned mark_line(char * line, const char * delimiters, char * pointers[])
+{
+	unsigned found = 0;
+	
+	for(; line[0] && delimiters[found]; line++)
+	{
+		if(line[0] == delimiters[found])
+		{
+			pointers[found] = line;
+			found++;
+		}
+	}
+	return found;
+}
+
 /*!
  * \brief Parse a CNUM response
- * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
- * \param len -- string lenght
  * @note str will be modified when the CNUM message is parsed
  * \return NULL on error (parse error) or a pointer to the subscriber number
  */
 
-EXPORT_DEF char* at_parse_cnum (char* str, unsigned len)
+EXPORT_DEF char * at_parse_cnum (char* str)
 {
-	unsigned	i;
-	int	state;
-	char*	number = NULL;
-
 	/*
 	 * parse CNUM response in the following format:
-	 * +CNUM: "<name>","<number>",<type>
+	 * +CNUM: <name>,<number>,<type>
+	 *   example
+	 *   +CNUM: "Subscriber Number","+79139131234",145
+	 *   +CNUM: "Subscriber Number","",145
+	 *   +CNUM: "Subscriber Number",,145
 	 */
 
-	for (i = 0, state = 0; i < len && state < 5; i++)
+	char delimiters[] = ":,,";
+	char * marks[STRLEN(delimiters)];
+
+	/* parse URC only here */
+	if(mark_line(str, delimiters, marks) == ITEMS_OF(marks))
 	{
-		switch (state)
-		{
-			case 0: /* search for start of the name (") */
-				if (str[i] == '"')
-				{
-					state++;
-				}
-				break;
-
-			case 1: /* search for the end of the name (") */
-				if (str[i] == '"')
-				{
-					state++;
-				}
-				break;
-
-			case 2: /* search for the start of the number (") */
-				if (str[i] == '"')
-				{
-					state++;
-				}
-				break;
-
-			case 3: /* mark the number */
-				number = &str[i];
-				state++;
-				/* fall through */
-
-			case 4: /* search for the end of the number (") */
-				if (str[i] == '"')
-				{
-					str[i] = '\0';
-					state++;
-				}
-				break;
-		}
+		marks[1]++;
+		if(marks[1][0] == '"')
+			marks[1]++;
+		if(marks[2][-1] == '"')
+			marks[2]--;
+		marks[2][0] = 0;
+		return marks[1];
 	}
 
-	if (state != 5)
-	{
-		return NULL;
-	}
-
-	return number;
+	return NULL;
 }
 
 /*!
  * \brief Parse a COPS response
- * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
  * \param len -- string lenght
  * @note str will be modified when the COPS message is parsed
  * \return NULL on error (parse error) or a pointer to the provider name
  */
 
-EXPORT_DEF char* at_parse_cops (char* str, unsigned len)
+EXPORT_DEF char* at_parse_cops (char* str)
 {
-	unsigned	i;
-	int	state;
-	char*	provider = NULL;
-
 	/*
 	 * parse COPS response in the following format:
-	 * +COPS: <mode>[,<format>,<oper>]
+	 * +COPS: <mode>[,<format>,<oper>,<?>]
+	 *
+	 * example 
+	 *  +COPS: 0,0,"TELE2",0
 	 */
 
-	for (i = 0, state = 0; i < len && state < 3; i++)
+	char delimiters[] = ":,,,";
+	char * marks[STRLEN(delimiters)];
+
+	/* parse URC only here */
+	if(mark_line(str, delimiters, marks) == ITEMS_OF(marks))
 	{
-		switch (state)
-		{
-			case 0: /* search for start of the provider name (") */
-				if (str[i] == '"')
-				{
-					state++;
-				}
-				break;
-
-			case 1: /* mark the provider name */
-				provider = &str[i];
-				state++;
-				/* fall through */
-
-			case 2: /* search for the end of the provider name (") */
-				if (str[i] == '"')
-				{
-					str[i] = '\0';
-					state++;
-				}
-				break;
-		}
+		marks[2]++;
+		if(marks[2][0] == '"')
+			marks[2]++;
+		if(marks[3][-1] == '"')
+			marks[3]--;
+		marks[3][0] = 0;
+		return marks[2];
 	}
 
-	if (state != 3)
-	{
-		return NULL;
-	}
-
-	return provider;
+	return NULL;
 }
 
 /*!
  * \brief Parse a CREG response
- * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
  * \param len -- string lenght
  * \param gsm_reg -- a pointer to a int
@@ -290,33 +251,26 @@ EXPORT_DEF int at_parse_creg (char* str, unsigned len, int* gsm_reg, int* gsm_re
 
 /*!
  * \brief Parse a CMTI notification
- * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
  * \param len -- string lenght
  * @note str will be modified when the CMTI message is parsed
  * \return -1 on error (parse error) or the index of the new sms message
  */
 
-EXPORT_DEF int at_parse_cmti (struct pvt* pvt, const char* str)
+EXPORT_DEF int at_parse_cmti (const char* str)
 {
-	int index = -1;
+	int index;
 
 	/*
 	 * parse cmti info in the following format:
 	 * +CMTI: <mem>,<index> 
 	 */
 
-	if (sscanf (str, "+CMTI: %*[^,],%d", &index) != 1)
-	{
-		ast_debug(2, "[%s] Error parsing CMTI event '%s'\n", PVT_ID(pvt), str);
-		return -1;
-	}
-
-	return index;
+	return sscanf (str, "+CMTI: %*[^,],%u", &index) == 1 ? index : -1;
 }
 
 
-static const char*  parse_cmgr_text (char** str, size_t len, char* oa, size_t oa_len, str_encoding_t* oa_enc, char** msg, str_encoding_t* msg_enc)
+static const char * parse_cmgr_text(char ** str, size_t len, char * oa, size_t oa_len, str_encoding_t * oa_enc, char ** msg, str_encoding_t * msg_enc)
 {
 	/*
 	 * parse cmgr info in the following TEXT format:
@@ -328,43 +282,36 @@ static const char*  parse_cmgr_text (char** str, size_t len, char* oa, size_t oa
 	 * <message text><CR><LF><CR><LF>
 	 * OK<CR><LF>
 	 */
+
+	char delimiters[] = ",,,\n";
+	char * marks[STRLEN(delimiters)];
+	size_t length;
 	
-	static const char char_search[] = {',', '"', '"', '\n'};
-	char* sym;
-	char* number = NULL;
-	unsigned i;
-	
-	for(i = 0; len > 0 && i < ITEMS_OF(char_search); ++i)
+	if(mark_line(*str, delimiters, marks) == ITEMS_OF(marks))
 	{
-		sym = memchr(*str, char_search[i], len);
-		if(!sym)
-			break;
-		len -= sym + 1 - *str;
-		*str = sym + 1;
-		switch(i)
-		{
-			case 1:
-				number = *str;
-				break;
-			case 2:
-				str[0][-1] = 0;
-				/* TODO: check encoding */
-				if(oa_len < (size_t)(*str - number))
-					return "Not enought space for store number";
-				*oa_enc = STR_ENCODING_UNKNOWN;
-				memcpy(oa, number, *str - number);
-				break;
-			case 3:
-				*msg = *str;
-				/* TODO: check encoding */
-				*msg_enc = STR_ENCODING_UNKNOWN;
-				return NULL;
-		}
+		/* unquote number */
+		marks[0]++;
+		if(marks[0][0] == '"')
+			marks[0]++;
+		if(marks[1][-1] == '"')
+			marks[1]--;
+		length = marks[1] - marks[0] + 1;
+		if(oa_len < length)
+			return "Not enought space for store number";
+		*oa_enc = get_encoding(RECODE_DECODE, marks[0], length);
+		marks[1] = 0;
+		memcpy(oa, marks[0], length);
+
+		*msg = marks[3] + 1;
+		length = len - (*msg - *str);
+		*msg_enc = get_encoding(RECODE_DECODE, *msg, length);
+		return NULL;
 	}
+
 	return "Can't parse +CMGR response text";
 }
 
-static const char* parse_cmgr_pdu (char** str, size_t len, char* oa, size_t oa_len, str_encoding_t* oa_enc, char** msg, str_encoding_t* msg_enc)
+static const char* parse_cmgr_pdu(char** str, attribute_unused size_t len, char* oa, size_t oa_len, str_encoding_t* oa_enc, char** msg, str_encoding_t* msg_enc)
 {
 	/*
 	 * parse cmgr info in the following PDU format
@@ -378,37 +325,26 @@ static const char* parse_cmgr_pdu (char** str, size_t len, char* oa, size_t oa_l
 	 * OK<CR><LF>
 	 */
 
-	static const char char_search[] = { ',', ',', '\n'};
-	char * sym;
+	char delimiters[] = ",,\n";
+	char * marks[STRLEN(delimiters)];
 	char * end;
-	unsigned i;
-	int tpdu_length = 0;
+	size_t tpdu_length;
 
-	for(i = 0; len > 0 && i < ITEMS_OF(char_search); ++i)
+	if(mark_line(*str, delimiters, marks) == ITEMS_OF(marks))
 	{
-		sym = memchr(*str, char_search[i], len);
-		if(!sym)
-			break;
-		len -= sym + 1 - *str;
-		*str = sym + 1;
-		switch(i)
-		{
-			case 1:
-				tpdu_length = strtol(*str, &end, 10);
-				if(tpdu_length <= 0 || end[0] != '\r')
-					return "Invalid TPDU length in CMGR PDU status line";
-				break;
-			case 2:
-				return pdu_parse(str, tpdu_length, oa, oa_len, oa_enc, msg, msg_enc);
-		}
+		tpdu_length = strtol(marks[1] + 1, &end, 10);
+		if(tpdu_length <= 0 || end[0] != '\r')
+			return "Invalid TPDU length in CMGR PDU status line";
+		*str = marks[2] + 1;
+		return pdu_parse(str, tpdu_length, oa, oa_len, oa_enc, msg, msg_enc);
 	}
+
 	return "Can't parse +CMGR response";
 }
 
 /*!
  * \brief Parse a CMGR message
- * \param pvt -- pvt structure
- * \param str -- string to parse (null terminated)
+ * \param str -- pointer to pointer of string to parse (null terminated)
  * \param len -- string lenght
  * \param number -- a pointer to a char pointer which will store the from number
  * \param text -- a pointer to a char pointer which will store the message text
@@ -417,7 +353,7 @@ static const char* parse_cmgr_pdu (char** str, size_t len, char* oa, size_t oa_l
  * \retval -1 parse error
  */
 
-EXPORT_DEF const char* at_parse_cmgr (char** str, size_t len, char* oa, size_t oa_len, str_encoding_t* oa_enc, char** msg, str_encoding_t* msg_enc)
+EXPORT_DEF const char * at_parse_cmgr(char ** str, size_t len, char * oa, size_t oa_len, str_encoding_t * oa_enc, char ** msg, str_encoding_t * msg_enc)
 {
 	const char* rv = "Can't parse +CMGR response line";
 
@@ -446,7 +382,6 @@ EXPORT_DEF const char* at_parse_cmgr (char** str, size_t len, char* oa, size_t o
 
  /*!
  * \brief Parse a CUSD answer
- * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
  * \param len -- string lenght
  * @note str will be modified when the CUSD string is parsed
@@ -454,76 +389,50 @@ EXPORT_DEF const char* at_parse_cmgr (char** str, size_t len, char* oa, size_t o
  * \retval -1 parse error
  */
 
-EXPORT_DEF int at_parse_cusd (char* str, size_t len, char** cusd, unsigned char* dcs)
+EXPORT_DEF int at_parse_cusd (char* str, int * type, char** cusd, int * dcs)
 {
-	size_t	i;
-	int	state;
-	char*	p = NULL;
-
-	*cusd = NULL;
-	*dcs  = 0;
-
 	/*
 	 * parse cusd message in the following format:
-	 * +CUSD: 0,"100,00 EURO, valid till 01.01.2010, you are using tariff "Mega Tariff". More informations *111#.",15
+	 * +CUSD: <m>,[<str>,<dcs>]
+	 * 
+	 * examples
+	 *   +CUSD: 5
+	 *   +CUSD: 0,"100,00 EURO, valid till 01.01.2010, you are using tariff "Mega Tariff". More informations *111#.",15
 	 */
 
-	for (i = 0, state = 0; i < len && state < 5; i++)
+	char delimiters[] = ":,,";
+	char * marks[STRLEN(delimiters)];
+	unsigned count;
+
+	*type = -1;
+	*cusd = "";
+	*dcs = -1;
+
+	count = mark_line(str, delimiters, marks);
+	if(count > 0)
 	{
-		switch (state)
-		{
-			case 0:
-				if (str[i] == '"')
-				{
-					state++;
-				}
-				break;
-
-			case 1:
-				*cusd = &str[i];
-				state++;
-				break;
-
-			case 2:
-				if (str[i] == '"')
-				{
-					str[i] = '\0';
-					state++;
-				}
-				break;
-
-			case 3:
-				if (str[i] == ',')
-				{
-					state++;
-				}
-				break;
-
-			case 4:
-				p = &str[i];
-				state++;
-				break;
+		if(sscanf(marks[0] + 1, "%u", type) != 1)
+			return -1;
+	}
+	if(count > 1)
+	{
+		marks[1]++;
+		if(marks[1][0] == '"')
+			marks[1]++;
+		*cusd = marks[1];
+		if(count > 2) {
+			sscanf(marks[2] + 1, "%u", dcs);
+			if(marks[2][-1] == '"')
+				marks[2]--;
+			marks[2] = 0;
 		}
+		return 0;
 	}
-
-	if (state != 5)
-	{
-		return -1;
-	}
-
-	errno = 0;
-	*dcs = (unsigned char) strtol (p, (char**) NULL, 10);
-	if (errno == EINVAL)
-	{
-		return -1;
-	}
-
-	return 0;
+	return -1;
 }
 
 /*!
  * \brief Parse a CPIN notification
- * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
  * \param len -- string lenght
  * \return  2 if PUK required
@@ -532,64 +441,52 @@ EXPORT_DEF int at_parse_cusd (char* str, size_t len, char** cusd, unsigned char*
  * \return -1 on error (parse error) or card lock
  */
 
-EXPORT_DEF int at_parse_cpin (struct pvt* pvt, char* str, size_t len)
+EXPORT_DEF int at_parse_cpin (char* str, size_t len)
 {
-	if (memmem (str, len, "READY", 5))
-	{
-		return 0;
-	}
-	if (memmem (str, len, "SIM PIN", 7))
-	{
-		ast_log (LOG_ERROR, "Datacard %s needs PIN code!\n", PVT_ID(pvt));
-		return 1;
-	}
-	if (memmem (str, len, "SIM PUK", 7))
-	{
-		ast_log (LOG_ERROR, "Datacard %s needs PUK code!\n", PVT_ID(pvt));
-		return 2;
-	}
+	static const struct {
+		const char	* value;
+		unsigned	length;
+	} resp[] = {
+		{ "READY", 5 },
+		{ "SIM PIN", 7 },
+		{ "SIM PUK", 7 },
+	};
 
-	ast_log (LOG_ERROR, "[%s] Error parsing +CPIN message: %s\n", PVT_ID(pvt), str);
-
+	unsigned idx;
+	for(idx = 0; idx < ITEMS_OF(resp); idx++)
+	{
+		if(memmem (str, len, resp[idx].value, resp[idx].length) != NULL)
+			return idx;
+	}
 	return -1;
 }
 
 /*!
  * \brief Parse +CSQ response
- * \param pvt -- pvt struct
  * \param str -- string to parse (null terminated)
  * \param len -- string lenght
  * \retval  0 success
  * \retval -1 error
  */
 
-EXPORT_DEF int at_parse_csq (struct pvt* pvt, const char* str, int* rssi)
+EXPORT_DEF int at_parse_csq (const char* str, int* rssi)
 {
 	/*
 	 * parse +CSQ response in the following format:
 	 * +CSQ: <RSSI>,<BER>
 	 */
 
-	*rssi = -1;
-
-	if (sscanf (str, "+CSQ: %2d,", rssi) != 1)
-	{
-		ast_debug (2, "[%s] Error parsing +CSQ result '%s'\n", PVT_ID(pvt), str);
-		return -1;
-	}
-
-	return 0;
+	return sscanf (str, "+CSQ:%2d,", rssi) == 1 ? 0 : -1;
 }
 
 /*!
  * \brief Parse a ^RSSI notification
- * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
  * \param len -- string lenght
  * \return -1 on error (parse error) or the rssi value
  */
 
-EXPORT_DEF int at_parse_rssi (struct pvt* pvt, const char* str)
+EXPORT_DEF int at_parse_rssi (const char* str)
 {
 	int rssi = -1;
 
@@ -598,38 +495,126 @@ EXPORT_DEF int at_parse_rssi (struct pvt* pvt, const char* str)
 	 * ^RSSI:<rssi>
 	 */
 
-	if (sscanf (str, "^RSSI:%d", &rssi) != 1)
-	{
-		ast_debug (2, "[%s] Error parsing RSSI event '%s'\n", PVT_ID(pvt), str);
-		return -1;
-	}
-
+	sscanf (str, "^RSSI:%d", &rssi);
 	return rssi;
 }
 
 /*!
  * \brief Parse a ^MODE notification (link mode)
- * \param pvt -- pvt structure
  * \param str -- string to parse (null terminated)
  * \param len -- string lenght
  * \return -1 on error (parse error) or the the link mode value
  */
 
-EXPORT_DEF int at_parse_mode (struct pvt* pvt, char* str, size_t len, int* mode, int* submode)
+EXPORT_DEF int at_parse_mode (char * str, int * mode, int * submode)
 {
 	/*
 	 * parse RSSI info in the following format:
 	 * ^MODE:<mode>,<submode>
 	 */
 
-	*mode    = -1;
-	*submode = -1;
+	return sscanf (str, "^MODE:%d,%d", mode, submode) == 2 ? 0 : -1;
+}
 
-	if (!sscanf (str, "^MODE:%d,%d", mode, submode))
+#/* */
+EXPORT_DEF int at_parse_csca(char* str, char ** csca)
+{
+	/*
+	 * parse CSCA info in the following format:
+	 * +CSCA: <SCA>,<TOSCA>
+	 *  +CSCA: "+79139131234",145
+	 *  +CSCA: "",145
+	 */
+	char delimiters[] = "\"\"";
+	char * marks[STRLEN(delimiters)];
+
+	if(mark_line(str, delimiters, marks) == ITEMS_OF(marks))
 	{
-		ast_debug (2, "[%s] Error parsing MODE event '%.*s'\n", PVT_ID(pvt), (int) len, str);
-		return -1;
+		*csca = marks[0] + 1;
+		marks[1][0] = 0;
+		return 0;
 	}
 
-	return 0;
+	return -1;
+}
+
+#/* */
+EXPORT_DEF int at_parse_clcc(char* str, unsigned * call_idx, unsigned * dir, unsigned * state, unsigned * mode, unsigned * mpty, char ** number, unsigned * toa)
+{
+	/*
+	 * +CLCC:<id1>,<dir>,<stat>,<mode>,<mpty>[,<number>,<type>[,<alpha>[,<priority>]]]\r\n
+	 *  ...
+	 * +CLCC:<id1>,<dir>,<stat>,<mode>,<mpty>[,<number>,<type>[,<alpha>[,<priority>]]]\r\n
+	 *  examples
+	 *   +CLCC: 1,1,4,0,0,"",145
+	 *   +CLCC: 1,1,4,0,0,"+79139131234",145
+	 *   +CLCC: 1,1,4,0,0,"0079139131234",145
+	 *   +CLCC: 1,1,4,0,0,"+7913913ABCA",145
+	 */
+	char delimiters[] = ":,,,,,,";
+	char * marks[STRLEN(delimiters)];
+
+	*call_idx = 0;
+	*dir = 0;
+	*state = 0;
+	*mode = 0;
+	*mpty = 0;
+	*number = "";
+	*toa = 0;
+
+	if(mark_line(str, delimiters, marks) == ITEMS_OF(marks))
+	{
+		if( sscanf(marks[0] + 1, "%u", call_idx) == 1
+			&&
+		    sscanf(marks[1] + 1, "%u", dir) == 1
+			&&
+		    sscanf(marks[2] + 1, "%u", state) == 1
+			&&
+		    sscanf(marks[3] + 1, "%u", mode) == 1
+			&&
+		    sscanf(marks[4] + 1, "%u", mpty) == 1
+			&&
+		    sscanf(marks[6] + 1, "%u", toa) == 1) 
+		{
+			marks[5]++;
+			if(marks[5][0] == '"')
+				marks[5]++;
+			if(marks[6][-1] == '"')
+				marks[6]--;
+			*number = marks[5];
+			marks[6][0] = 0;
+
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
+#/* */
+EXPORT_DEF int at_parse_ccwa(char* str, unsigned * class)
+{
+	/* 
+	 * CCWA may be in form:
+	 *	in response of AT+CCWA=?
+	 *		+CCWA: (0,1)
+	 *	in response of AT+CCWA=?
+	 *		+CCWA: <n>
+	 *	in response of "AT+CCWA=[<n>[,<mode>[,<class>]]]"
+	 *		+CCWA: <status>,<class1>
+	 *
+	 *	unsolicited result code
+	 *		+CCWA: <number>,<type>,<class>,[<alpha>][,<CLI validity>[,<subaddr>,<satype>[,<priority>]]]
+	 */
+	char delimiters[] = ":,,";
+	char * marks[STRLEN(delimiters)];
+
+	/* parse URC only here */
+	if(mark_line(str, delimiters, marks) == ITEMS_OF(marks))
+	{
+		if(sscanf(marks[2] + 1, "%u", class) == 1)
+			return 0;
+	}
+
+	return -1;
 }
