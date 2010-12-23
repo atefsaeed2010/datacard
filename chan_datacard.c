@@ -160,14 +160,14 @@ static int opentty (const char* dev)
 
 	if (fd < 0)
 	{
-		ast_log (LOG_WARNING, "Unable to open '%s'\n", dev);
+		ast_log (LOG_WARNING, "Unable to open '%s': %s\n", dev, strerror(errno));
 		return -1;
 	}
 	
 	if (tcgetattr (fd, &term_attr) != 0)
 	{
 		close(fd);
-		ast_log (LOG_WARNING, "tcgetattr() failed '%s'\n", dev);
+		ast_log (LOG_WARNING, "tcgetattr() failed '%s': %s\n", dev, strerror(errno));
 		return -1;
 	}
 
@@ -180,7 +180,7 @@ static int opentty (const char* dev)
 
 	if (tcsetattr (fd, TCSAFLUSH, &term_attr) != 0)
 	{
-		ast_log (LOG_WARNING, "tcsetattr() failed '%s'\n", dev);
+		ast_log (LOG_WARNING, "tcsetattr() failed '%s': %s\n", dev, strerror(errno));
 	}
 
 	pid = lock_try(dev);

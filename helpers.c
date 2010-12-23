@@ -187,7 +187,7 @@ EXPORT_DEF const char* send_ccwa_set(const char* dev_name, call_waiting_t enable
 #/* */
 EXPORT_DEF const char* send_at_command(const char* dev_name, const char* command)
 {
-	return send2(dev_name, NULL, 0, "Error adding command", "Command queued for execute", (at_cmd_f)at_enque_unknown_cmd, command, NULL, 0, 0);
+	return send2(dev_name, NULL, 0, "Error adding command", "Command queued for execute", (at_cmd_f)at_enque_user_cmd, command, NULL, 0, 0);
 }
 
 #/* */

@@ -33,7 +33,15 @@ void check_result1(unsigned st, int lbuf, const struct mixbuffer * mixb, struct 
 */
 		fprintf(stderr, "'");
 		hex_encode(mixb->rb.buffer, mixb->rb.size);
-		fprintf(stderr, "', %2d, %2d, %2d, %2d, %2d, %2d, %2d\n", mixb->rb.size, mixb->rb.used, mixb->rb.read, mixb->rb.write, lb->write, lb->used, lbuf);
+		fprintf(stderr, "', %2u, %2u, %2u, %2u, %2u, %2u, %2d\n", 
+			(unsigned)mixb->rb.size, 
+			(unsigned)mixb->rb.used, 
+			(unsigned)mixb->rb.read, 
+			(unsigned)mixb->rb.write, 
+			(unsigned)lb->write, 
+			(unsigned)lb->used, 
+			lbuf
+			);
 	}
 }
 

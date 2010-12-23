@@ -10,7 +10,7 @@
 /* magic order !!! keep order of this values like in at_cmd2str()
 */
 typedef enum {
-	CMD_UNKNOWN = 0,
+	CMD_USER = 0,
 
 	CMD_AT,
 	CMD_AT_A,
@@ -84,7 +84,7 @@ EXPORT_DECL int at_enque_set_ccwa (struct cpvt* cpvt, attribute_unused const cha
 EXPORT_DECL int at_enque_reset (struct cpvt* cpvt);
 EXPORT_DECL int at_enque_dial(struct cpvt* cpvt, const char * number, int clir);
 EXPORT_DECL int at_enque_answer(struct cpvt* cpvt);
-EXPORT_DECL int at_enque_unknown_cmd(struct cpvt* cpvt, const char * input);
+EXPORT_DECL int at_enque_user_cmd(struct cpvt* cpvt, const char * input);
 EXPORT_DECL int at_enque_retrive_sms(struct cpvt* cpvt, int index, int delete);
 EXPORT_DECL int at_enque_hangup (struct cpvt* cpvt, int call_idx);
 EXPORT_DECL int at_enque_volsync (struct cpvt* cpvt);

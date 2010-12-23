@@ -281,7 +281,8 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 					pvt->volume_sync_step = VOLUME_SYNC_BEGIN;
 				}
 				break;
-
+			case CMD_USER:
+				break;
 			default:
 				ast_log (LOG_ERROR, "[%s] Received 'OK' for unhandled command '%s'\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd));
 				break;
@@ -541,11 +542,15 @@ e_return:
 
 static int at_response_rssi (struct pvt* pvt, const char* str)
 {
-	if ((pvt->rssi = at_parse_rssi (pvt, str)) == -1)
+	int rssi = at_parse_rssi (str);
+	
+	if (rssi == -1)
 	{
+		ast_debug (2, "[%s] Error parsing RSSI event '%s'\n", PVT_ID(pvt), str);
 		return -1;
 	}
-
+	
+	pvt->rssi = rssi;
 	return 0;
 }
 
@@ -560,7 +565,20 @@ static int at_response_rssi (struct pvt* pvt, const char* str)
 
 static int at_response_mode (struct pvt* pvt, char* str, size_t len)
 {
-	return at_parse_mode (pvt, str, len, &pvt->linkmode, &pvt->linksubmode);
+	int mode;
+	int submode;
+
+	int rv = at_parse_mode (str, &mode, &submode);
+	if(rv)
+	{
+		ast_debug (2, "[%s] Error parsing MODE event '%.*s'\n", PVT_ID(pvt), (int) len, str);
+	}
+	else
+	{
+		pvt->linkmode = mode;
+		pvt->linksubmode = submode;
+	}
+	return rv;
 }
 
 static void request_clcc(struct pvt* pvt)
@@ -733,18 +751,14 @@ static int at_response_cend (struct pvt* pvt, const char* str)
  * \retval  0 success
  * \retval -1 error
  */
-static int at_response_csca (struct pvt* pvt, const char* str)
+static int at_response_csca (struct pvt* pvt, char* str)
 {
-	char csca[201];
+	char * csca;
 
-	/*
-	 * parse CSCA info in the following format:
-	 * CSCA: <SCA>,<TOSCA>
-	 */
-	if (sscanf (str, "+CSCA: \"%200[+0-9*#ABCabc]\",%*d", csca) != 1)
+	if(at_parse_csca(str, &csca))
 	{
-		ast_debug (1, "[%s] Could not parse all CSCA parameters\n", PVT_ID(pvt));
-		return 0;
+		ast_debug (1, "[%s] Could not parse CSCA response '%s'\n", PVT_ID(pvt), str);
+		return -1;
 	}
 	ast_copy_string (pvt->sms_scenter, csca, sizeof (pvt->sms_scenter));
 
@@ -853,20 +867,14 @@ static int start_pbx(struct pvt* pvt, const char * number, int call_idx, call_st
  * \retval -1 error
  */
 
-static int at_response_clcc (struct pvt* pvt, const char* str)
+static int at_response_clcc (struct pvt* pvt, char* str)
 {
 	struct cpvt * cpvt;
 	unsigned call_idx, dir, state, mode, mpty, type;
 	unsigned all = 0;
 	unsigned held = 0;
-	char number[201];
+	char * number;
 	char *p;
-
-	/*
-	 * +CLCC:<id1>,<dir>,<stat>,<mode>,<mpty>[,<number>,<type>[,<alpha>[,<priority>]]]\r\n
-	 *  ...
-	 * +CLCC:<id1>,<dir>,<stat>,<mode>,<mpty>[,<number>,<type>[,<alpha>[,<priority>]]]\r\n
-	 */
 
 	if (pvt->initialized)
 	{
@@ -878,7 +886,7 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
 		
 		for(;;)
 		{
-			if(sscanf(str, "+CLCC:%u,%u,%u,%u,%u,\"%200[+0-9*#ABCabc]\",%u", &call_idx, &dir, &state, &mode, &mpty, number, &type) == 7)
+			if(at_parse_clcc(str, &call_idx, &dir, &state, &mode, &mpty, &number, &type) == 0)
 			{
 				ast_debug (3, "[%s] CLCC callidx %u dir %u state %u mode %u mpty %u number %s type %u\n",  PVT_ID(pvt), call_idx, dir, state, mode, mpty, number, type);
 				if(mode == CLCC_CALL_TYPE_VOICE && state <= CALL_STATE_WAITING)
@@ -1001,9 +1009,10 @@ static int at_response_clcc (struct pvt* pvt, const char* str)
  * \retval -1 error
  */
 
-static int at_response_ccwa(struct pvt* pvt, const char* str)
+static int at_response_ccwa(struct pvt* pvt, char* str)
 {
-	int status, class, n;
+	int status, n;
+	unsigned class;
 	
 	/* 
 	 * CCWA may be in form:
@@ -1035,7 +1044,8 @@ static int at_response_ccwa(struct pvt* pvt, const char* str)
 
 	if (pvt->initialized)
 	{
-		if (sscanf (str, "+CCWA: \"%*[+0-9*#ABCabc]\",%*d,%d", &class) == 1)
+//		if (sscanf (str, "+CCWA: \"%*[+0-9*#ABCabc]\",%*d,%d", &class) == 1)
+		if (at_parse_ccwa(str, &class) == 0)
 		{
 			if (CONF_SHARED(pvt, call_waiting) != CALL_WAITING_DISALLOWED && class == CCWA_CLASS_VOICE)
 			{
@@ -1095,7 +1105,7 @@ static int at_response_ring (struct pvt* pvt)
 static int at_response_cmti (struct pvt* pvt, const char* str)
 {
 // FIXME: check format in PDU mode
-	int index = at_parse_cmti (pvt, str);
+	int index = at_parse_cmti (str);
 
 	if (index > -1)
 	{
@@ -1120,6 +1130,7 @@ static int at_response_cmti (struct pvt* pvt, const char* str)
 	}
 	else
 	{
+		ast_debug(2, "[%s] Error parsing CMTI event '%s'\n", PVT_ID(pvt), str);
 		ast_log (LOG_ERROR, "[%s] Error parsing incoming sms message alert, disconnecting\n", PVT_ID(pvt));
 		return -1;
 	}
@@ -1153,7 +1164,7 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 
 	if (ecmd)
 	{
-	    if (ecmd->res == RES_CMGR)
+	    if (ecmd->res == RES_CMGR || ecmd->cmd == CMD_USER)
 	    {
 		at_queue_handle_result (pvt, RES_CMGR);
 		pvt->incoming_sms = 0;
@@ -1268,20 +1279,40 @@ static int at_response_sms_prompt (struct pvt* pvt)
 
 static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 {
+	static const char * types[] = {
+		"USSD Notify",
+		"USSD Request",
+		"USSD Terminated by network",
+		"Other local client has responded",
+		"Operation not supported",
+		"Network time out",
+	};
+	
 	ssize_t		res;
+	int		type;
 	char*		cusd;
-	unsigned char	dcs;
+	int		dcs;
 	char		cusd_utf8_str[1024];
 	char		text_base64[16384];
-	str_encoding_t 	ussd_encoding;
-	
-	if (at_parse_cusd (str, len, &cusd, &dcs))
+	str_encoding_t	ussd_encoding;
+	char		typebuf[2];
+
+	if (at_parse_cusd (str, &type, &cusd, &dcs))
 	{
 		ast_verb (1, "[%s] Error parsing CUSD: '%.*s'\n", PVT_ID(pvt), (int) len, str);
-		return 0;
+		return -1;
 	}
 
-	// FIXME: strictly check USSD encoding
+	if(type <= 0 || type >= (int)ITEMS_OF(types))
+	{
+		ast_log (LOG_ERROR, "[%s] Unknown CUSD type: %d\n", PVT_ID(pvt), type);
+		return -1;
+	}
+
+	typebuf[0] = type + '0';
+	typebuf[1] = 0;
+	
+	// FIXME: strictly check USSD encoding and detect encoding
 	if ((dcs == 0 || dcs == 15) && !pvt->cusd_use_ucs2_decoding)
 		ussd_encoding = STR_ENCODING_7BIT_HEX;
 	else
@@ -1293,14 +1324,15 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 	}
 	else
 	{
-		ast_log (LOG_ERROR, "[%s] Error parsing CUSD: %s\n", PVT_ID(pvt), cusd);
+		ast_log (LOG_ERROR, "[%s] Error decode CUSD: %s\n", PVT_ID(pvt), cusd);
 		return -1;
 	}
 	
-	ast_verb (1, "[%s] Got USSD response: '%s'\n", PVT_ID(pvt), cusd);
+	ast_verb (1, "[%s] Got USSD type '%s': '%s'\n", PVT_ID(pvt), types[type], cusd);
 	ast_base64encode (text_base64, (unsigned char*)cusd, strlen(cusd), sizeof(text_base64));
 
 #ifdef BUILD_MANAGER
+	// TODO: pass type
 	manager_event_new_ussd (pvt, cusd);
 	manager_event_new_ussd_base64 (pvt, text_base64);
 #endif
@@ -1308,6 +1340,8 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 	{
 		channel_var_t vars[] = 
 		{
+			{ "USSD_TYPE", typebuf },
+			{ "USSD_TYPE_STR", (char*)types[type] },
 			{ "USSD", cusd },
 			{ "USSD_BASE64", text_base64 },
 			{ NULL, NULL },
@@ -1329,7 +1363,20 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 
 static int at_response_cpin (struct pvt* pvt, char* str, size_t len)
 {
-	return at_parse_cpin (pvt, str, len);
+	int rv = at_parse_cpin (str, len);
+	switch(rv)
+	{
+		case -1:
+			ast_log (LOG_ERROR, "[%s] Error parsing +CPIN message: %s\n", PVT_ID(pvt), str);
+			break;
+		case 1:
+			ast_log (LOG_ERROR, "Datacard %s needs PIN code!\n", PVT_ID(pvt));
+			break;
+		case 2:
+			ast_log (LOG_ERROR, "Datacard %s needs PUK code!\n", PVT_ID(pvt));
+			break;
+	}
+	return rv;
 }
 
 /*!
@@ -1355,7 +1402,14 @@ static int at_response_smmemfull (struct pvt* pvt)
  */
 static int at_response_csq (struct pvt* pvt, const char* str)
 {
-	return at_parse_csq (pvt, str, &pvt->rssi);
+	int rssi;
+	int rv = at_parse_csq (str, &rssi);
+
+	if(rv)
+		ast_debug (2, "[%s] Error parsing +CSQ result '%s'\n", PVT_ID(pvt), str);
+	else
+		pvt->rssi = rssi;
+	return rv;
 }
 
 /*!
@@ -1367,9 +1421,9 @@ static int at_response_csq (struct pvt* pvt, const char* str)
  * \retval -1 error
  */
 
-static int at_response_cnum (struct pvt* pvt, char* str, size_t len)
+static int at_response_cnum (struct pvt* pvt, char* str)
 {
-	char* number = at_parse_cnum (str, len);
+	char* number = at_parse_cnum (str);
 
 	if (number)
 	{
@@ -1394,9 +1448,9 @@ static int at_response_cnum (struct pvt* pvt, char* str, size_t len)
  * \retval -1 error
  */
 
-static int at_response_cops (struct pvt* pvt, char* str, size_t len)
+static int at_response_cops (struct pvt* pvt, char* str)
 {
-	char* provider_name = at_parse_cops (str, len);
+	char* provider_name = at_parse_cops (str);
 
 	if (provider_name)
 	{
@@ -1574,7 +1628,7 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 {
 	char*		str;
 	size_t		len;
-	const struct at_queue_cmd*	ecmd;
+	const struct at_queue_cmd*	ecmd = at_queue_head_cmd(pvt);
 
 	if(iov[0].iov_len + iov[1].iov_len > 0)
 	{
@@ -1602,6 +1656,9 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 /*		ast_debug (5, "[%s] [%.*s]\n", PVT_ID(pvt), (int) len, str);
 */
 
+		if(ecmd && ecmd->cmd == CMD_USER) {
+			ast_verb(1, "Response for user's command:'%s'\n", str);
+		}
 		switch (at_res)
 		{
 			case RES_BOOT:
@@ -1618,7 +1675,9 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 				return at_response_ok (pvt, at_res);
 
 			case RES_RSSI:
-				return at_response_rssi (pvt, str);
+				/* An error here is not fatal. Just keep going. */
+				at_response_rssi (pvt, str);
+				break;
 			case RES_MODE:
 				/* An error here is not fatal. Just keep going. */
 				at_response_mode (pvt, str, len);
@@ -1640,11 +1699,13 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 
 			case RES_COPS:
 				/* An error here is not fatal. Just keep going. */
-				at_response_cops (pvt, str, len);
+				at_response_cops (pvt, str);
 				return 0;
 
 			case RES_CSQ:
-				return at_response_csq (pvt, str);
+				/* An error here is not fatal. Just keep going. */
+				at_response_csq (pvt, str);
+				break;
 
 			case RES_CMS_ERROR:
 			case RES_ERROR:
@@ -1669,8 +1730,9 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 				return at_response_sms_prompt (pvt);
 
 			case RES_CUSD:
-				return at_response_cusd (pvt, str, len);
-
+				/* An error here is not fatal. Just keep going. */
+				at_response_cusd (pvt, str, len);
+				break;
 			case RES_CLCC:
 				return at_response_clcc (pvt, str);
 
@@ -1691,14 +1753,16 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 				at_response_busy(pvt, AST_CONTROL_CONGESTION);
 				break;
 			case RES_CPIN:
+				/* fatal */
 				return at_response_cpin (pvt, str, len);
 
 			case RES_CNUM:
 				/* An error here is not fatal. Just keep going. */
-				at_response_cnum (pvt, str, len);
+				at_response_cnum (pvt, str);
 				return 0;
 
 			case RES_CSCA:
+				/* An error here is not fatal. Just keep going. */
 				at_response_csca (pvt, str);
 				return 0;
 
@@ -1707,7 +1771,6 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 				return -1;
 
 			case RES_UNKNOWN:
-				ecmd = at_queue_head_cmd(pvt);
 				if (ecmd)
 				{
 					switch (ecmd->cmd)

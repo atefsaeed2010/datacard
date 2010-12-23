@@ -280,3 +280,28 @@ EXPORT_DEF ssize_t str_recode(recode_direction_t dir, str_encoding_t encoding, c
 		return (recoders[idx][dir])(in, in_length, out, out_size);
 	return -EINVAL;
 }
+
+#/* */
+EXPORT_DEF str_encoding_t get_encoding(recode_direction_t hint, const char* in, size_t length)
+{
+	if(hint == RECODE_ENCODE)
+	{
+		for(; length; --length, ++in)
+			if(*in & 0x80)
+				return STR_ENCODING_UCS2_HEX;
+		return STR_ENCODING_7BIT_HEX;
+	}
+	else
+	{
+		size_t x;
+		for(x = 0; x < length; ++x)
+		{
+			if(parse_hexdigit(in[x]) < 0) {
+				return STR_ENCODING_7BIT;
+			}
+		}
+		// TODO: STR_ENCODING_7BIT_HEX or STR_ENCODING_8BIT_HEX or STR_ENCODING_UCS2_HEX
+	}
+	
+	return STR_ENCODING_UNKNOWN;
+}

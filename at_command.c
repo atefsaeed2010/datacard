@@ -111,7 +111,7 @@ EXPORT_DEF const char* at_cmd2str (at_cmd_t cmd)
 {
 	/* magic!!! must be in same order as elements of enums in at_cmd_t */
 	static const char * const cmds[] = {
-		"UNKNOWN",
+		"USER'S",
 		
 		"AT",
 		"ATA",
@@ -728,9 +728,9 @@ EXPORT_DEF int at_enque_flip_hold (struct cpvt* cpvt)
  * \param input -- user's command
  * \return 0 on success
  */
-EXPORT_DEF int at_enque_unknown_cmd(struct cpvt* cpvt, const char * input)
+EXPORT_DEF int at_enque_user_cmd(struct cpvt* cpvt, const char * input)
 {
-	return at_enque_generic(cpvt, CMD_UNKNOWN, 1, "%s\r", input);
+	return at_enque_generic(cpvt, CMD_USER, 1, "%s\r", input);
 }
 
 /*!

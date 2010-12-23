@@ -16,6 +16,8 @@ typedef enum {
 	STR_ENCODING_UCS2_HEX,			/* UCS-2 in hex like PDU */
 /* TODO: check its really 7bit input from device */
 	STR_ENCODING_7BIT,			/* 7bit ASCII  no need recode to utf-8 */
+//	STR_ENCODING_8BIT,			/* 8bit */
+//	STR_ENCODING_UCS2,			/* UCS2 */
 	STR_ENCODING_UNKNOWN,			/* still unknown */
 } str_encoding_t;
 
@@ -26,6 +28,8 @@ typedef enum {
 
 /* recode in both directions */
 EXPORT_DECL ssize_t str_recode(recode_direction_t dir, str_encoding_t encoding, const char* in, size_t in_length, char* out, size_t out_size);
+
 EXPORT_DECL int parse_hexdigit(int hex);
+EXPORT_DECL str_encoding_t get_encoding(recode_direction_t hint, const char * in, size_t in_length);
 
 #endif /* CHAN_DATACARD_CHAR_CONV_H_INCLUDED */
