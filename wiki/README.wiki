@@ -1,4 +1,5 @@
 #labels Featured
+{{{
 --------------------------------------------------
 chan_datacard channel driver for Huawei UMTS cards
 --------------------------------------------------
@@ -91,3 +92,4 @@ datacard ussd device number message
 datacard stop device
 datacard start device
 datacard restart device
+}}
