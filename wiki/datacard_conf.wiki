@@ -1,4 +1,5 @@
 #labels Featured
+{{{
 [general]
 
 interval=15                     ; Number of seconds between trying to connect to devices
@@ -70,3 +71,4 @@ exten=+1234567890               ; exten for start incoming calls, only in case o
 [datacard0]
 audio=/dev/ttyUSB1              ; tty port for audio connection;        no default value
 data=/dev/ttyUSB2               ; tty port for AT commands;             no default value
+}}}
