@@ -16,13 +16,15 @@ If you use FreeBSD, 8.0+ recommended.
 This channel driver should work with the folowing UMTS cards:
 * Huawei K3715
 * Huawei E169 / K3520
-* Huawei E1550
+* Huawei E155X
+* Huawei E175X
+* Huawei K3765
 
-This channel is known NOT to work with the folowing UMTS cards:
-* Huawei E160 / K3565
+Check complete list in:
+http://code.google.com/p/datacard/wiki/Supported_devices_eng
 
 Before using the channel driver make sure to:
-* Disable call waiting on your SIM card
+
 * Disable PIN code on your SIM card
 
 Supported features:
@@ -31,11 +33,11 @@ Supported features:
 * Send and receive USSD commands / messages
 
 Some useful AT commands:
-AT+CCWA=0,0,1
-AT+CFUN=1,1
-AT^CARDLOCK="<code>"
-AT^SYSCFG=13,0,3FFFFFFF,0,3
-AT^U2DIAG=0
+AT+CCWA=0,0,1					#disable call-waiting
+AT+CFUN=1,1					#reset datacard
+AT^CARDLOCK="<code>"			#unlock code
+AT^SYSCFG=13,0,3FFFFFFF,0,3	#modem 2G only, automatic search any band, no roaming
+AT^U2DIAG=0					#enable modem function
 
 Here is an example for the dialplan:
 
@@ -61,6 +63,9 @@ you can also use this:
 Call using a specific group:
 exten => _X.,1,Dial(Datacard/g1/${EXTEN})
 
+Call using a specific group in round robin:
+exten => _X.,1,Dial(Datacard/r1/${EXTEN})
+
 Call using a specific datacard:
 exten => _X.,1,Dial(Datacard/datacard0/${EXTEN})
 
@@ -70,8 +75,8 @@ exten => _X.,1,Dial(Datacard/p:PROVIDER NAME/${EXTEN})
 Call using a specific IMEI:
 exten => _X.,1,Dial(Datacard/i:123456789012345/${EXTEN})
 
-Call using a IMSI prefix:
-exten => _X.,1,Dial(Datacard/s:25099/${EXTEN})
+Call using a specific IMSI:
+exten => _X.,1,Dial(Datacard/s:25099203948/${EXTEN})
 
 How to store your own number:
 
