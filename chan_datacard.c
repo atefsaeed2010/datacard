@@ -834,7 +834,7 @@ static struct pvt* load_device (struct ast_config* cfg, const char* cat, const s
 			}
 			else
 			{
-				ast_log (LOG_NOTICE, "Skipping device %s i.e. disabled\n", cat);
+				ast_log (LOG_NOTICE, "Skipping device %s as disabled\n", cat);
 			}
 		}
 		ast_free (pvt);
