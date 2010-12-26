@@ -2,7 +2,7 @@
 =Introduction=
 Chan_datacard is an Asterisk channel driver for Huawei UMTS / 3G datacards.
 
-Supported features: Place voice calls and terminate voice calls Send SMS and receive SMS Send and receive USSD commands / messages
+Supported features: Place voice call, terminate voice calls, send/receive SMS and send/receive USSD commands / messages
 
 Example dialplan:
 {{{
@@ -15,33 +15,35 @@ exten => ussd,1,Verbose(Incoming USSD: ${USSD})
 exten => ussd,n,System(echo ‘${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} – ${DATACARD}: ${USSD}’ >> /var/log/asterisk/ussd.txt) 
 exten => ussd,n,Hangup()
 
-exten => s,1,Dial(SIP/2001@othersipserver) exten => s,n,Hangup()
+exten => s,1,Dial(SIP/2001@othersipserver) 
+exten => s,n,Hangup()
 
 [othersipserver-incoming]
 
-exten => X.,1,Dial(Datacard/r1/${EXTEN}) exten => X.,n,Hangup
+exten => _X.,1,Dial(Datacard/r1/${EXTEN}) 
+exten => _X.,n,Hangup
 }}}
 You can also use this:
 
 Call using a specific group: 
 {{{
-exten => X.,1,Dial(Datacard/g1/${EXTEN})
+exten => _X.,1,Dial(Datacard/g1/${EXTEN})
 }}}
 Call using a specific datacard: 
 {{{
-exten => X.,1,Dial(Datacard/datacard0/${EXTEN})
+exten => _X.,1,Dial(Datacard/datacard0/${EXTEN})
 }}}
 Call using a specific provider name: 
 {{{
-exten => X.,1,Dial(Datacard/p:PROVIDER NAME/${EXTEN})
+exten => _X.,1,Dial(Datacard/p:PROVIDER NAME/${EXTEN})
 }}}
 Call using a specific IMEI: 
 {{{
-exten => X.,1,Dial(Datacard/i:123456789012345/${EXTEN})
+exten => _X.,1,Dial(Datacard/i:123456789012345/${EXTEN})
 }}}
 Call using a IMSI prefix: 
 {{{
-exten => X.,1,Dial(Datacard/s:25099/${EXTEN})
+exten => _X.,1,Dial(Datacard/s:250976764489/${EXTEN})
 }}}
 Predefined Variables:
 {{{
