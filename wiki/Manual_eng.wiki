@@ -6,17 +6,22 @@ Supported features: Place voice calls and terminate voice calls Send SMS and rec
 
 Example dialplan:
 {{{
-datacard-incoming? exten => sms,1,Verbose(Incoming SMS from ${CALLERID(num)} ${SMS}) exten => sms,n,System(echo ‘${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} – ${DATACARD} – ${CALLERID(num)}: ${SMS}’ >> /var/log/asterisk/sms.txt) exten => sms,n,Hangup()
+[datacard-incoming] 
+exten => sms,1,Verbose(Incoming SMS from ${CALLERID(num)} ${SMS}) 
+exten => sms,n,System(echo ‘${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} – ${DATACARD} – ${CALLERID(num)}: ${SMS}’ >> /var/log/asterisk/sms.txt) 
+exten => sms,n,Hangup()
 
-exten => ussd,1,Verbose(Incoming USSD: ${USSD}) exten => ussd,n,System(echo ‘${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} – ${DATACARD}: ${USSD}’ >> /var/log/asterisk/ussd.txt) exten => ussd,n,Hangup()
+exten => ussd,1,Verbose(Incoming USSD: ${USSD}) 
+exten => ussd,n,System(echo ‘${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} – ${DATACARD}: ${USSD}’ >> /var/log/asterisk/ussd.txt) 
+exten => ussd,n,Hangup()
 
 exten => s,1,Dial(SIP/2001@othersipserver) exten => s,n,Hangup()
 
-othersipserver-incoming?
+[othersipserver-incoming]
 
 exten => X.,1,Dial(Datacard/r1/${EXTEN}) exten => X.,n,Hangup
 }}}
-you can also use this:
+You can also use this:
 
 Call using a specific group: 
 {{{
