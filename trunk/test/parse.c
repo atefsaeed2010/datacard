@@ -167,6 +167,47 @@ void test_parse_cmgr()
 #/* */
 void test_parse_cusd()
 {
+	struct result {
+		int	res;
+		int	type;
+		char 	* cusd;
+		int	dcs;
+	};
+	static const struct test_case {
+		const char	* input;
+		struct result 	result;
+	} cases[] = {
+		{ "+CUSD: 0,\"CF2135487D2E4130572D0682BB1A\",0", { 0, 0, "CF2135487D2E4130572D0682BB1A", 0} },
+		{ "+CUSD: 1,\"CF2135487D2E4130572D0682BB1A\",1", { 0, 1, "CF2135487D2E4130572D0682BB1A", 1} },
+		{ "+CUSD: 5", { 0, 5, "", -1} },
+	};
+	unsigned idx = 0;
+	char * input;
+	struct result result;
+	const char * msg;
+	
+	for(; idx < ITEMS_OF(cases); ++idx) {
+		input = strdup(cases[idx].input);
+		fprintf(stderr, "%s(\"%s\")...", "at_parse_cusd", input);
+		result.res = at_parse_cusd(input, &result.type, &result.cusd, &result.dcs);
+		free(input);
+		if(result.res == cases[idx].result.res
+			&&
+		   result.type == cases[idx].result.type
+			&&
+		   result.dcs == cases[idx].result.dcs
+			&&
+		   strcmp(result.cusd, cases[idx].result.cusd) == 0
+			) {
+			msg = "OK";
+			ok++;
+		} else {
+			msg = "FAIL";
+			faults++;
+		}
+		fprintf(stderr, " = %d (%d,\"%s\",%d)\t%s\n", result.res, result.type, result.cusd, result.dcs, msg);
+	}
+	fprintf(stderr, "\n");
 }
 
 #/* */

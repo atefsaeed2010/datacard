@@ -1303,7 +1303,7 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 		return -1;
 	}
 
-	if(type <= 0 || type >= (int)ITEMS_OF(types))
+	if(type < 0 || type >= (int)ITEMS_OF(types))
 	{
 		ast_log (LOG_ERROR, "[%s] Unknown CUSD type: %d\n", PVT_ID(pvt), type);
 		return -1;

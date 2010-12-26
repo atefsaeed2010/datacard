@@ -299,7 +299,7 @@ static const char * parse_cmgr_text(char ** str, size_t len, char * oa, size_t o
 		if(oa_len < length)
 			return "Not enought space for store number";
 		*oa_enc = get_encoding(RECODE_DECODE, marks[0], length);
-		marks[1] = 0;
+		marks[1][0] = 0;
 		memcpy(oa, marks[0], length);
 
 		*msg = marks[3] + 1;
@@ -409,24 +409,31 @@ EXPORT_DEF int at_parse_cusd (char* str, int * type, char** cusd, int * dcs)
 	*dcs = -1;
 
 	count = mark_line(str, delimiters, marks);
+// 0, 1, 2, 3
 	if(count > 0)
 	{
-		if(sscanf(marks[0] + 1, "%u", type) != 1)
-			return -1;
-	}
-	if(count > 1)
-	{
-		marks[1]++;
-		if(marks[1][0] == '"')
-			marks[1]++;
-		*cusd = marks[1];
-		if(count > 2) {
-			sscanf(marks[2] + 1, "%u", dcs);
-			if(marks[2][-1] == '"')
-				marks[2]--;
-			marks[2] = 0;
+		if(sscanf(marks[0] + 1, "%u", type) == 1)
+		{
+			if(count > 1)
+			{
+				marks[1]++;
+				if(marks[1][0] == '"')
+					marks[1]++;
+				*cusd = marks[1];
+
+				if(count > 2) {
+					sscanf(marks[2] + 1, "%u", dcs);
+					if(marks[2][-1] == '"')
+						marks[2]--;
+					marks[2][0] = 0;
+				} else {
+					int len = strlen(*cusd);
+					if(len > 0 && (*cusd)[len - 1] == '"')
+						(*cusd)[len-1] = 0;
+				}
+			}
+			return 0;
 		}
-		return 0;
 	}
 	return -1;
 }
