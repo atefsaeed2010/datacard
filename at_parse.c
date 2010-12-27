@@ -287,7 +287,8 @@ static const char * parse_cmgr_text(char ** str, size_t len, char * oa, size_t o
 	char * marks[STRLEN(delimiters)];
 	size_t length;
 	
-	if(mark_line(*str, delimiters, marks) == ITEMS_OF(marks))
+	unsigned count = mark_line(*str, delimiters, marks);
+	if(count == ITEMS_OF(marks))
 	{
 		/* unquote number */
 		marks[0]++;
@@ -298,7 +299,7 @@ static const char * parse_cmgr_text(char ** str, size_t len, char * oa, size_t o
 		length = marks[1] - marks[0] + 1;
 		if(oa_len < length)
 			return "Not enought space for store number";
-		*oa_enc = get_encoding(RECODE_DECODE, marks[0], length);
+		*oa_enc = get_encoding(RECODE_DECODE, marks[0], length  - 1);
 		marks[1][0] = 0;
 		memcpy(oa, marks[0], length);
 
@@ -307,6 +308,8 @@ static const char * parse_cmgr_text(char ** str, size_t len, char * oa, size_t o
 		*msg_enc = get_encoding(RECODE_DECODE, *msg, length);
 		return NULL;
 	}
+	else if(count > 0)
+		*str = marks[count - 1];
 
 	return "Can't parse +CMGR response text";
 }

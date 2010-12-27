@@ -32,7 +32,6 @@ void test_parse_cnum()
 		input = strdup(cases[idx].input);
 		fprintf(stderr, "%s(\"%s\")...", "at_parse_cnum", input);
 		res = at_parse_cnum(input);
-		free(input);
 		if(strcmp(res, cases[idx].result) == 0) {
 			msg = "OK";
 			ok++;
@@ -41,6 +40,7 @@ void test_parse_cnum()
 			faults++;
 		}
 		fprintf(stderr, " = \"%s\"\t%s\n", res, msg);
+		free(input);
 	}
 	fprintf(stderr, "\n");
 }
@@ -65,7 +65,6 @@ void test_parse_cops()
 		input = strdup(cases[idx].input);
 		fprintf(stderr, "%s(\"%s\")...", "at_parse_cops", input);
 		res = at_parse_cops(input);
-		free(input);
 		if(strcmp(res, cases[idx].result) == 0) {
 			msg = "OK";
 			ok++;
@@ -74,6 +73,7 @@ void test_parse_cops()
 			faults++;
 		}
 		fprintf(stderr, " = \"%s\"\t%s\n", res, msg);
+		free(input);
 	}
 	fprintf(stderr, "\n");
 }
@@ -104,7 +104,6 @@ void test_parse_creg()
 		input = strdup(cases[idx].input);
 		fprintf(stderr, "%s(\"%s\")...", "at_parse_creg", input);
 		result.res = at_parse_creg(input, strlen(input), &result.gsm_reg, &result.gsm_reg_status, &result.lac, &result.ci);
-		free(input);
 		if(result.res == cases[idx].result.res
 			&&
 		   result.gsm_reg == cases[idx].result.gsm_reg
@@ -122,6 +121,7 @@ void test_parse_creg()
 			faults++;
 		}
 		fprintf(stderr, " = %d (%d,%d,\"%s\",\"%s\")\t%s\n", result.res, result.gsm_reg, result.gsm_reg_status, result.lac, result.ci, msg);
+		free(input);
 	}
 	fprintf(stderr, "\n");
 }
@@ -146,7 +146,6 @@ void test_parse_cmti()
 		input = strdup(cases[idx].input);
 		fprintf(stderr, "%s(\"%s\")...", "at_parse_cmti", input);
 		result = at_parse_cmti(input);
-		free(input);
 		if(result == cases[idx].result) {
 			msg = "OK";
 			ok++;
@@ -155,6 +154,7 @@ void test_parse_cmti()
 			faults++;
 		}
 		fprintf(stderr, " = %d\t%s\n", result, msg);
+		free(input);
 	}
 	fprintf(stderr, "\n");
 }
@@ -162,6 +162,94 @@ void test_parse_cmti()
 #/* */
 void test_parse_cmgr()
 {
+	struct result {
+		const char	* res;
+		char		* str;
+		char 		* oa;
+		str_encoding_t	oa_enc;
+		char		* msg;
+		str_encoding_t	msg_enc;
+	};
+	static const struct test_case {
+		const char	* input;
+		struct result 	result;
+	} cases[] = {
+		{ "+CMGR: \"REC READ\",\"+79139131234\",,\"10/12/05,22:00:04+12\"\r\n041F04400438043204350442", 
+			{
+				NULL,
+				"\"REC READ\",\"+79139131234",
+				"+79139131234",
+				STR_ENCODING_7BIT,
+				"041F04400438043204350442",
+				STR_ENCODING_UNKNOWN
+			}
+		},
+		{ "+CMGR: \"REC READ\",\"002B00370039003500330037003600310032003000350032\",,\"10/12/05,22:00:04+12\"\r\n041F04400438043204350442", 
+			{
+				NULL, 
+				"\"REC READ\",\"002B00370039003500330037003600310032003000350032",
+				"002B00370039003500330037003600310032003000350032", 
+				STR_ENCODING_UNKNOWN,
+				"041F04400438043204350442",
+				STR_ENCODING_UNKNOWN
+			}
+		},
+		{ "+CMGR: 0,,106\r\n07911111111100F3040B911111111111F200000121702214952163B1582C168BC562B1984C2693C96432994C369BCD66B3D96C369BD168341A8D46A3D168B55AAD56ABD56AB59ACD66B3D96C369BCD76BBDD6EB7DBED76BBE170381C0E87C3E170B95C2E97CBE572B91C0C0683C16030180C",
+			{
+				NULL,
+				"B1582C168BC562B1984C2693C96432994C369BCD66B3D96C369BD168341A8D46A3D168B55AAD56ABD56AB59ACD66B3D96C369BCD76BBDD6EB7DBED76BBE170381C0E87C3E170B95C2E97CBE572B91C0C0683C16030180C",
+				"+11111111112",
+				STR_ENCODING_7BIT,
+				"B1582C168BC562B1984C2693C96432994C369BCD66B3D96C369BD168341A8D46A3D168B55AAD56ABD56AB59ACD66B3D96C369BCD76BBDD6EB7DBED76BBE170381C0E87C3E170B95C2E97CBE572B91C0C0683C16030180C",
+				STR_ENCODING_7BIT_HEX
+			} 
+		},
+		{ "+CMGR: 0,,159\r\n07919740430900F3440B912222222220F20008012180004390218C0500030003010031003100310031003100310031003100310031003200320032003200320032003200320032003200330033003300330033003300330033003300330034003400340034003400340034003400340034003500350035003500350035003500350035003500360036003600360036003600360036003600360037003700370037003700370037",
+			{
+				NULL,
+				"0031003100310031003100310031003100310031003200320032003200320032003200320032003200330033003300330033003300330033003300330034003400340034003400340034003400340034003500350035003500350035003500350035003500360036003600360036003600360036003600360037003700370037003700370037",
+				"+22222222022",
+				STR_ENCODING_7BIT,
+				"0031003100310031003100310031003100310031003200320032003200320032003200320032003200330033003300330033003300330033003300330034003400340034003400340034003400340034003500350035003500350035003500350035003500360036003600360036003600360036003600360037003700370037003700370037",
+				STR_ENCODING_UCS2_HEX
+			} 
+		},
+
+	};
+
+	unsigned idx = 0;
+	char * input;
+	struct result result;
+	char oa[200];
+	const char * msg;
+
+	result.oa = oa;
+	for(; idx < ITEMS_OF(cases); ++idx) {
+		result.str = input = strdup(cases[idx].input);
+		fprintf(stderr, "%s(\"%s\")...", "at_parse_cmgr", input);
+		result.res = at_parse_cmgr(&result.str, strlen(result.str), result.oa, sizeof(oa), &result.oa_enc, &result.msg, &result.msg_enc);
+		if( ((result.res == NULL && result.res == cases[idx].result.res) || strcmp(result.res, cases[idx].result.res) == 0)
+			&&
+		   strcmp(result.str, cases[idx].result.str) == 0
+			&&
+		   strcmp(result.oa, cases[idx].result.oa) == 0
+			&&
+		   result.oa_enc == cases[idx].result.oa_enc
+			&&
+		   strcmp(result.msg, cases[idx].result.msg) == 0
+			&&
+		   result.msg_enc == cases[idx].result.msg_enc
+			) {
+			msg = "OK";
+			ok++;
+		} else {
+			msg = "FAIL";
+			faults++;
+		}
+		fprintf(stderr, " = '%s' ('%s','%s',%d,'%s',%d)\t%s\n", result.res, result.str, result.oa, result.oa_enc, result.msg, result.msg_enc, msg);
+		free(input);
+	}
+	fprintf(stderr, "\n");
 }
 
 #/* */
@@ -190,7 +278,6 @@ void test_parse_cusd()
 		input = strdup(cases[idx].input);
 		fprintf(stderr, "%s(\"%s\")...", "at_parse_cusd", input);
 		result.res = at_parse_cusd(input, &result.type, &result.cusd, &result.dcs);
-		free(input);
 		if(result.res == cases[idx].result.res
 			&&
 		   result.type == cases[idx].result.type
@@ -206,6 +293,7 @@ void test_parse_cusd()
 			faults++;
 		}
 		fprintf(stderr, " = %d (%d,\"%s\",%d)\t%s\n", result.res, result.type, result.cusd, result.dcs, msg);
+		free(input);
 	}
 	fprintf(stderr, "\n");
 }
@@ -267,7 +355,6 @@ void test_parse_clcc()
 		input = strdup(cases[idx].input);
 		fprintf(stderr, "%s(\"%s\")...", "at_parse_clcc", input);
 		result.res = at_parse_clcc(input, &result.index, &result.dir, &result.stat, &result.mode, &result.mpty, &result.number, &result.toa);
-		free(input);
 		if(result.res == cases[idx].result.res
 			&&
 		   result.index == cases[idx].result.index
@@ -291,6 +378,7 @@ void test_parse_clcc()
 			faults++;
 		}
 		fprintf(stderr, " = %d (%d,%d,%d,%d,%d,\"%s\",%d)\t%s\n", result.res, result.index, result.dir, result.stat, result.mode, result.mpty, result.number, result.toa, msg);
+		free(input);
 	}
 	fprintf(stderr, "\n");
 }
