@@ -38,12 +38,12 @@ AT^U2DIAG=0
 Here is an example for the dialplan:
 
 [datacard-incoming]
-exten => sms,1,Verbose(Incoming SMS from ${CALLERID(num)} ${SMS})
-exten => sms,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${DATACARD} - ${CALLERID(num)}: ${SMS}' >> /var/log/asterisk/sms.txt)
+exten => sms,1,Verbose(Incoming SMS from ${CALLERID(num)} ${BASE64_DECODE(${SMS_BASE64})})
+exten => sms,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${DATACARD} - ${CALLERID(num)}: ${BASE64_DECODE(${SMS_BASE64})}' >> /var/log/asterisk/sms.txt)
 exten => sms,n,Hangup()
 
-exten => ussd,1,Verbose(Incoming USSD: ${USSD})
-exten => ussd,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${DATACARD}: ${USSD}' >> /var/log/asterisk/ussd.txt)
+exten => ussd,1,Verbose(Incoming USSD: ${BASE64_DECODE(${USSD_BASE64})})
+exten => ussd,n,System(echo '${STRFTIME(${EPOCH},,%Y-%m-%d %H:%M:%S)} - ${DATACARD}: ${BASE64_DECODE(${USSD_BASE64})}' >> /var/log/asterisk/ussd.txt)
 exten => ussd,n,Hangup()
 
 exten => s,1,Dial(SIP/2001@othersipserver)
