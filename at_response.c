@@ -1145,14 +1145,15 @@ static int at_response_cmti (struct pvt* pvt, const char* str)
  * \retval -1 error
  */
 
-static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
+static int at_response_cmgr (struct pvt* pvt, const char* str, size_t len)
 {
 	char		oa[512] = "";
 	char*		msg = NULL;
 	str_encoding_t	oa_enc;
 	str_encoding_t	msg_enc;
 	const char*	err;
-	char*		err_pos = str;
+	char*		err_pos;
+	char*		cmgr;
 	ssize_t		res;
 	char		sms_utf8_str[4096];
 	char*		number;
@@ -1169,10 +1170,11 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 		at_queue_handle_result (pvt, RES_CMGR);
 		pvt->incoming_sms = 0;
 
+		cmgr = err_pos = ast_strdupa (str);
 		err = at_parse_cmgr (&err_pos, len, oa, sizeof(oa), &oa_enc, &msg, &msg_enc);
 		if (err)
 		{
-			ast_log (LOG_WARNING, "[%s] Error parsing incoming message '%s' at '%20s': %s\n", PVT_ID(pvt), str, err_pos, err);
+			ast_log (LOG_WARNING, "[%s] Error parsing incoming message '%s' at possition %d: %s\n", PVT_ID(pvt), str, err_pos - cmgr, err);
 			return 0;
 		}
 
@@ -1189,7 +1191,7 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 		res = str_recode (RECODE_DECODE, oa_enc, oa, strlen(oa), from_number_utf8_str, sizeof (from_number_utf8_str));
 		if (res < 0)
 		{
-			ast_log (LOG_ERROR, "[%s] Error parsing SMS from_number: %s\n", PVT_ID(pvt), oa);
+			ast_log (LOG_ERROR, "[%s] Error decode SMS originator address: '%s', message is '%s'\n", PVT_ID(pvt), oa, str);
 			number = oa;
 			return 0;
 		}
@@ -1200,7 +1202,7 @@ static int at_response_cmgr (struct pvt* pvt, char* str, size_t len)
 		res = str_recode (RECODE_DECODE, msg_enc, msg, msg_len, sms_utf8_str, sizeof (sms_utf8_str));
 		if (res < 0)
 		{
-			ast_log (LOG_ERROR, "[%s] Error parsing SMS text: %s\n", PVT_ID(pvt), msg);
+			ast_log (LOG_ERROR, "[%s] Error decode SMS text '%s' from encoding %d, message is '%s'\n", PVT_ID(pvt), msg, msg_enc, str);
 			return 0;
 		}
 		else
