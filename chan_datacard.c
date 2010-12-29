@@ -106,7 +106,7 @@ static int lock_create(const char * lockfile)
 	int len = 0;
 	char pidb[21];
 	
-	fd = open(lockfile, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IRGRP | S_IROTH);
+	fd = open(lockfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if(fd >= 0)
 	{
 		len = snprintf(pidb, sizeof(pidb), "%d", getpid());
