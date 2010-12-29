@@ -42,6 +42,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev: " PACKAGE_REVISION " $")
 #include <asterisk/module.h>			/* AST_MODULE_LOAD_DECLINE ... */
 #include <asterisk/timing.h>			/* ast_timer_open() ast_timer_fd() */
 
+#include <sys/stat.h>				/* S_IRUSR | S_IRGRP | S_IROTH */
 #include <termios.h>				/* struct termios tcgetattr() tcsetattr()  */
 #include <pthread.h>				/* pthread_t pthread_kill() pthread_join() */
 #include <fcntl.h>				/* O_RDWR O_NOCTTY */
@@ -106,7 +107,7 @@ static int lock_create(const char * lockfile)
 	int len = 0;
 	char pidb[21];
 	
-	fd = open(lockfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	fd = open(lockfile, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IRGRP | S_IROTH);
 	if(fd >= 0)
 	{
 		len = snprintf(pidb, sizeof(pidb), "%d", getpid());
