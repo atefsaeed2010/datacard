@@ -62,7 +62,7 @@ dnl AC_CHECK_LIB([iconv], [iconv])
 AC_SEARCH_LIBS([iconv], [c iconv])
 
 dnl Checks for header files.
-AC_CHECK_HEADERS([fcntl.h stdlib.h string.h sys/time.h termios.h iconv.h])
+AC_CHECK_HEADERS([fcntl.h stdlib.h string.h sys/time.h termios.h iconv.h sys/iconv.h])
 
 AC_DEFUN([AC_HEADER_FIND], [
     file=$1
@@ -88,6 +88,19 @@ AC_HEADER_FIND([asterisk.h], $enable_asterisk)
 
 AC_DEFINE([ICONV_CONST],[],[has iconv() const declaration of input buffer])
 AC_EGREP_HEADER([extern.+iconv\s*\(.+const], iconv.h, [AC_DEFINE([ICONV_CONST],[const])])
+AC_EGREP_HEADER([extern.+iconv\s*\(.+const], sys/iconv.h, [AC_DEFINE([ICONV_CONST],[const])])
+
+AC_MSG_CHECKING([iconv_t])
+AC_EGREP_HEADER([iconv_t], iconv.h, has_iconv_t=1)
+AC_EGREP_HEADER([iconv_t], sys/iconv.h, has_iconv_t=1)
+if test "y$has_iconv_t" = "y"; then
+    AC_DEFINE([ICONV_T], [int])
+    AC_MSG_RESULT(no iconv_t)
+else
+    AC_DEFINE([ICONV_T], [iconv_t])
+    AC_MSG_RESULT(yes)
+fi
+
 dnl Checking for library options
 
 dnl Checks for typedefs, structures, and compiler characteristics.

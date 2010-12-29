@@ -16,6 +16,9 @@
 /* Define to 1 if you have the <iconv.h> header file. */
 #undef HAVE_ICONV_H
 
+/* Define to 1 if you have the <sys/iconv.h> header file. */
+#undef HAVE_SYS_ICONV_H
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
@@ -78,6 +81,9 @@
 
 /* has iconv() const declaration of input buffer */
 #undef ICONV_CONST
+
+/* has iconv_t */
+#undef ICONV_T
 
 /* Define to the address where bug reports for this package should be sent. */
 #undef MODULE_BUGREPORT

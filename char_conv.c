@@ -12,7 +12,16 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
+#include <sys/types.h>
+
+#ifdef HAVE_ICONV_H
 #include <iconv.h>			/* iconv_t iconv() */
+#else
+#ifdef HAVE_SYS_ICONV_H
+#include <sys/iconv.h>			/* iconv_t iconv() */
+#endif
+#endif
+
 #include <string.h>			/* memcpy() */
 #include <stdio.h>			/* sscanf() snprintf() */
 #include <errno.h>			/* EINVAL */
@@ -26,11 +35,11 @@ static ssize_t convert_string (const char* in, size_t in_length, char* out, size
 	size_t			in_bytesleft = in_length;
 	char*			out_ptr = out;
 	size_t			out_bytesleft = out_size - 1;
-	iconv_t			cd = (iconv_t) -1;
+	ICONV_T			cd = (ICONV_T) -1;
 	ssize_t			res;
 
 	cd = iconv_open (to, from);
-	if (cd == (iconv_t) -1)
+	if (cd == (ICONV_T) -1)
 	{
 		return -2;
 	}
