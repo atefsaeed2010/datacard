@@ -1174,7 +1174,7 @@ static int at_response_cmgr (struct pvt* pvt, const char* str, size_t len)
 		err = at_parse_cmgr (&err_pos, len, oa, sizeof(oa), &oa_enc, &msg, &msg_enc);
 		if (err)
 		{
-			ast_log (LOG_WARNING, "[%s] Error parsing incoming message '%s' at possition %d: %s\n", PVT_ID(pvt), str, err_pos - cmgr, err);
+			ast_log (LOG_WARNING, "[%s] Error parsing incoming message '%s' at possition %d: %s\n", PVT_ID(pvt), str, (int)(err_pos - cmgr), err);
 			return 0;
 		}
 

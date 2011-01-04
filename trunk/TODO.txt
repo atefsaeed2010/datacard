@@ -32,6 +32,8 @@ added 20.11.2010
 		receive side done at 06.12.2010 r75
 
 10) Automatic device discovery by IMEI or IMSI
+	Added tool for discover of modems
+	Intergation to main code planing
 
 11) Complete fix of DTMF duplication
 
@@ -48,6 +50,9 @@ added 24.11.2010
 			added from internal source at 25.11.2010
 
 15) Do a lot of testing with the channel driver
+
+	15.1) Added test for mixbuffer
+	15.2) Added uncomplete test for parser
 
 	16) Test sending SMS with a new line character in it
 		done at 05.12.2010
@@ -75,7 +80,7 @@ added 24.11.2010
 	22.3) exten
 		added 06.12.2010 r83
 
-23) 
+23)
 
 24) reconfigure on fly
 
@@ -85,10 +90,10 @@ added 24.11.2010
 	26) implement command "datacard restart device"
 		done at 06.12.2010 in r77
 
-
 added 06.12.2010
 
-27) Remove Call waiting status duplicated messages
+	27) Remove Call waiting status duplicated messages
+		now only for registration event check CCWA status
 
 28) outgoing SMS: set SRR, validity, SC address, on screen mode
 	SRR and validity done 06.12.2010 in r75
@@ -114,6 +119,4 @@ added 17.12.2010
 35) receive SMS notification
 
 36) receive on-screen SMS
-
-
 
