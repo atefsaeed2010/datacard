@@ -169,7 +169,7 @@ static ssize_t utf8_to_hexstr_ucs2 (const char* in, size_t in_length, char* out,
 static ssize_t char_to_hexstr_7bit (const char* in, size_t in_length, char* out, size_t out_size)
 {
 	size_t		i;
-	size_t		x;
+	size_t		x = 0;
 	size_t		s;
 	unsigned char	c;
 	unsigned char	b;
@@ -181,31 +181,33 @@ static ssize_t char_to_hexstr_7bit (const char* in, size_t in_length, char* out,
 		return -1;
 	}
 
-	in_length--;
-	for (i = 0, x = 0, s = 0; i < in_length; i++)
+	if(in_length > 0)
 	{
-		if (s == 7)
+		in_length--;
+		for (i = 0, x = 0, s = 0; i < in_length; i++)
 		{
-			s = 0;
-			continue;
+			if (s == 7)
+			{
+				s = 0;
+				continue;
+			}
+
+			c = in[i] >> s;
+			b = in[i + 1] << (7 - s);
+			c = c | b;
+			s++;
+
+			snprintf (buf, sizeof(buf), "%.2X", c);
+
+			memcpy (out + x, buf, 2);
+			x = x + 2;
 		}
 
 		c = in[i] >> s;
-		b = in[i + 1] << (7 - s);
-		c = c | b;
-		s++;
-
 		snprintf (buf, sizeof(buf), "%.2X", c);
-
 		memcpy (out + x, buf, 2);
 		x = x + 2;
 	}
-
-	c = in[i] >> s;
-	snprintf (buf, sizeof(buf), "%.2X", c);
-	memcpy (out + x, buf, 2);
-	x = x + 2;
-
 	out[x] = '\0';
 
 	return x;
