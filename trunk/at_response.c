@@ -1666,7 +1666,8 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 */
 
 		if(ecmd && ecmd->cmd == CMD_USER) {
-			ast_verb(1, "Response for user's command:'%s'\n", str);
+			ast_verb(1, "[%s] Response for user's command:'%s'\n", PVT_ID(pvt), str);
+			ast_log(LOG_NOTICE, "[%s] Response for user's command:'%s'\n", PVT_ID(pvt), str);
 		}
 		switch (at_res)
 		{
