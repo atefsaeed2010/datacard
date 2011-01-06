@@ -303,6 +303,10 @@ static void disconnect_datacard (struct pvt* pvt)
 	pvt->incoming_sms = 0;
 	pvt->volume_sync_step = VOLUME_SYNC_BEGIN;
 
+	pvt->current_state = DEV_STATE_STOPPED;
+	pvt->desired_state = DEV_STATE_STARTED;
+	pvt->restart_time = RESTATE_TIME_NOW;
+
 	ast_verb (3, "Datacard %s has disconnected\n", PVT_ID(pvt));
 	ast_debug (1, "[%s] Datacard disconnected\n", PVT_ID(pvt));
 
@@ -453,11 +457,34 @@ static inline int start_monitor (struct pvt * pvt)
 }
 
 #/* */
+static void pvt_stop(struct pvt * pvt)
+{
+	pthread_t id;
+
+	if(pvt->monitor_thread != AST_PTHREADT_NULL)
+	{
+		pvt->terminate_monitor = 1;
+		pthread_kill (pvt->monitor_thread, SIGURG);
+		id = pvt->monitor_thread;
+
+		ast_mutex_unlock (&pvt->lock);
+		pthread_join (id, NULL);
+		ast_mutex_lock (&pvt->lock);
+
+		pvt->terminate_monitor = 0;
+		pvt->monitor_thread = AST_PTHREADT_NULL;
+	}
+	pvt->current_state = DEV_STATE_STOPPED;
+}
+
+#/* */
 static void pvt_start(struct pvt * pvt)
 {
 	/* prevent start_monitor() multiple times and on turned off devices */
-	if (!pvt->connected && pvt->desired_state == DEV_STATE_STARTED && pvt->monitor_thread == AST_PTHREADT_NULL)
+	if (!pvt->connected && pvt->desired_state == DEV_STATE_STARTED)
+//	&& (pvt->monitor_thread == AST_PTHREADT_NULL || (pthread_kill(pvt->monitor_thread, 0) != 0 && errno == ESRCH)))
 	{
+		pvt_stop(pvt);
 		ast_verb (3, "Datacard %s trying to connect on %s...\n", PVT_ID(pvt), CONF_UNIQ(pvt, data_tty));
 
 		pvt->data_fd = opentty(CONF_UNIQ(pvt, data_tty), &pvt->dlock);
@@ -484,26 +511,6 @@ static void pvt_start(struct pvt * pvt)
 	}
 }
 
-#/* */
-static void pvt_stop(struct pvt * pvt)
-{
-	pthread_t id;
-
-	if(pvt->monitor_thread != AST_PTHREADT_NULL)
-	{
-		pvt->terminate_monitor = 1;
-		pthread_kill (pvt->monitor_thread, SIGURG);
-		id = pvt->monitor_thread;
-
-		ast_mutex_unlock (&pvt->lock);
-		pthread_join (id, NULL);
-		ast_mutex_lock (&pvt->lock);
-
-		pvt->terminate_monitor = 0;
-		pvt->monitor_thread = AST_PTHREADT_NULL;
-	}
-	pvt->current_state = DEV_STATE_STOPPED;
-}
 
 #/* */
 static void pvt_free(struct pvt * pvt)
