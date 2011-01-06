@@ -71,7 +71,7 @@ static int lock_build(const char * devname, char * buf, unsigned length)
 	/* follow symlinks */
 	if(realpath(devname, resolved_path) != NULL)
 		devname = resolved_path;
-	
+
 /*
 	while(1)
 	{
@@ -106,7 +106,7 @@ static int lock_create(const char * lockfile)
 	int fd;
 	int len = 0;
 	char pidb[21];
-	
+
 	fd = open(lockfile, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IRGRP | S_IROTH);
 	if(fd >= 0)
 	{
@@ -118,12 +118,12 @@ static int lock_create(const char * lockfile)
 }
 
 #/* return pid of owner, 0 if free */
-static int lock_try(const char * devname)
+static int lock_try(const char * devname, char ** lockname)
 {
 	int fd;
 	int len;
 	int pid = 0;
-	char name[256];
+	char name[1024];
 	char pidb[21];
 
 	lock_build(devname, name, sizeof(name));
@@ -147,11 +147,23 @@ static int lock_try(const char * devname)
 	{
 		unlink(name);
 		lock_create(name);
+		*lockname = ast_strdup(name);
 	}
 	return pid;
 }
 
-static int opentty (const char* dev)
+#/* */
+static void closetty(int fd, char ** lockfname)
+{
+	close(fd);
+
+	/* remove lock */
+	unlink(*lockfname);
+	ast_free(*lockfname);
+	*lockfname = NULL;
+}
+
+static int opentty (const char* dev, char ** lockfile)
 {
 	int		pid;
 	int		fd;
@@ -164,10 +176,18 @@ static int opentty (const char* dev)
 		ast_log (LOG_WARNING, "Unable to open '%s': %s\n", dev, strerror(errno));
 		return -1;
 	}
-	
-	if (tcgetattr (fd, &term_attr) != 0)
+
+	pid = lock_try(dev, lockfile);
+	if(pid != 0)
 	{
 		close(fd);
+		ast_log (LOG_WARNING, "'%s' already used by process %d\n", dev, pid);
+		return -1;
+	}
+
+	if (tcgetattr (fd, &term_attr) != 0)
+	{
+		closetty(fd, lockfile);
 		ast_log (LOG_WARNING, "tcgetattr() failed '%s': %s\n", dev, strerror(errno));
 		return -1;
 	}
@@ -184,28 +204,10 @@ static int opentty (const char* dev)
 		ast_log (LOG_WARNING, "tcsetattr() failed '%s': %s\n", dev, strerror(errno));
 	}
 
-	pid = lock_try(dev);
-	if(pid != 0)
-	{
-		close(fd);
-		ast_log (LOG_WARNING, "'%s' already used by process %d\n", dev, pid);
-		return -1;
-	}
 
 	return fd;
 }
 
-#/* */
-static void closetty(const char * dev, int fd)
-{
-	char name[256];
-
-	close(fd);
-
-	/* remove lock */
-	lock_build(dev, name, sizeof(name));
-	unlink(name);
-}
 
 /*!
  * Get status of the datacard. It might happen that the device disappears
@@ -214,7 +216,7 @@ static void closetty(const char * dev, int fd)
  * \return 1 if device seems ok, 0 if it seems not available
  */
 
-static int device_status (int fd)
+static int port_status (int fd)
 {
 	struct termios t;
 
@@ -229,11 +231,11 @@ static int device_status (int fd)
 static void disconnect_datacard (struct pvt* pvt)
 {
 	struct cpvt * cpvt, * next;
-	
+
 	if (pvt->chansno)
 	{
 		ast_debug (1, "[%s] Datacard disconnecting, hanging up channels\n", PVT_ID(pvt));
-		
+
 		for(cpvt = pvt->chans.first; cpvt; cpvt = next)
 		{
 			next = cpvt->entry.next;
@@ -245,23 +247,20 @@ static void disconnect_datacard (struct pvt* pvt)
 	at_queue_flush(pvt);
 	pvt->last_dialed_cpvt = NULL;
 
+	closetty (pvt->audio_fd, &pvt->alock);
+	closetty (pvt->data_fd, &pvt->dlock);
 
-	closetty (CONF_UNIQ(pvt, data_tty), pvt->data_fd);
-	closetty (CONF_UNIQ(pvt, audio_tty), pvt->audio_fd);
 	pvt->data_fd = -1;
 	pvt->audio_fd = -1;
 
 	ast_dsp_digitreset(pvt->dsp);
 	pvt_on_remove_last_channel(pvt);
+
 /*	pvt->a_write_rb */
 
 	pvt->dtmf_digit = 0;
 	pvt->rings = 0;
 
-	if(pvt->restarting)
-	{
-		pvt->restarting = 0;
-	}
 //	else
 	{
 		/* unaffected in case of restart */
@@ -303,7 +302,7 @@ static void disconnect_datacard (struct pvt* pvt)
 	pvt->outgoing_sms = 0;
 	pvt->incoming_sms = 0;
 	pvt->volume_sync_step = VOLUME_SYNC_BEGIN;
-	
+
 	ast_verb (3, "Datacard %s has disconnected\n", PVT_ID(pvt));
 	ast_debug (1, "[%s] Datacard disconnected\n", PVT_ID(pvt));
 
@@ -337,11 +336,11 @@ static void* do_monitor_phone (void* data)
 	pvt->timeout = DATA_READ_TIMEOUT;
 
 	ast_mutex_lock (&pvt->lock);
-	
+
 	/* 4 reduce locking time make copy of this readonly fields */
 	fd = pvt->data_fd;
 	ast_copy_string(dev, PVT_ID(pvt), sizeof(dev));
-	
+
 	/* anybody wrote some to device before me, and not read results, clean pending results here */
 
 	for (t = 0; at_wait (fd, &t); t = 0)
@@ -350,7 +349,7 @@ static void* do_monitor_phone (void* data)
 		ast_debug (4, "[%s] drop %u bytes of pending data before initialization\n", PVT_ID(pvt), (unsigned)rb_used(&rb));
 		/* drop readed */
 		rb_init (&rb, buf, sizeof (buf));
-		if (iovcnt)
+		if (iovcnt == 0)
 			break;
 	}
 
@@ -364,23 +363,22 @@ static void* do_monitor_phone (void* data)
 	ast_mutex_unlock (&pvt->lock);
 
 
-	/* TODO: also check if voice write failed with ENOENT? */
-	while (gpublic->unloading_flag == 0)
+	while (1)
 	{
 		ast_mutex_lock (&pvt->lock);
 
-		if (device_status (pvt->data_fd) || device_status (pvt->audio_fd))
+		if (port_status (pvt->data_fd) || port_status (pvt->audio_fd))
 		{
 			ast_log (LOG_ERROR, "Lost connection to Datacard %s\n", PVT_ID(pvt));
 			goto e_cleanup;
 		}
 
-		if(pvt->restarting)
+		if(pvt->terminate_monitor)
 		{
-			ast_log (LOG_NOTICE, "[%s] %s by request\n", PVT_ID(pvt), pvt->off ? "Stop" : "Restart");
+			ast_log (LOG_NOTICE, "[%s] stop by request %s\n", PVT_ID(pvt), dev_state2str(pvt->desired_state));
 			goto e_restart;
 		}
-		
+
 		t = pvt->timeout;
 
 		ast_mutex_unlock (&pvt->lock);
@@ -392,7 +390,7 @@ static void* do_monitor_phone (void* data)
 			if (!pvt->initialized)
 			{
 				ast_debug (1, "[%s] timeout waiting for data, disconnecting\n", PVT_ID(pvt));
-				
+
 				ecmd = at_queue_head_cmd (pvt);
 				if (ecmd)
 				{
@@ -432,76 +430,191 @@ e_cleanup:
 	{
 		ast_verb (3, "Error initializing Datacard %s\n", PVT_ID(pvt));
 	}
-	/* it real disconnect */
-	pvt->restarting = 0;
+	/* it real, unsolicited disconnect */
+	pvt->terminate_monitor = 0;
 
 e_restart:
 	disconnect_datacard (pvt);
-	pvt->monitor_running = 0;
+//	pvt->monitor_running = 0;
 	ast_mutex_unlock (&pvt->lock);
 
 	return NULL;
 }
 
-
-static inline int start_monitor (struct pvt* pvt)
+static inline int start_monitor (struct pvt * pvt)
 {
 	if (ast_pthread_create_background (&pvt->monitor_thread, NULL, do_monitor_phone, pvt) < 0)
 	{
 		pvt->monitor_thread = AST_PTHREADT_NULL;
 		return 0;
 	}
-	else
-		pvt->monitor_running = 1;
 
 	return 1;
 }
 
-static void* do_discovery (attribute_unused void * data)
+#/* */
+static void pvt_start(struct pvt * pvt)
 {
-	struct pvt* pvt;
-	
-	while (gpublic->unloading_flag == 0)
+	/* prevent start_monitor() multiple times and on turned off devices */
+	if (!pvt->connected && pvt->desired_state == DEV_STATE_STARTED && pvt->monitor_thread == AST_PTHREADT_NULL)
 	{
-		AST_RWLIST_RDLOCK (&gpublic->devices);
-		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
+		ast_verb (3, "Datacard %s trying to connect on %s...\n", PVT_ID(pvt), CONF_UNIQ(pvt, data_tty));
+
+		pvt->data_fd = opentty(CONF_UNIQ(pvt, data_tty), &pvt->dlock);
+		if (pvt->data_fd >= 0)
+		{
+			// TODO: delay until device activate voice call or at pvt_on_create_1st_channel()
+			pvt->audio_fd = opentty(CONF_UNIQ(pvt, audio_tty), &pvt->alock);
+			if (pvt->audio_fd >= 0)
+			{
+				if (start_monitor (pvt))
+				{
+					pvt->connected = 1;
+					pvt->current_state = DEV_STATE_STARTED;
+#ifdef BUILD_MANAGER
+					manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Connect\r\nDevice: %s\r\n", PVT_ID(pvt));
+#endif
+					ast_verb (3, "Datacard %s has connected, initializing...\n", PVT_ID(pvt));
+					return;
+				}
+				closetty(pvt->audio_fd, &pvt->alock);
+			}
+			closetty(pvt->data_fd, &pvt->dlock);
+		}
+	}
+}
+
+#/* */
+static void pvt_stop(struct pvt * pvt)
+{
+	pthread_t id;
+
+	if(pvt->monitor_thread != AST_PTHREADT_NULL)
+	{
+		pvt->terminate_monitor = 1;
+		pthread_kill (pvt->monitor_thread, SIGURG);
+		id = pvt->monitor_thread;
+
+		ast_mutex_unlock (&pvt->lock);
+		pthread_join (id, NULL);
+		ast_mutex_lock (&pvt->lock);
+
+		pvt->terminate_monitor = 0;
+		pvt->monitor_thread = AST_PTHREADT_NULL;
+	}
+	pvt->current_state = DEV_STATE_STOPPED;
+}
+
+#/* */
+static void pvt_free(struct pvt * pvt)
+{
+	at_queue_flush(pvt);
+	ast_dsp_free(pvt->dsp);
+
+	ast_mutex_unlock(&pvt->lock);
+
+	ast_free(pvt);
+}
+
+#/* */
+static void pvt_destroy(struct pvt * pvt)
+{
+	ast_mutex_lock(&pvt->lock);
+	pvt_stop(pvt);
+	pvt_free(pvt);
+
+}
+
+static void * do_discovery(void * arg)
+{
+	struct public_state * state = (struct public_state *) arg;
+	struct pvt * pvt;
+
+	while(state->unloading_flag == 0)
+	{
+		AST_RWLIST_RDLOCK (&state->devices);
+		AST_RWLIST_TRAVERSE_SAFE_BEGIN (&state->devices, pvt, entry)
 		{
 			ast_mutex_lock (&pvt->lock);
 
-			/* prevent start_monitor() multiple times and on turned off devices */
-			if (!pvt->connected && !pvt->off && !pvt->monitor_running)
+			if(pvt->restart_time == RESTATE_TIME_NOW && pvt->desired_state != pvt->current_state)
 			{
-				ast_verb (3, "Datacard %s trying to connect on %s...\n", PVT_ID(pvt), CONF_UNIQ(pvt, data_tty));
-
-				if ((pvt->data_fd = opentty (CONF_UNIQ(pvt, data_tty))) > -1)
+				switch(pvt->desired_state)
 				{
-					// TODO: delay until device activate voice call or at pvt_on_create_1st_channel()
-					if ((pvt->audio_fd = opentty (CONF_UNIQ(pvt, audio_tty))) > -1)
-					{
-						if (start_monitor (pvt))
-						{
-							pvt->connected = 1;
-#ifdef BUILD_MANAGER
-							manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Connect\r\nDevice: %s\r\n", PVT_ID(pvt));
-#endif
-							ast_verb (3, "Datacard %s has connected, initializing...\n", PVT_ID(pvt));
-						}
-					}
+					case DEV_STATE_RESTARTED:
+						pvt_stop(pvt);
+						/* passthru */
+						pvt->desired_state = DEV_STATE_STARTED;
+					case DEV_STATE_STARTED:
+						pvt_start(pvt);
+						break;
+					case DEV_STATE_REMOVED:
+						pvt_stop(pvt);
+						AST_RWLIST_REMOVE_CURRENT(entry);
+						pvt_free(pvt);
+						continue;
+					case DEV_STATE_STOPPED:
+						pvt_stop(pvt);
 				}
 			}
-
 			ast_mutex_unlock (&pvt->lock);
 		}
-		AST_RWLIST_UNLOCK (&gpublic->devices);
+		AST_RWLIST_TRAVERSE_SAFE_END;
+
+		AST_RWLIST_UNLOCK (&state->devices);
 
 		/* Go to sleep (only if we are not unloading) */
-		if (gpublic->unloading_flag == 0)
+		if (state->unloading_flag == 0)
 		{
-			sleep (CONF_GLOBAL(discovery_interval));
+			sleep(SCONF_GLOBAL(state, discovery_interval));
 		}
 	}
 
 	return NULL;
+}
+
+#/* */
+static int discovery_restart(public_state_t * state)
+{
+	if(state->discovery_thread == AST_PTHREADT_STOP)
+		return 0;
+
+	ast_mutex_lock(&state->discovery_lock);
+	if (state->discovery_thread == pthread_self()) {
+		ast_mutex_unlock(&state->discovery_lock);
+		ast_log(LOG_WARNING, "Cannot kill myself\n");
+		return -1;
+	}
+	if (state->discovery_thread != AST_PTHREADT_NULL) {
+		/* Wake up the thread */
+		pthread_kill(state->discovery_thread, SIGURG);
+	} else {
+		/* Start a new monitor */
+		if (ast_pthread_create_background(&state->discovery_thread, NULL, do_discovery, state) < 0) {
+			ast_mutex_unlock(&state->discovery_lock);
+			ast_log(LOG_ERROR, "Unable to start discovery thread.\n");
+			return -1;
+		}
+	}
+	ast_mutex_unlock(&state->discovery_lock);
+	return 0;
+}
+
+#/* */
+static void discovery_stop(public_state_t * state)
+{
+	/* signal for discovery unloading */
+	state->unloading_flag = 1;
+
+	ast_mutex_lock(&state->discovery_lock);
+	if (state->discovery_thread && (state->discovery_thread != AST_PTHREADT_STOP) && (state->discovery_thread != AST_PTHREADT_NULL)) {
+//		pthread_cancel(state->discovery_thread);
+		pthread_kill(state->discovery_thread, SIGURG);
+		pthread_join(state->discovery_thread, NULL);
+	}
+
+	state->discovery_thread = AST_PTHREADT_STOP;
+	ast_mutex_unlock(&state->discovery_lock);
 }
 
 #/* */
@@ -544,7 +657,7 @@ EXPORT_DEF int pvt_get_pseudo_call_idx(const struct pvt * pvt)
 
 	bits = alloca(dwords * sizeof(*bits));
 	memset(bits, 0, dwords * sizeof(*bits));
-	
+
 	AST_LIST_TRAVERSE(&pvt->chans, cpvt, entry) {
 		SET_BIT(bits, cpvt->call_idx);
 	}
@@ -568,7 +681,7 @@ static int is_dial_possible2(const struct pvt * pvt, int opts, const struct cpvt
 	int active = 0;
 	// FIXME: allow HOLD states for CONFERENCE
 	int use_call_waiting = opts & CALL_FLAG_HOLD_OTHER;
-	
+
 	if(pvt->ring || pvt->cwaiting || pvt->dialing)
 		return 0;
 
@@ -612,23 +725,36 @@ EXPORT_DEF int is_dial_possible(const struct pvt * pvt, int opts)
 }
 
 #/* */
+EXPORT_DECL int pvt_enabled(const struct pvt * pvt)
+{
+	return pvt->current_state == DEV_STATE_STARTED && (pvt->desired_state == pvt->current_state || pvt->restart_time == RESTATE_TIME_CONVENIENT);
+}
+
+#/* */
 EXPORT_DEF int ready4voice_call(const struct pvt* pvt, const struct cpvt * current_cpvt, int opts)
 {
-	if(!pvt->connected || !pvt->initialized || !pvt->has_voice || !pvt->gsm_registered || pvt->off || pvt->restarting)
+	if(!pvt->connected 
+		|| 
+	   !pvt->initialized
+		|| 
+	   !pvt->has_voice 
+		|| 
+	   !pvt->gsm_registered 
+		|| 
+	   !pvt_enabled(pvt)
+	)
 		return 0;
 
 	return is_dial_possible2(pvt, opts, current_cpvt);
 }
 
 #/* */
-EXPORT_DEF const char* pvt_str_state(const struct pvt* pvt)
+static const char * pvt_state_int(const struct pvt * pvt)
 {
-	const char * state = "Free";
+	const char * state = NULL;
 
-	if(pvt->off)
+	if(pvt->current_state == DEV_STATE_STOPPED && pvt->desired_state == DEV_STATE_STOPPED)
 		state = "Stopped";
-	else if(pvt->restarting)
-		state = "Restarting";
 	else if(!pvt->connected)
 		state = "Not connected";
 	else if(!pvt->initialized)
@@ -639,7 +765,15 @@ EXPORT_DEF const char* pvt_str_state(const struct pvt* pvt)
 		state = "Busy";
 	else if(pvt->outgoing_sms || pvt->incoming_sms)
 		state = "SMS";
+	return state;
+}
 
+#/* */
+EXPORT_DEF const char* pvt_str_state(const struct pvt* pvt)
+{
+	const char * state = pvt_state_int(pvt);
+	if(!state)
+		state = "Free";
 	return state;
 }
 
@@ -647,13 +781,10 @@ EXPORT_DEF const char* pvt_str_state(const struct pvt* pvt)
 EXPORT_DEF struct ast_str* pvt_str_state_ex(const struct pvt* pvt)
 {
 	struct ast_str* buf = ast_str_create (256);
+	const char * state = pvt_state_int(pvt);
 
-	if(!pvt->connected)
-		ast_str_append (&buf, 0, "Not connected");
-	else if(!pvt->initialized)
-		ast_str_append (&buf, 0, "Not initialized");
-	else if(!pvt->gsm_registered)
-		ast_str_append (&buf, 0, "GSM not registered");
+	if(state)
+		ast_str_append (&buf, 0, "%s", state);
 	else
 	{
 		if(pvt->ring || pvt->chan_count[CALL_STATE_INCOMING])
@@ -677,18 +808,14 @@ EXPORT_DEF struct ast_str* pvt_str_state_ex(const struct pvt* pvt)
 		if(pvt->outgoing_sms)
 			ast_str_append (&buf, 0, "Outgoing SMS");
 
-		if(!ast_str_strlen(buf))
+		if(ast_str_strlen(buf) == 0)
 		{
-			const char* state;
-			if(pvt->off)
-				state = "Stopped";
-			else if(pvt->restarting)
-				state = "Restarting";
-			else
-				state = "Free";
-			ast_str_append (&buf, 0, "%s", state);
+			ast_str_append (&buf, 0, "%s", pvt->current_state == DEV_STATE_STOPPED ? "Stopped" : "Free");
 		}
 	}
+
+	if(pvt->desired_state != pvt->current_state)
+		ast_str_append (&buf, 0, " %s", dev_state2str_msg(pvt->desired_state));
 
 	return buf;
 }
@@ -772,88 +899,128 @@ EXPORT_DEF char* rssi2dBm(int rssi, char * buf, unsigned len)
 
 
 /* Module */
-
-/*!
- * \brief Load a device from the configuration file.
- * \param cfg the config to load the device from
- * \param cat the device to load
- * \return NULL on error, a pointer to the device that was loaded on success
- */
-
-static struct pvt* load_device (struct ast_config* cfg, const char* cat, const struct dc_sconfig * defaults)
+static struct pvt * pvt_create(const pvt_config_t * settings)
 {
-	struct pvt*		pvt;
-	int err;
-
-	/* create and initialize our pvt structure */
-	pvt = ast_calloc (1, sizeof (*pvt));
+	struct pvt * pvt = ast_calloc (1, sizeof (*pvt));
 	if(pvt)
 	{
-		err = dc_config_fill(cfg, cat, defaults, &pvt->settings);
-		if(!err)
+		ast_mutex_init (&pvt->lock);
+
+		AST_LIST_HEAD_INIT_NOLOCK (&pvt->at_queue);
+		AST_LIST_HEAD_INIT_NOLOCK (&pvt->chans);
+		pvt->sys_chan.pvt = pvt;
+		pvt->sys_chan.state = CALL_STATE_RELEASED;
+
+		pvt->monitor_thread		= AST_PTHREADT_NULL;
+		pvt->audio_fd			= -1;
+		pvt->data_fd			= -1;
+		pvt->timeout			= DATA_READ_TIMEOUT;
+		pvt->cusd_use_ucs2_decoding	=  1;
+		pvt->gsm_reg_status		= -1;
+
+		ast_copy_string (pvt->provider_name, "NONE", sizeof (pvt->provider_name));
+		ast_copy_string (pvt->subscriber_number, "Unknown", sizeof (pvt->subscriber_number));
+		pvt->has_subscriber_number = 0;
+
+		pvt->desired_state = DEV_STATE_STARTED;
+
+		/* setup the dsp */
+		pvt->dsp = ast_dsp_new ();
+		if (pvt->dsp)
 		{
-			if(!CONF_SHARED(pvt, disable))
-			{
-				/* initialize pvt */
-				ast_mutex_init (&pvt->lock);
+			ast_dsp_set_features (pvt->dsp, DSP_FEATURE_DIGIT_DETECT);
+			ast_dsp_set_digitmode (pvt->dsp, DSP_DIGITMODE_DTMF | DSP_DIGITMODE_RELAXDTMF);
 
-				AST_LIST_HEAD_INIT_NOLOCK (&pvt->at_queue);
-				AST_LIST_HEAD_INIT_NOLOCK (&pvt->chans);
-				pvt->sys_chan.pvt = pvt;
-				pvt->sys_chan.state = CALL_STATE_RELEASED;
-
-				pvt->monitor_thread		= AST_PTHREADT_NULL;
-				pvt->audio_fd			= -1;
-				pvt->data_fd			= -1;
-				pvt->timeout			= DATA_READ_TIMEOUT;
-				pvt->cusd_use_ucs2_decoding	=  1;
-				pvt->gsm_reg_status		= -1;
-
-				ast_copy_string (pvt->provider_name, "NONE", sizeof (pvt->provider_name));
-				ast_copy_string (pvt->subscriber_number, "Unknown", sizeof (pvt->subscriber_number));
-				pvt->has_subscriber_number = 0;
-
-				/* setup the dsp */
-				pvt->dsp = ast_dsp_new ();
-				if (pvt->dsp)
-				{
-					ast_dsp_set_features (pvt->dsp, DSP_FEATURE_DIGIT_DETECT);
-					ast_dsp_set_digitmode (pvt->dsp, DSP_DIGITMODE_DTMF | DSP_DIGITMODE_RELAXDTMF);
-
-					AST_RWLIST_WRLOCK (&gpublic->devices);
-					AST_RWLIST_INSERT_HEAD (&gpublic->devices, pvt, entry);
-					AST_RWLIST_UNLOCK (&gpublic->devices);
-
-					ast_debug (1, "[%s] Loaded device\n", PVT_ID(pvt));
-					ast_log (LOG_NOTICE, "Loaded device %s\n", PVT_ID(pvt));
-					return pvt;
-				}
-				else
-				{
-					ast_log(LOG_ERROR, "Skipping device %s. Error setting up dsp for dtmf detection\n", cat);
-				}
-			}
-			else
-			{
-				ast_log (LOG_NOTICE, "Skipping device %s as disabled\n", cat);
-			}
+			/* and copy settings */
+			memcpy(&pvt->settings, settings, sizeof(pvt->settings));
+			return pvt;
+		}
+		else
+		{
+			ast_log(LOG_ERROR, "Skipping device %s. Error setting up dsp for dtmf detection\n", UCONFIG(settings, id));
 		}
 		ast_free (pvt);
 	}
 	else
 	{
-		ast_log (LOG_ERROR, "Skipping device %s. Error allocating memory\n", cat);
+		ast_log (LOG_ERROR, "Skipping device %s. Error allocating memory\n", UCONFIG(settings, id));
 	}
-
 	return NULL;
 }
 
-static int load_config ()
+#/* */
+static int pvt_time4restate(const struct pvt * pvt)
 {
-	struct ast_config*	cfg;
-	const char*		cat;
-	struct ast_flags	config_flags = { 0 };
-	struct dc_sconfig	config_defaults;
+	if(pvt->desired_state != pvt->current_state)
+	{
+		if(pvt->restart_time == RESTATE_TIME_NOW || (PVT_NO_CHANS(pvt) && !pvt->outgoing_sms && !pvt->incoming_sms))
+			return 1;
+	}
+	return 0;
+}
+
+#/* */
+EXPORT_DEF void pvt_try_restate(struct pvt * pvt)
+{
+	if(pvt_time4restate(pvt))
+	{
+		pvt->restart_time = RESTATE_TIME_NOW;
+		discovery_restart(gpublic);
+	}
+}
+
+#/* assume caller hold lock */
+static int pvt_reconfigure(struct pvt * pvt, const pvt_config_t * settings, restate_time_t when)
+{
+	int rv = 0;
+
+	if(SCONFIG(settings, disable))
+	{
+		/* TODO: schedule device delete */
+		pvt->desired_state = DEV_STATE_REMOVED;
+		pvt->restart_time = when;
+		rv = pvt_time4restate(pvt);
+	}
+	else
+	{
+		/* apply new config */
+		if(strcmp(UCONFIG(settings, audio_tty), CONF_UNIQ(pvt, audio_tty))
+			||
+		   strcmp(UCONFIG(settings, data_tty), CONF_UNIQ(pvt, data_tty))
+			||
+		   SCONFIG(settings, u2diag) != CONF_SHARED(pvt, u2diag)
+			||
+		   SCONFIG(settings, reset_datacard) != CONF_SHARED(pvt, reset_datacard)
+			||
+		   SCONFIG(settings, smsaspdu) != CONF_SHARED(pvt, smsaspdu)
+			||
+		   SCONFIG(settings, call_waiting) != CONF_SHARED(pvt, call_waiting)
+		   )
+		{
+			/* TODO: schedule restart */
+			pvt->desired_state = DEV_STATE_RESTARTED;
+			pvt->restart_time = when;
+			rv = pvt_time4restate(pvt);
+		}
+		/* and copy settings */
+		memcpy(&pvt->settings, settings, sizeof(pvt->settings));
+	}
+	if(rv)
+		pvt->restart_time = RESTATE_TIME_NOW;
+	return rv;
+}
+
+#/* */
+static int reload_config(public_state_t * state, int recofigure, restate_time_t when, unsigned * reload_immediality)
+{
+	struct ast_config * cfg;
+	const char * cat;
+	struct ast_flags config_flags = { 0 };
+	struct dc_sconfig config_defaults;
+	pvt_config_t settings;
+	int err;
+	struct pvt * pvt;
+	unsigned reloads = 0;
 
 	if ((cfg = ast_config_load (CONFIG_FILE, config_flags)) == NULL)
 	{
@@ -861,77 +1028,145 @@ static int load_config ()
 	}
 
 	/* read global config */
-	dc_gconfig_fill(cfg, "general", &gpublic->global_settings);
-	
+	dc_gconfig_fill(cfg, "general", &state->global_settings);
+
 	/* read defaults */
 	dc_sconfig_fill_defaults(&config_defaults);
 	dc_sconfig_fill(cfg, "defaults", &config_defaults);
-
 
 	/* now load devices */
 	for (cat = ast_category_browse (cfg, NULL); cat; cat = ast_category_browse (cfg, cat))
 	{
 		if (strcasecmp (cat, "general") && strcasecmp (cat, "defaults"))
 		{
-			load_device (cfg, cat, &config_defaults);
+			err = dc_config_fill(cfg, cat, &config_defaults, &settings);
+			if(!err)
+			{
+				pvt = find_device(UCONFIG(&settings, id));
+				if(pvt)
+				{
+					if(!recofigure)
+					{
+						ast_log (LOG_ERROR, "device %s already exists, duplicate in config file\n", cat);
+					}
+					else
+					{
+						ast_mutex_lock(&pvt->lock);
+						reloads += pvt_reconfigure(pvt, &settings, when);
+						ast_mutex_unlock(&pvt->lock);
+					}
+				}
+				else
+				{
+					/* new device */
+					if(SCONFIG(&settings, disable))
+					{
+						ast_log (LOG_NOTICE, "Skipping device %s as disabled\n", cat);
+					}
+					else
+					{
+						pvt = pvt_create(&settings);
+						if(pvt)
+						{
+							AST_RWLIST_WRLOCK (&state->devices);
+							AST_RWLIST_INSERT_TAIL (&state->devices, pvt, entry);
+							AST_RWLIST_UNLOCK (&state->devices);
+							reloads++;
+
+							ast_debug (1, "[%s] Loaded device\n", PVT_ID(pvt));
+							ast_log (LOG_NOTICE, "Loaded device %s\n", PVT_ID(pvt));
+						}
+					}
+				}
+			}
 		}
 	}
 
 	ast_config_destroy (cfg);
-
+	if(reload_immediality)
+		*reload_immediality = reloads;
 	return 0;
 }
 
-static int load_module ()
+
+#/* */
+static void devices_destroy(public_state_t * state)
 {
+	struct pvt * pvt;
+
+	/* Destroy the device list */
+	AST_RWLIST_WRLOCK (&state->devices);
+	while((pvt = AST_RWLIST_REMOVE_HEAD (&state->devices, entry)))
+	{
+		pvt_destroy(pvt);
+	}
+	AST_RWLIST_UNLOCK (&state->devices);
+}
+
+static int load_module()
+{
+	int rv = AST_MODULE_LOAD_DECLINE;
+
 	gpublic = ast_calloc(1, sizeof(*gpublic));
-	if(!gpublic)
+	if(gpublic)
+	{
+		AST_RWLIST_HEAD_INIT(&gpublic->devices);
+		ast_mutex_init(&gpublic->discovery_lock);
+		gpublic->discovery_thread = AST_PTHREADT_NULL;
+		ast_mutex_init(&gpublic->round_robin_mtx);
+
+		if(reload_config(gpublic, 0, RESTATE_TIME_NOW, NULL) == 0)
+		{
+			rv = AST_MODULE_LOAD_FAILURE;
+			if(discovery_restart(gpublic) == 0)
+			{
+				/* register our channel type */
+				if(ast_channel_register(&channel_tech) == 0)
+				{
+					cli_register();
+
+#ifdef BUILD_APPLICATIONS
+					app_register();
+#endif
+#ifdef BUILD_MANAGER
+					manager_register();
+#endif
+
+					return AST_MODULE_LOAD_SUCCESS;
+				}
+				else
+				{
+					ast_log (LOG_ERROR, "Unable to register channel class %s\n", "Datacard");
+				}
+				discovery_stop(gpublic);
+			}
+			else
+			{
+				ast_channel_unregister (&channel_tech);
+				ast_log (LOG_ERROR, "Unable to create discovery thread\n");
+			}
+			devices_destroy(gpublic);
+		}
+		else
+		{
+			ast_log (LOG_ERROR, "Errors reading config file " CONFIG_FILE ", Not loading module\n");
+			return AST_MODULE_LOAD_DECLINE;
+		}
+		ast_mutex_destroy(&gpublic->round_robin_mtx);
+		AST_RWLIST_HEAD_DESTROY(&gpublic->devices);
+
+		ast_free(gpublic);
+	}
+	else
 	{
 		ast_log (LOG_ERROR, "Unable to allocate global state structure\n");
 		return AST_MODULE_LOAD_DECLINE;
 	}
-	
-	AST_RWLIST_HEAD_INIT(&gpublic->devices);
-	ast_mutex_init(&gpublic->round_robin_mtx);
-	
-
-	if (load_config ())
-	{
-		ast_log (LOG_ERROR, "Errors reading config file " CONFIG_FILE ", Not loading module\n");
-		return AST_MODULE_LOAD_DECLINE;
-	}
-
-	/* Spin the discovery thread */
-	if (ast_pthread_create_background (&gpublic->discovery_thread, NULL, do_discovery, NULL) < 0)
-	{
-		ast_log (LOG_ERROR, "Unable to create discovery thread\n");
-		return AST_MODULE_LOAD_FAILURE;
-	}
-
-	/* register our channel type */
-	if (ast_channel_register (&channel_tech))
-	{
-		ast_log (LOG_ERROR, "Unable to register channel class %s\n", "Datacard");
-		return AST_MODULE_LOAD_FAILURE;
-	}
-
-	cli_register();
-
-#ifdef BUILD_APPLICATIONS
-	app_register();
-#endif
-
-#ifdef BUILD_MANAGER
-	manager_register();
-#endif
-
-	return AST_MODULE_LOAD_SUCCESS;
+	return rv;
 }
 
-static int unload_module ()
+static int unload_module()
 {
-	struct pvt* pvt;
-
 	/* First, take us out of the channel loop */
 	ast_channel_unregister (&channel_tech);
 
@@ -947,36 +1182,8 @@ static int unload_module ()
 
 	cli_unregister();
 
-	/* signal everyone we are unloading */
-	gpublic->unloading_flag = 1;
-
-	/* Kill the discovery thread */
-	if (gpublic->discovery_thread != AST_PTHREADT_NULL)
-	{
-		pthread_kill (gpublic->discovery_thread, SIGURG);
-		pthread_join (gpublic->discovery_thread, NULL);
-	}
-
-	/* Destroy the device list */
-	AST_RWLIST_WRLOCK (&gpublic->devices);
-	while ((pvt = AST_RWLIST_REMOVE_HEAD (&gpublic->devices, entry)))
-	{
-		if (pvt->monitor_thread != AST_PTHREADT_NULL)
-		{
-			pthread_kill (pvt->monitor_thread, SIGURG);
-			pthread_join (pvt->monitor_thread, NULL);
-		}
-
-		closetty (CONF_UNIQ(pvt, audio_tty), pvt->audio_fd);
-		closetty (CONF_UNIQ(pvt, data_tty), pvt->data_fd);
-
-		at_queue_flush (pvt);
-
-		ast_dsp_free (pvt->dsp);
-		ast_free (pvt);
-	}
-	AST_RWLIST_UNLOCK (&gpublic->devices);
-
+	discovery_stop(gpublic);
+	devices_destroy(gpublic);
 	ast_mutex_destroy(&gpublic->round_robin_mtx);
 	AST_RWLIST_HEAD_DESTROY(&gpublic->devices);
 
@@ -985,7 +1192,29 @@ static int unload_module ()
 	return 0;
 }
 
-AST_MODULE_INFO_STANDARD (ASTERISK_GPL_KEY, MODULE_DESCRIPTION);
+#/* */
+EXPORT_DEF void pvt_reload(restate_time_t when)
+{
+	unsigned dev_reload = 0;
+	reload_config(gpublic, 1, when, &dev_reload);
+	if(dev_reload > 0)
+		discovery_restart(gpublic);
+}
+
+#/* */
+static int reload_module()
+{
+	pvt_reload(RESTATE_TIME_GRACEFULLY);
+	return 0;
+}
+
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, MODULE_DESCRIPTION,
+		.load = load_module,
+		.unload = unload_module,
+		.reload = reload_module,
+	       );
+
+//AST_MODULE_INFO_STANDARD (ASTERISK_GPL_KEY, MODULE_DESCRIPTION);
 
 EXPORT_DEF struct ast_module* self_module()
 {

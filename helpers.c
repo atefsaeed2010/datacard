@@ -59,6 +59,32 @@ EXPORT_DEF struct pvt* find_device (const char* name)
 }
 
 #/* */
+EXPORT_DEF struct pvt* find_device_ext (const char* name, const char ** reason)
+{
+	struct pvt * pvt = find_device(name);
+	char * res = "";
+	if(pvt)
+	{
+		int enabled;
+
+		ast_mutex_lock (&pvt->lock);
+		enabled = pvt_enabled(pvt);
+		ast_mutex_unlock (&pvt->lock);
+
+		if(!enabled)
+		{
+			res = "device disabled";
+			pvt = NULL;
+		}
+	}
+	else
+		res = "no such device";
+	if(reason)
+		*reason = res;
+	return pvt;
+}
+
+#/* */
 EXPORT_DEF int get_at_clir_value (struct pvt* pvt, int clir)
 {
 	int res = 0;
@@ -108,7 +134,7 @@ static const char* send2(const char* dev_name, int * status, int online, const c
 
 	if(status)
 		*status = 0;
-	pvt = find_device (dev_name);
+	pvt = find_device_ext (dev_name, &msg);
 	if (pvt)
 	{
 		ast_mutex_lock (&pvt->lock);
@@ -130,10 +156,6 @@ static const char* send2(const char* dev_name, int * status, int online, const c
 			msg = "Device not connected / initialized / registered";
 		ast_mutex_unlock (&pvt->lock);
 	}
-	else
-	{
-		msg = "Device not found";
-	}
 	return msg;
 }
 
@@ -154,14 +176,14 @@ EXPORT_DEF const char * send_sms(const char * dev_name, const char * number, con
 	{
 		int val = 0;
 		int srr = 0;
-		
+
 		if(validity)
 		{
 			val = strtol (validity, NULL, 10);
 			if(val <= 0)
 				val = 0;
 		}
-		
+
 		if(report)
 			srr = ast_true (report);
 
@@ -190,37 +212,22 @@ EXPORT_DEF const char* send_at_command(const char* dev_name, const char* command
 	return send2(dev_name, NULL, 0, "Error adding command", "Command queued for execute", (at_cmd_f)at_enque_user_cmd, command, NULL, 0, 0);
 }
 
-#/* */
-EXPORT_DEF const char* schedule_restart_event(const char* dev_name, restart_event_t event, int * status)
+EXPORT_DEF const char* schedule_restart_event(dev_state_t event, restate_time_t when, const char* dev_name, int * status)
 {
 	const char * msg;
 	struct pvt * pvt = find_device (dev_name);
 
 	if (pvt)
 	{
-		pthread_t * thread;
-
-		msg = "Restart scheduled";
 		ast_mutex_lock (&pvt->lock);
-		switch(event)
-		{
-			case EVENT_STOP:
-				msg = "Stop scheduled";
-				pvt->off = 1;
-				// passthru
-			case EVENT_RESTART:
-				pvt->restarting = 1;
-				thread = &pvt->monitor_thread;
-				break;
-			case EVENT_START:
-				msg = "Start scheduled";
-				pvt->off = 0;
-				pvt->restarting = 0;
-				thread = &gpublic->discovery_thread;
-		}
-		if(*thread != AST_PTHREADT_NULL)
-			pthread_kill (*thread, SIGURG);
+
+		pvt->desired_state = event;
+		pvt->restart_time = when;
+
+		pvt_try_restate(pvt);
 		ast_mutex_unlock (&pvt->lock);
+
+		msg = dev_state2str_msg(event);
 
 		if(status)
 			*status = 1;
@@ -231,6 +238,6 @@ EXPORT_DEF const char* schedule_restart_event(const char* dev_name, restart_even
 		if(status)
 			*status = 0;
 	}
-	
+
 	return msg;
 }

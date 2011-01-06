@@ -84,13 +84,25 @@ datacard cmd datacard0 AT+CPBW=1,\"+123456789\",145
 
 Other CLI commands:
 
-datacard reset device
-datacard restart device
-datacard show device device
+datacard reset <device>
+datacard restart gracefully <device>
+datacard restart now <device>
+datacard restart when convenient <device>
+datacard show device <device>
 datacard show devices
 datacard show version
-datacard sms device number message
-datacard ussd device number message
-datacard stop device
-datacard start device
-datacard restart device
+datacard sms <device> number message
+datacard ussd <device> number message
+datacard stop gracefully <device>
+datacard stop now <device>
+datacard stop when convenient <device>
+datacard start <device>
+datacard restart gracefully <device>
+datacard restart now <device>
+datacard restart when convenient <device>
+datacard remove gracefully <device>
+datacard remove now <device>
+datacard remove when convenient <device>
+datacard reload gracefully
+datacard reload now
+datacard reload when convenient

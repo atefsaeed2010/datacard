@@ -61,7 +61,7 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 			return NULL;
 	}
 
-	if (a->argc < 3)
+	if (a->argc != 3)
 	{
 		return CLI_SHOWUSAGE;
 	}
@@ -118,7 +118,7 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 			return NULL;
 	}
 
-	if (a->argc < 4)
+	if (a->argc != 4)
 	{
 		return CLI_SHOWUSAGE;
 	}
@@ -133,9 +133,9 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "\n Current device settings:\n");
 		ast_cli (a->fd, "------------------------------------\n");
 		ast_cli (a->fd, "  Device                  : %s\n", PVT_ID(pvt));
+		ast_cli (a->fd, "  State                   : %s\n", ast_str_buffer(statebuf));
 		ast_cli (a->fd, "  Group                   : %d\n", CONF_SHARED(pvt, group));
 		ast_cli (a->fd, "  GSM Registration Status : %s\n", GSM_regstate2str(pvt->gsm_reg_status));
-		ast_cli (a->fd, "  State                   : %s\n", ast_str_buffer(statebuf));
 		ast_cli (a->fd, "  Voice                   : %s\n", (pvt->has_voice) ? "Yes" : "No");
 		ast_cli (a->fd, "  SMS                     : %s\n", (pvt->has_sms) ? "Yes" : "No");
 		ast_cli (a->fd, "  RSSI                    : %d, %s\n", pvt->rssi, rssi2dBm(pvt->rssi, buf, sizeof(buf)));
@@ -191,7 +191,7 @@ static char* cli_show_version (struct ast_cli_entry* e, int cmd, struct ast_cli_
 			return NULL;
 	}
 
-	if (a->argc < 3)
+	if (a->argc != 3)
 	{
 		return CLI_SHOWUSAGE;
 	}
@@ -222,7 +222,7 @@ static char* cli_cmd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 			return NULL;
 	}
 
-	if (a->argc < 4)
+	if (a->argc != 4)
 	{
 		return CLI_SHOWUSAGE;
 	}
@@ -236,7 +236,7 @@ static char* cli_cmd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 static char* cli_ussd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
 	const char * msg;
-	
+
 	switch (cmd)
 	{
 		case CLI_INIT:
@@ -255,7 +255,7 @@ static char* cli_ussd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 			return NULL;
 	}
 
-	if (a->argc < 4)
+	if (a->argc != 4)
 	{
 		return CLI_SHOWUSAGE;
 	}
@@ -325,13 +325,13 @@ static char* cli_ccwa_set (struct ast_cli_entry* e, int cmd, struct ast_cli_args
 	static const char * const choices[] = { "enable", "disable", NULL };
 	const char * msg;
 	call_waiting_t enable;
-	
+
 	switch (cmd)
 	{
 		case CLI_INIT:
 			e->command = "datacard callwaiting";
 			e->usage =
-				"Usage: datacard ccwa disable|enable <device>\n"
+				"Usage: datacard callwaiting disable|enable <device>\n"
 				"       Disable/Enable Call-Waiting on <device>\n";
 			return NULL;
 
@@ -351,9 +351,9 @@ static char* cli_ccwa_set (struct ast_cli_entry* e, int cmd, struct ast_cli_args
 	{
 		return CLI_SHOWUSAGE;
 	}
-	if (strcmp("disable", a->argv[2]) == 0)
+	if (strcasecmp("disable", a->argv[2]) == 0)
 		enable = CALL_WAITING_DISALLOWED;
-	else if (strcmp("enable", a->argv[2]) == 0)
+	else if (strcasecmp("enable", a->argv[2]) == 0)
 		enable = CALL_WAITING_ALLOWED;
 	else
 		return CLI_SHOWUSAGE;
@@ -385,7 +385,7 @@ static char* cli_reset (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a
 			return NULL;
 	}
 
-	if (a->argc < 3)
+	if (a->argc != 3)
 	{
 		return CLI_SHOWUSAGE;
 	}
@@ -396,24 +396,32 @@ static char* cli_reset (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a
 	return CLI_SUCCESS;
 }
 
+static const char * const a_choices[] = { "now", "gracefully", "when", NULL };
+static const char * const a_choices2[] = { "convenient", NULL };
+
 #/* */
-static char* cli_restart_event(struct ast_cli_entry* e, int cmd, struct ast_cli_args* a, restart_event_t event)
+static char* cli_restart_event(struct ast_cli_entry* e, int cmd, struct ast_cli_args* a, dev_state_t event)
 {
+
 	static char * const cmds[] = {
 		"datacard stop",
-		"datacard start",
 		"datacard restart",
+		"datacard remove",
 		};
 	static const char * const usage[] = {
-		"Usage: datacard stop <device>\n"
+		"Usage: datacard stop < now | gracefully | when convenient > <device>\n"
 		"       Stop datacard <device>\n",
-		"Usage: datacard start <device>\n"
-		"       Start datacard <device>\n",
-		"Usage: datacard restart <device>\n"
+
+		"Usage: datacard restart < now | gracefully | when convenient > <device>\n"
 		"       Restart datacard <device>\n",
+
+		"Usage: datacard remove < now | gracefully | when convenient > <device>\n"
+		"       Remove datacard <device>\n",
 		};
 
+	const char * device = NULL;
 	const char * msg;
+	int i;
 
 	switch (cmd)
 	{
@@ -423,41 +431,160 @@ static char* cli_restart_event(struct ast_cli_entry* e, int cmd, struct ast_cli_
 			return NULL;
 
 		case CLI_GENERATE:
-			if (a->pos == 2)
+			switch(a->pos)
 			{
-				return complete_device (a->word, a->n);
+				case 2:
+					return ast_cli_complete(a->word, (ast_cli_complete2_t)a_choices, a->n);
+				case 3:
+					if(strcasecmp(a->argv[2], "when") == 0)
+						return ast_cli_complete(a->word, (ast_cli_complete2_t)a_choices2, a->n);
+					return complete_device(a->word, a->n);
+					break;
+				case 4:
+					if(strcasecmp(a->argv[2], "when") == 0 && strcasecmp(a->argv[3], "convenient") == 0)
+						return complete_device(a->word, a->n);
 			}
 			return NULL;
 	}
 
-	if (a->argc < 3)
+	if(a->argc != 4 && a->argc != 5)
 	{
 		return CLI_SHOWUSAGE;
 	}
 
-	msg = schedule_restart_event(a->argv[2], event, NULL);
-	ast_cli(a->fd, "[%s] %s\n", a->argv[2], msg);
+	for(i = 0; a_choices[i]; i++)
+	{
+		if(strcasecmp(a->argv[2], a_choices[i]) == 0)
+		{
+			if(i == RESTATE_TIME_CONVENIENT)
+			{
+				if(a->argc == 5 && strcasecmp(a->argv[3], a_choices2[0]) == 0)
+				{
+					device = a->argv[4];
+				}
+			}
+			else if(a->argc == 4)
+			{
+				device = a->argv[3];
+			}
 
-	return CLI_SUCCESS;
-}
-
-#/* */
-static char* cli_restart(struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
-{
-	return cli_restart_event(e, cmd, a, EVENT_RESTART);
+			if(device)
+			{
+				msg = schedule_restart_event(event, i, device, NULL);
+				ast_cli(a->fd, "[%s] %s\n", device, msg);
+				return CLI_SUCCESS;
+			}
+			break;
+		}
+	}
+	return CLI_SHOWUSAGE;
 }
 
 #/* */
 static char* cli_stop(struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
-	return cli_restart_event(e, cmd, a, EVENT_STOP);
+	return cli_restart_event(e, cmd, a, DEV_STATE_STOPPED);
+}
+
+#/* */
+static char* cli_restart(struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+{
+	return cli_restart_event(e, cmd, a, DEV_STATE_RESTARTED);
+}
+
+#/* */
+static char * cli_remove(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
+{
+	return cli_restart_event(e, cmd, a, DEV_STATE_REMOVED);
 }
 
 #/* */
 static char* cli_start(struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
-	return cli_restart_event(e, cmd, a, EVENT_START);
+	const char * msg;
+
+	switch (cmd)
+	{
+		case CLI_INIT:
+			e->command =	"datacard start";
+			e->usage   =	"Usage: datacard start <device>\n"
+					"       Start datacard <device>\n";
+			return NULL;
+
+		case CLI_GENERATE:
+			if(a->pos == 2)
+				return complete_device(a->word, a->n);
+			return NULL;
+	}
+
+	if (a->argc != 3)
+	{
+		return CLI_SHOWUSAGE;
+	}
+
+	msg = schedule_restart_event(DEV_STATE_STARTED, RESTATE_TIME_NOW, a->argv[2], NULL);
+	ast_cli(a->fd, "[%s] %s\n", a->argv[2], msg);
+
+	return CLI_SUCCESS;
 }
+
+static char * cli_reload(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
+{
+	int ok = 0;
+	int i;
+
+	switch (cmd)
+	{
+		case CLI_INIT:
+			e->command =	"datacard reload";
+			e->usage   =	"Usage: datacard reload < now | gracefully | when convenient >\n"
+					"       Reloads the chan_datacard configuration\n";
+			return NULL;
+
+		case CLI_GENERATE:
+			switch(a->pos)
+			{
+				case 2:
+					return ast_cli_complete(a->word, (ast_cli_complete2_t)a_choices, a->n);
+				case 3:
+					if(strcasecmp(a->argv[2], "when") == 0)
+						return ast_cli_complete(a->word, (ast_cli_complete2_t)a_choices2, a->n);
+			}
+			return NULL;
+	}
+
+	if (a->argc != 3 && a->argc != 4)
+	{
+		return CLI_SHOWUSAGE;
+	}
+
+	for(i = 0; a_choices[i]; i++)
+	{
+		if(strcasecmp(a->argv[2], a_choices[i]) == 0)
+		{
+			if(i == RESTATE_TIME_CONVENIENT)
+			{
+				if(a->argc == 4 && strcasecmp(a->argv[3], a_choices2[0]) == 0)
+				{
+					ok = 1;
+				}
+			}
+			else if(a->argc == 3)
+			{
+				ok = 1;
+			}
+
+			if(ok)
+			{
+				pvt_reload(i);
+				return CLI_SUCCESS;
+			}
+			break;
+		}
+	}
+	return CLI_SHOWUSAGE;
+}
+
 
 
 static struct ast_cli_entry cli[] = {
@@ -468,10 +595,32 @@ static struct ast_cli_entry cli[] = {
 	AST_CLI_DEFINE (cli_ussd,		"Send USSD commands to the datacard"),
 	AST_CLI_DEFINE (cli_sms,		"Send SMS from the datacard"),
 	AST_CLI_DEFINE (cli_ccwa_set,		"Enable/Disable Call-Waiting on the datacard"),
-	AST_CLI_DEFINE (cli_reset,		"Reset datacard"),
-	AST_CLI_DEFINE (cli_restart,		"Restart datacard"),
+	AST_CLI_DEFINE (cli_reset,		"Reset datacard now"),
+
 	AST_CLI_DEFINE (cli_stop,		"Stop datacard"),
+	AST_CLI_DEFINE (cli_restart,		"Restart datacard"),
+	AST_CLI_DEFINE (cli_remove,		"Remove datacard"),
+	AST_CLI_DEFINE (cli_reload,		"Reload datacard"),
+
+/*
+	AST_CLI_DEFINE (cli_stop_now,		"Stop datacard now"),
+	AST_CLI_DEFINE (cli_stop_gracefully,	"Stop datacard gracefully"),
+	AST_CLI_DEFINE (cli_stop_convenient,	"Stop datacard when convenient"),
+
+	AST_CLI_DEFINE (cli_restart_now,	"Restart datacard now"),
+	AST_CLI_DEFINE (cli_restart_gracefully,	"Restart datacard"),
+	AST_CLI_DEFINE (cli_restart_convenient,	"Restart datacard when convenient"),
+
+	AST_CLI_DEFINE (cli_remove_now,		"Remove datacard now"),
+	AST_CLI_DEFINE (cli_remove_gracefully,	"Remove datacard gracefully"),
+	AST_CLI_DEFINE (cli_remove_convenient,	"Remove datacard when convenient"),
+*/
 	AST_CLI_DEFINE (cli_start,		"Start datacard"),
+/*
+	AST_CLI_DEFINE (cli_reload_now,		"Reload datacard now"),
+	AST_CLI_DEFINE (cli_reload_gracefully,	"Reload datacard gracefully"),
+	AST_CLI_DEFINE (cli_reload_convenient,	"Reload datacard when convenient"),
+*/
 };
 
 #/* */
@@ -484,4 +633,15 @@ EXPORT_DEF void cli_register()
 EXPORT_DEF void cli_unregister()
 {
 	ast_cli_unregister_multiple (cli, ITEMS_OF(cli));
+}
+
+char *ast_str_truncate2(struct ast_str *buf, ssize_t len)
+{
+	if (len < 0) {
+		buf->__AST_STR_USED += ((ssize_t) abs(len)) > ((ssize_t) buf->__AST_STR_USED) ? (ssize_t)-buf->__AST_STR_USED : (ssize_t)len;
+	} else {
+		buf->__AST_STR_USED = len;
+	}
+	buf->__AST_STR_STR[buf->__AST_STR_USED] = '\0';
+	return buf->__AST_STR_STR;
 }

@@ -52,7 +52,7 @@ static int app_status_exec (struct ast_channel* channel, const char* data)
 		return -1;
 	}
 
-	pvt = find_device(args.device);
+	pvt = find_device_ext(args.device, NULL);
 	if(pvt)
 	{
 		ast_mutex_lock(&pvt->lock);
