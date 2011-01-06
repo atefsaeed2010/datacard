@@ -12,11 +12,11 @@ CFLAGS="$CFLAGS -D_GNU_SOURCE"
 
 dnl Checks for user settings.
 dnl  Set asterisk headers patch
-AC_ARG_ENABLE(
+AC_ARG_WITH(
 	[asterisk],
-	AS_HELP_STRING([--enable-asterisk=path], [set asterisk headers location]),
-	[ if test "x$enable_asterisk" = "xyes" -o "x$enable_asterisk" = "xno" ; then  AC_MSG_ERROR([Invalid --enable-asterisk=path value]); fi ],
-	[ enable_asterisk="../include /usr/include /usr/local/include /opt/local/include" ]
+	AS_HELP_STRING([--with-asterisk=path], [set asterisk headers location]),
+	[ if test "x$with_asterisk" = "xyes" -o "x$with_asterisk" = "xno" ; then  AC_MSG_ERROR([Invalid --with-asterisk=path value]); fi ],
+	[ with_asterisk="../include /usr/include /usr/local/include /opt/local/include" ]
 )
 
 AC_ARG_ENABLE(
@@ -84,7 +84,7 @@ AC_DEFUN([AC_HEADER_FIND], [
     ]
 )
 
-AC_HEADER_FIND([asterisk.h], $enable_asterisk)
+AC_HEADER_FIND([asterisk.h], $with_asterisk)
 
 AC_DEFINE([ICONV_CONST],[],[has iconv() const declaration of input buffer])
 AC_EGREP_HEADER([extern.+iconv\s*\(.+const], iconv.h, [AC_DEFINE([ICONV_CONST],[const])])

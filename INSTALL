@@ -19,7 +19,7 @@
 	   turn off some parts
 		./configure --disable-manager --disable-apps
 	   explicite set path to asterisk headers
-		./configure --enable-asterisk=/usr/src/asterisk-1.6.2.13/include
+		./configure --with-asterisk=/usr/src/asterisk-1.6.2.13/include
 	      		or
 		CFLAGS="-I /usr/src/asterisk-1.6.2.13/include" ./configure
 	   enable debigging
