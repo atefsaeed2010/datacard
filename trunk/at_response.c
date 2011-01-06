@@ -242,6 +242,8 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 
 			case CMD_AT_SMSTEXT:
 				pvt->outgoing_sms = 0;
+				pvt_try_restate(pvt);
+
 				/* TODO: move to +CMGS: handler */
 				ast_verb (3, "[%s] Successfully sent sms message\n", PVT_ID(pvt));
 				ast_log (LOG_NOTICE, "[%s] Successfully sent sms message\n", PVT_ID(pvt));
@@ -476,19 +478,22 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 
 			case CMD_AT_CMGR:
 				pvt->incoming_sms = 0;
+				pvt_try_restate(pvt);
 				ast_log (LOG_ERROR, "[%s] Error reading SMS message\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CMGD:
 				pvt->incoming_sms = 0;
+				pvt_try_restate(pvt);
 				ast_log (LOG_ERROR, "[%s] Error deleting SMS message\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CMGS:
 			case CMD_AT_SMSTEXT:
+				pvt->outgoing_sms = 0;
+				pvt_try_restate(pvt);
 				ast_verb (3, "[%s] Error sending SMS message\n", PVT_ID(pvt));
 				ast_log (LOG_ERROR, "[%s] Error sending SMS message\n", PVT_ID(pvt));
-				pvt->outgoing_sms = 0;
 				break;
 
 			case CMD_AT_DTMF:
@@ -766,7 +771,6 @@ static int at_response_csca (struct pvt* pvt, char* str)
 	return 0;
 }
 
-
 /*!
  * \brief Handle ^CONN response
  * \param pvt -- pvt structure
@@ -883,7 +887,7 @@ static int at_response_clcc (struct pvt* pvt, char* str)
 		{
 			CPVT_RESET_FLAGS(cpvt, CALL_FLAG_ALIVE);
 		}
-		
+
 		for(;;)
 		{
 			if(at_parse_clcc(str, &call_idx, &dir, &state, &mode, &mpty, &number, &type) == 0)
@@ -923,10 +927,12 @@ static int at_response_clcc (struct pvt* pvt, char* str)
 					}
 					else if(dir == CALL_DIR_INCOMING && (state == CALL_STATE_INCOMING || state == CALL_STATE_WAITING))
 					{
-						/* TODO: give dialplan level user tool for checking device is voice enabled or not  */
-						if(start_pbx(pvt, number, call_idx, state) == 0 && !pvt->has_voice)
-							ast_log (LOG_ERROR, "[%s] pbx started for device not voice capable\n", PVT_ID(pvt));
-						
+						if(pvt_enabled(pvt))
+						{
+							/* TODO: give dialplan level user tool for checking device is voice enabled or not  */
+							if(start_pbx(pvt, number, call_idx, state) == 0 && !pvt->has_voice)
+								ast_log (LOG_WARNING, "[%s] pbx started for device not voice capable\n", PVT_ID(pvt));
+						}
 					}
 
 					all++;
@@ -1115,7 +1121,7 @@ static int at_response_cmti (struct pvt* pvt, const char* str)
 		{
 			ast_log (LOG_WARNING, "[%s] SMS reception has been disabled in the configuration.\n", PVT_ID(pvt));
 		}
-		else
+		else if(pvt_enabled(pvt))
 		{
 			if (at_enque_retrive_sms (&pvt->sys_chan, index, CONF_SHARED(pvt, auto_delete_sms)))
 			{
@@ -1169,6 +1175,7 @@ static int at_response_cmgr (struct pvt* pvt, const char* str, size_t len)
 	    {
 		at_queue_handle_result (pvt, RES_CMGR);
 		pvt->incoming_sms = 0;
+		pvt_try_restate(pvt);
 
 		cmgr = err_pos = ast_strdupa (str);
 		err = at_parse_cmgr (&err_pos, len, oa, sizeof(oa), &oa_enc, &msg, &msg_enc);
@@ -1289,7 +1296,7 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 		"Operation not supported",
 		"Network time out",
 	};
-	
+
 	ssize_t		res;
 	int		type;
 	char*		cusd;
@@ -1313,7 +1320,7 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 
 	typebuf[0] = type + '0';
 	typebuf[1] = 0;
-	
+
 	// FIXME: strictly check USSD encoding and detect encoding
 	if ((dcs == 0 || dcs == 15) && !pvt->cusd_use_ucs2_decoding)
 		ussd_encoding = STR_ENCODING_7BIT_HEX;
@@ -1329,7 +1336,7 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 		ast_log (LOG_ERROR, "[%s] Error decode CUSD: %s\n", PVT_ID(pvt), cusd);
 		return -1;
 	}
-	
+
 	ast_verb (1, "[%s] Got USSD type '%s': '%s'\n", PVT_ID(pvt), types[type], cusd);
 	ast_base64encode (text_base64, (unsigned char*)cusd, strlen(cusd), sizeof(text_base64));
 

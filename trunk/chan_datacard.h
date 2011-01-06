@@ -18,6 +18,7 @@
 #include "cpvt.h"				/* struct cpvt */
 #include "export.h"				/* EXPORT_DECL EXPORT_DEF */
 #include "dc_config.h"				/* pvt_config_t */
+#include "helpers.h"
 
 #define MODULE_DESCRIPTION	"Datacard Channel Driver"
 
@@ -38,11 +39,12 @@ typedef struct pvt_stat
 	unsigned int		write_frames;			/*!< number of tries to frame write */
 	unsigned int		write_tframes;			/*!< number of truncated frames to write */
 	unsigned int		write_sframes;			/*!< number of silence frames to write */
-	
+
 	uint64_t		write_rb_overflow_bytes;	/*!< number of overflow bytes */
 	unsigned int		write_rb_overflow;		/*!< number of times when a_write_rb overflowed */
 } pvt_stat_t;
 #define PVT_STAT_PUMP(name, expr)		pvt->stat.name expr
+
 
 typedef struct pvt
 {
@@ -56,11 +58,13 @@ typedef struct pvt
 	unsigned		chansno;			/*!< number of channels in channels list */
 	struct cpvt		sys_chan;			/*!< system channel */
 	struct cpvt		*last_dialed_cpvt;		/*!< channel what last call successfully set ATDnum; leave until ^ORIG received; need because real call idx of dialing call unknown until ^ORIG */
-	
+
 	pthread_t		monitor_thread;			/*!< monitor (at commands reader) thread handle */
 
 	int			audio_fd;			/*!< audio descriptor */
 	int			data_fd;			/*!< data descriptor */
+	char			* alock;			/*!< name of lockfile for audio */
+	char			* dlock;			/*!< name of lockfile for data */
 
 	struct ast_dsp*		dsp;				/*!< silence/DTMF detector */
 	struct ast_timer*	a_timer;			/*!< audio write timer */
@@ -68,7 +72,7 @@ typedef struct pvt
 	char			a_write_buf[FRAME_SIZE * 5];	/*!< audio write buffer */
 	struct mixbuffer	a_write_mixb;			/*!< audio mix buffer */
 //	struct ringbuffer	a_write_rb;			/*!< audio ring buffer */
-	
+
 //	char			a_read_buf[FRAME_SIZE + AST_FRIENDLY_OFFSET];	/*!< audio read buffer */
 //	struct ast_frame	a_read_frame;			/*!< readed frame buffer */
 
@@ -87,6 +91,7 @@ typedef struct pvt
 	unsigned int		cusd_use_7bit_encoding:1;
 	unsigned int		cusd_use_ucs2_decoding:1;
 
+	/* device state */
 	int			gsm_reg_status;
 	int			rssi;
 	int			linkmode;
@@ -101,8 +106,7 @@ typedef struct pvt
 	char			location_area_code[8];
 	char			cell_id[8];
 	char			sms_scenter[20];
-	
-	/* device state */
+
 	unsigned int		connected:1;			/*!< do we have an connection to a device */
 	unsigned int		initialized:1;			/*!< whether a service level connection exists or not */
 	unsigned int		gsm_registered:1;		/*!< do we have an registration to a GSM */
@@ -123,15 +127,23 @@ typedef struct pvt
 	unsigned int		group_last_used:1;		/*!< mark the last used device */
 	unsigned int		prov_last_used:1;		/*!< mark the last used device */
 	unsigned int		sim_last_used:1;		/*!< mark the last used device */
-	unsigned int		restarting:1;			/*!< if non-zero request to restart device */
+
+	unsigned int		terminate_monitor:1;		/*!< non-zero if we want terminate monitor thread i.e. restart, stop, remove */
+//	unsigned int		off:1;				/*!< device not used */
+//	unsigned int		prevent_new:1;			/*!< prevent new usage */
+
 	unsigned int		has_subscriber_number:1;	/*!< subscriber_number field is valid */
-	unsigned int		off:1;				/*!< not use this device */
-	unsigned int		monitor_running:1;		/*!< true if monitor thread is running */
+//	unsigned int		monitor_running:1;		/*!< true if monitor thread is running */
+
+	dev_state_t		desired_state;			/*!< desired state */
+	restate_time_t		restart_time;			/*!< time when change state */
+	dev_state_t		current_state;			/*!< current state */
 
 	pvt_config_t		settings;			/*!< all device settings from config file */
 	pvt_stat_t		stat;				/*!< various statistics */
 } pvt_t;
 #define CONF_GLOBAL(name)	(gpublic->global_settings.name)
+#define SCONF_GLOBAL(state, name)	((state)->global_settings.name)
 #define CONF_SHARED(pvt, name)	((pvt)->settings.shared.name)
 #define CONF_UNIQ(pvt, name)	((pvt)->settings.unique.name)
 #define PVT_ID(pvt)		((pvt)->settings.unique.id)
@@ -139,10 +151,11 @@ typedef struct pvt
 typedef struct public_state
 {
 	AST_RWLIST_HEAD(devices, pvt)	devices;
+	ast_mutex_t			discovery_lock;
 	pthread_t			discovery_thread;		/* The discovery thread handler */
 	int				unloading_flag;			/* no need mutex or other locking for protect this variable because no concurent r/w and set non-0 atomically */
 	ast_mutex_t			round_robin_mtx;
-	struct pvt*			round_robin[256];
+	struct pvt			* round_robin[256];
 	struct dc_gconfig		global_settings;
 } public_state_t;
 
@@ -160,6 +173,9 @@ EXPORT_DECL char* rssi2dBm(int rssi, char* buf, unsigned len);
 
 EXPORT_DECL void pvt_on_create_1st_channel(struct pvt* pvt);
 EXPORT_DECL void pvt_on_remove_last_channel(struct pvt* pvt);
+EXPORT_DECL void pvt_reload(restate_time_t when);
+EXPORT_DECL int pvt_enabled(const struct pvt * pvt);
+EXPORT_DECL void pvt_try_restate(struct pvt * pvt);
 
 EXPORT_DECL struct ast_module* self_module();
 

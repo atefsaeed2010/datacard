@@ -70,7 +70,7 @@ EXPORT_DEF struct cpvt * cpvt_alloc(struct pvt * pvt, int call_idx, unsigned dir
 		close(filedes[0]);
 		close(filedes[1]);
 	}
-	
+
 	return cpvt;
 }
 
@@ -107,8 +107,10 @@ EXPORT_DEF void cpvt_free(struct cpvt* cpvt)
 	if(pvt->last_dialed_cpvt == cpvt)
 		pvt->last_dialed_cpvt = NULL;
 
-	if(PVT_NO_CHANS(pvt))
+	if(PVT_NO_CHANS(pvt)) {
 		pvt_on_remove_last_channel(pvt);
+		pvt_try_restate(pvt);
+		}
 
 	ast_free(cpvt);
 }
@@ -146,5 +148,5 @@ EXPORT_DEF const char * call_state2str(call_state_t state)
 	
 	if(idx >= 0 && idx < (int)ITEMS_OF(states))
 		return states[idx];
-	return "Unknown";
+	return "unknown";
 }

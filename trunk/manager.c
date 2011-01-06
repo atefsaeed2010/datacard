@@ -354,21 +354,36 @@ static int manager_reset (struct mansession* s, const struct message* m)
 	return 0;
 }
 
+static const char * const b_choices[] = { "now", "gracefully", "when convenient" };
 #/* */
-static int manager_restart_event(struct mansession * s, const struct message * m, restart_event_t event)
+static int manager_restart_event(struct mansession * s, const struct message * m, dev_state_t event)
 {
+
 	const char*	device	= astman_get_header (m, "Device");
+	const char*	when	= astman_get_header (m, "When");
 //	const char*	id	= astman_get_header (m, "ActionID");
 
 //	char		idtext[256] = "";
 	char		buf[256];
 	const char*	msg;
 	int		status;
+	unsigned	i;
 
 	if (ast_strlen_zero (device))
 	{
 		astman_send_error (s, m, "Device not specified");
 		return 0;
+	}
+
+	for(i = 0; i < ITEMS_OF(b_choices); i++)
+	{
+		if(event == DEV_STATE_STARTED || strcasecmp(when, b_choices[i]) == 0)
+		{
+			msg = schedule_restart_event(event, i, device, &status);
+			snprintf (buf, sizeof (buf), "[%s] %s", device, msg);
+			(status ? astman_send_ack : astman_send_error)(s, m, buf);
+			return 0;
+		}
 	}
 /*
 	if (!ast_strlen_zero (id))
@@ -376,29 +391,62 @@ static int manager_restart_event(struct mansession * s, const struct message * m
 		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
 	}
 */
-	msg = schedule_restart_event(device, event, &status);
-	snprintf (buf, sizeof (buf), "[%s] %s", device, msg);
-	(status ? astman_send_ack : astman_send_error)(s, m, buf);
 
+	astman_send_error (s, m, "Invalid value of When");
 	return 0;
 }
 
 #/* */
 static int manager_restart(struct mansession * s, const struct message * m)
 {
-	return manager_restart_event(s, m, EVENT_RESTART);
+	return manager_restart_event(s, m, DEV_STATE_RESTARTED);
 }
 
 #/* */
 static int manager_stop(struct mansession * s, const struct message * m)
 {
-	return manager_restart_event(s, m, EVENT_STOP);
+	return manager_restart_event(s, m, DEV_STATE_STOPPED);
 }
 
 #/* */
 static int manager_start(struct mansession * s, const struct message * m)
 {
-	return manager_restart_event(s, m, EVENT_START);
+	return manager_restart_event(s, m, DEV_STATE_STARTED);
+}
+
+#/* */
+static int manager_remove(struct mansession * s, const struct message * m)
+{
+	return manager_restart_event(s, m, DEV_STATE_REMOVED);
+}
+
+#/* */
+static int manager_reload(struct mansession * s, const struct message * m)
+{
+	const char*	when	= astman_get_header (m, "When");
+//	const char*	id	= astman_get_header (m, "ActionID");
+
+//	char		idtext[256] = "";
+	unsigned	i;
+
+	for(i = 0; i < ITEMS_OF(b_choices); i++)
+	{
+		if(strcasecmp(when, b_choices[i]) == 0)
+		{
+			pvt_reload(i);
+			astman_send_ack(s, m, "reload scheduled");
+			return 0;
+		}
+	}
+/*
+	if (!ast_strlen_zero (id))
+	{
+		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
+	}
+*/
+
+	astman_send_error (s, m, "Invalid value of When");
+	return 0;
 }
 
 static const struct datacard_manager
@@ -465,7 +513,8 @@ static const struct datacard_manager
 	"Description: Restart a datacard.\n\n"
 	"Variables: (Names marked with * are required)\n"
 	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
-	"	*Device:  <device>	The datacard which should be reset.\n"
+	"	*Device:  <device>	The datacard which should be restart.\n"
+	"	*When:    < now | gracefully | when convenient > Time when device restarted.\n"
 	},
 	{
 	manager_stop,
@@ -474,7 +523,8 @@ static const struct datacard_manager
 	"Description: Stop a datacard.\n\n"
 	"Variables: (Names marked with * are required)\n"
 	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
-	"	*Device:  <device>	The datacard which should be reset.\n"
+	"	*Device:  <device>	The datacard which should be stopped.\n"
+	"	*When:    < now | gracefully | when convenient > Time when device stopped.\n"
 	},
 	{
 	manager_start,
@@ -483,7 +533,26 @@ static const struct datacard_manager
 	"Description: Start a datacard.\n\n"
 	"Variables: (Names marked with * are required)\n"
 	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
-	"	*Device:  <device>	The datacard which should be reset.\n"
+	"	*Device:  <device>	The datacard which should be started.\n"
+	},
+	{
+	manager_remove,
+	"DatacardRemove", 
+	"Remove a datacard.", 
+	"Description: Remove a datacard.\n\n"
+	"Variables: (Names marked with * are required)\n"
+	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
+	"	*Device:  <device>	The datacard which should be removed.\n"
+	"	*When:    < now | gracefully | when convenient > Time when device removed.\n"
+	},
+	{
+	manager_reload,
+	"DatacardReload", 
+	"Reload a module configuration.", 
+	"Description: Reload the module configuration.\n\n"
+	"Variables: (Names marked with * are required)\n"
+	"	ActionID: <id>		Action ID for this transaction. Will be returned.\n"
+	"	*When:    < now | gracefully | when convenient > Time when devices reconfigured.\n"
 	},
 };
 
