@@ -92,7 +92,7 @@ datacard show device <device>
 datacard show devices
 datacard show version
 datacard sms <device> number message
-datacard ussd <device> number message
+datacard ussd <device> ussd
 datacard stop gracefully <device>
 datacard stop now <device>
 datacard stop when convenient <device>
