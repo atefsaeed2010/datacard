@@ -445,7 +445,8 @@ static int channel_call (struct ast_channel* channel, char* dest, attribute_unus
 	{
 		clir = -1;
 	}
-	
+
+	PVT_STAT(pvt, out_calls) ++;
 	if (at_enque_dial (cpvt, dest_num, clir))
 	{
 		ast_mutex_unlock (&pvt->lock);
@@ -685,7 +686,7 @@ again:
 			} while(written > 0);
 		}
 	}
-	PVT_STAT_PUMP(write_bytes, += done);
+	PVT_STAT(pvt, a_write_bytes) += done;
 
 	if (done != FRAME_SIZE)
 	{
@@ -750,7 +751,7 @@ static void timing_write (struct pvt* pvt)
 		}
 		else if (used > 0)
 		{
-			PVT_STAT_PUMP(write_tframes, ++);
+			PVT_STAT(pvt, write_tframes) ++;
 			msg = "[%s] write truncated frame\n";
 
 			iovcnt = mixb_read_all_iov (&pvt->a_write_mixb, iov);
@@ -763,7 +764,7 @@ static void timing_write (struct pvt* pvt)
 		}
 		else
 		{
-			PVT_STAT_PUMP(write_sframes, ++);
+			PVT_STAT(pvt, write_sframes) ++;
 			msg = "[%s] write silence\n";
 
 			iov[0].iov_base		= silence_frame;
@@ -779,7 +780,7 @@ static void timing_write (struct pvt* pvt)
 //	}
 
 
-	PVT_STAT_PUMP(write_frames, ++);
+	PVT_STAT(pvt, write_frames) ++;
 	iov_write(pvt, pvt->audio_fd, iov, iovcnt);
 //	if(write_all(pvt->audio_fd, buffer, sizeof(buffer)) != sizeof(buffer))
 //		ast_debug (1, "[%s] Write error!\n", PVT_ID(pvt));
@@ -877,10 +878,10 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 			if(CPVT_TEST_FLAG(cpvt, CALL_FLAG_MULTIPARTY))
 				write_conference(pvt, cpvt->a_read_frame.data.ptr, res);
 
-			PVT_STAT_PUMP(read_bytes, += res);
-			PVT_STAT_PUMP(read_frames, ++);
+			PVT_STAT(pvt, a_read_bytes) += res;
+			PVT_STAT(pvt, read_frames) ++;
 			if(res < FRAME_SIZE)
-				PVT_STAT_PUMP(read_sframes, ++);
+				PVT_STAT(pvt, read_sframes) ++;
 		}
 
 		cpvt->a_read_frame.samples	= res / 2;
@@ -1030,7 +1031,7 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 			{
 				ast_debug (1, "[%s] Volume could not be adjusted!\n", PVT_ID(pvt));
 			}
-			gain = - pvt->chan_count[CALL_STATE_ACTIVE];
+			gain = - PVT_STATE(pvt, chan_count[CALL_STATE_ACTIVE]);
 		}
 
 		/* down volume for reduce level of mixed channels */
@@ -1054,8 +1055,8 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 				mixb_read_upd (&pvt->a_write_mixb, f->datalen - count);
 //				rb_read_upd (&cpvt->a_write_rb, f->datalen - count);
 
-				PVT_STAT_PUMP(write_rb_overflow_bytes, += f->datalen - count);
-				PVT_STAT_PUMP(write_rb_overflow, ++);
+				PVT_STAT(pvt, write_rb_overflow_bytes) += f->datalen - count;
+				PVT_STAT(pvt, write_rb_overflow) ++;
 			}
 
 			mixb_write (&pvt->a_write_mixb, &cpvt->mixstream, f->data.ptr, f->datalen);
@@ -1230,8 +1231,8 @@ EXPORT_DEF void change_channel_state(struct cpvt * cpvt, unsigned newstate, int 
 		channel = cpvt->channel;
 
 		cpvt->state = newstate;
-		pvt->chan_count[oldstate]--;
-		pvt->chan_count[newstate]++;
+		PVT_STATE(pvt, chan_count[oldstate])--;
+		PVT_STATE(pvt, chan_count[newstate])++;
 
 		ast_debug (1, "[%s] call idx %d mpty %d, change state from '%s' to '%s' has%s channel\n", PVT_ID(pvt), cpvt->call_idx, CPVT_TEST_FLAG(cpvt, CALL_FLAG_MULTIPARTY) ? 1 : 0, call_state2str(oldstate), call_state2str(newstate), channel ? "" : "'t");
 

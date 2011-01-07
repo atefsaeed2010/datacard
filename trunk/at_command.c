@@ -286,7 +286,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 		pdu_buf[res + 1] = 0;
 		at_cmd[1].length = res + 1;
 		res -= sca_len;
-		
+
 		at_cmd[0].length = snprintf(buf, sizeof(buf), "AT+CMGS=%d\r", (int)(res / 2));
 
 /*		ast_debug (5, "[%s] PDU Head '%s'\n", PVT_ID(pvt), buf);
@@ -296,7 +296,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 	else
 	{
 		at_cmd[0].length = 9;
-		
+
 		res = str_recode (RECODE_ENCODE, STR_ENCODING_UCS2_HEX, destination, strlen (destination), buf + at_cmd[0].length, sizeof(buf) - at_cmd[0].length - 3);
 		if(res <= 0)
 		{
@@ -326,7 +326,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 				ast_log (LOG_ERROR, "[%s] SMS message too long, 70 symbols max\n", PVT_ID(pvt));
 				return -4;
 			}
-			
+
 			res = str_recode (RECODE_ENCODE, STR_ENCODING_UCS2_HEX, msg, res, pdu_buf, sizeof(pdu_buf) - 2);
 			if (res < 0)
 			{
@@ -345,7 +345,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 				ast_log (LOG_ERROR, "[%s] SMS message too long, 140 symbols max\n", PVT_ID(pvt));
 				return -4;
 			}
-			
+
 			at_cmd[1].length = snprintf (pdu_buf, sizeof(pdu_buf), "%.160s\x1a", msg);
 		}
 	}
@@ -379,8 +379,7 @@ EXPORT_DEF int at_enque_cusd (struct cpvt* cpvt, const char* code)
 
 	memcpy (buf, cmd, STRLEN(cmd));
 	length = STRLEN(cmd);
-	
-	
+
 	if (pvt->cusd_use_7bit_encoding)
 		cusd_encoding = STR_ENCODING_7BIT_HEX;
 	else if (pvt->use_ucs2_encoding)
@@ -515,8 +514,8 @@ EXPORT_DEF int at_enque_dial(struct cpvt* cpvt, const char * number, int clir)
 	int cmdsno = 0;
 	char * tmp = NULL;
 	at_queue_cmd_t cmds[6];
-	
-	if(pvt->chan_count[CALL_STATE_ACTIVE] > 0 && CPVT_TEST_FLAG(cpvt, CALL_FLAG_HOLD_OTHER))
+
+	if(PVT_STATE(pvt, chan_count[CALL_STATE_ACTIVE]) > 0 && CPVT_TEST_FLAG(cpvt, CALL_FLAG_HOLD_OTHER))
 	{
 		ATQ_CMD_INIT_ST(cmds[0], CMD_AT_CHLD_2, cmd_chld2);
 /*  enable this cause response_clcc() see all calls are held and insert 'AT+CHLD=2'
@@ -541,7 +540,7 @@ EXPORT_DEF int at_enque_dial(struct cpvt* cpvt, const char * number, int clir)
 		ast_free(tmp);
 		return err;
 	}
-	
+
 	ATQ_CMD_INIT_DYNI(cmds[cmdsno], CMD_AT_D);
 	cmdsno++;
 
@@ -551,13 +550,13 @@ EXPORT_DEF int at_enque_dial(struct cpvt* cpvt, const char * number, int clir)
 
 	ATQ_CMD_INIT_ST(cmds[cmdsno], CMD_AT_DDSETEX, cmd_ddsetex2);
 	cmdsno++;
-	
-	
+
+
 	err = at_queue_insert(cpvt, cmds, cmdsno, 1);
 /* set CALL_FLAG_NEED_HANGUP early because ATD may be still in queue while local hangup called */
 	if(!err)
 		CPVT_SET_FLAGS(cpvt, CALL_FLAG_NEED_HANGUP);
-	
+
 	return err;
 }
 
@@ -575,7 +574,7 @@ EXPORT_DEF int at_enque_answer(struct cpvt* cpvt)
 	int err;
 	int count = ITEMS_OF(cmds);
 	const char * cmd1;
-	
+
 	if(cpvt->state == CALL_STATE_INCOMING)
 	{
 /* FIXME: channel number? */
@@ -612,7 +611,7 @@ EXPORT_DEF int at_enque_activate (struct cpvt* cpvt)
 		ATQ_CMD_DECLARE_ST(CMD_AT_CLCC, cmd_clcc),
 		};
 	int err;
-	
+
 	if (cpvt->state == CALL_STATE_ACTIVE)
 		return 0;
 
@@ -622,8 +621,8 @@ EXPORT_DEF int at_enque_activate (struct cpvt* cpvt)
 				PVT_ID(cpvt->pvt), cpvt->call_idx, call_state2str(cpvt->state));
 		return -1;
 	}
-	
-	
+
+
 	err = at_fill_generic_cmd(&cmds[0], "AT+CHLD=2%d\r", cpvt->call_idx);
 	if(err == 0)
 		err = at_queue_insert(cpvt, cmds, ITEMS_OF(cmds), 1);
@@ -671,7 +670,7 @@ EXPORT_DEF int at_enque_retrive_sms (struct cpvt* cpvt, int index, int delete)
 		ATQ_CMD_DECLARE_DYN(CMD_AT_CMGD)
 		};
 	unsigned cmdsno = ITEMS_OF (cmds);
-	
+
 	err = at_fill_generic_cmd (&cmds[0], "AT+CMGR=%d\r", index);
 	if (err)
 		return err;
@@ -702,7 +701,7 @@ EXPORT_DEF int at_enque_retrive_sms (struct cpvt* cpvt, int index, int delete)
 
 EXPORT_DEF int at_enque_hangup (struct cpvt* cpvt, int call_idx)
 {
-	
+
 /*
 	this try of hangup non-active (held) channel as workaround for HW BUG 2
 
@@ -717,7 +716,7 @@ EXPORT_DEF int at_enque_hangup (struct cpvt* cpvt, int call_idx)
 	err = at_fill_generic_cmd(&cmds[1], "AT+CHLD=1%d\r", call_idx);
 	if(err)
 		return err;
-	
+
 	if(cpvt->state != CALL_STATE_ACTIVE)
 	{
 		pcmds++;
@@ -775,11 +774,11 @@ EXPORT_DEF int at_enque_hangup (struct cpvt* cpvt, int call_idx)
 		if(cpvt->pvt->chansno > 1)
 			idx = 1;
 	}
-	
+
 	return at_enque_generic(cpvt, commands[idx].cmd, 1, commands[idx].data, call_idx);
 */
 	static const char cmd_chup[] = "AT+CHUP\r";
-	
+
 	struct pvt* pvt = cpvt->pvt;
 	int err;
 	at_queue_cmd_t cmds[] = {
@@ -790,7 +789,7 @@ EXPORT_DEF int at_enque_hangup (struct cpvt* cpvt, int call_idx)
 	if(cpvt == &pvt->sys_chan || cpvt->dir == CALL_DIR_INCOMING || (cpvt->state != CALL_STATE_INIT && cpvt->state != CALL_STATE_DIALING))
 	{
 		/* FIXME: other channels may be in RELEASED or INIT state */
-		if(pvt->chansno > 1)
+		if(PVT_STATE(pvt, chansno) > 1)
 		{
 			cmds[0].cmd = CMD_AT_CHLD_1x;
 			err = at_fill_generic_cmd(&cmds[0], cmd_chld1x, call_idx);
@@ -798,11 +797,11 @@ EXPORT_DEF int at_enque_hangup (struct cpvt* cpvt, int call_idx)
 				return err;
 		}
 	}
-	
+
 	/* early AT+CHUP before ^ORIG for outgoing call may not get ^CEND in future */
 	if(cpvt->state == CALL_STATE_INIT)
 		pvt->last_dialed_cpvt = 0;
-	
+
 	return at_queue_insert(cpvt, cmds, ITEMS_OF(cmds), 1);
 }
 

@@ -59,7 +59,7 @@ static int app_status_exec (struct ast_channel* channel, const char* data)
 
 		if (pvt->connected)
 			stat = 2;
-		if (pvt->chansno)
+		if (!PVT_NO_CHANS(pvt))
 			stat = 3;
 
 		ast_mutex_unlock (&pvt->lock);

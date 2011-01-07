@@ -50,11 +50,12 @@ EXPORT_DEF int at_wait (int fd, int* ms)
 	return outfd;
 }
 
-EXPORT_DEF int at_read (int fd, const char * dev, struct ringbuffer* rb)
+#/* return number of bytes readed */
+EXPORT_DEF ssize_t at_read (int fd, const char * dev, struct ringbuffer* rb)
 {
 	struct iovec	iov[2];
 	int		iovcnt;
-	ssize_t		n;
+	ssize_t		n = -1;
 
 	/* TODO: read until major error */
 	iovcnt = rb_write_iov (rb, iov);
@@ -68,44 +69,39 @@ EXPORT_DEF int at_read (int fd, const char * dev, struct ringbuffer* rb)
 			if (errno != EINTR && errno != EAGAIN)
 			{
 				ast_debug (1, "[%s] readv() error: %d\n", dev, errno);
-				return -1;
+				return n;
 			}
 
 			return 0;
 		}
-		else if (n == 0)
+		else if (n > 0)
 		{
-			return -1;
-		}
+			rb_write_upd (rb, n);
 
-		rb_write_upd (rb, n);
-
-		ast_debug (5, "[%s] receive %zu byte, used %zu, free %zu, read %zu, write %zu\n", 
+			ast_debug (5, "[%s] receive %zu byte, used %zu, free %zu, read %zu, write %zu\n", 
 				dev, n, rb_used (rb), rb_free (rb), rb->read, rb->write);
 
-		iovcnt = rb_read_all_iov (rb, iov);
+			iovcnt = rb_read_all_iov (rb, iov);
 
-		if (iovcnt > 0)
-		{
-			if (iovcnt == 2)
+			if (iovcnt > 0)
 			{
-				ast_debug (5, "[%s] [%.*s%.*s]\n", dev,
-						(int) iov[0].iov_len, (char*) iov[0].iov_base,
+				if (iovcnt == 2)
+				{
+					ast_debug (5, "[%s] [%.*s%.*s]\n", dev,
+							(int) iov[0].iov_len, (char*) iov[0].iov_base,
 							(int) iov[1].iov_len, (char*) iov[1].iov_base);
-			}
-			else
-			{
-				ast_debug (5, "[%s] [%.*s]\n", dev,
-						(int) iov[0].iov_len, (char*) iov[0].iov_base);
+				}
+				else
+				{
+					ast_debug (5, "[%s] [%.*s]\n", dev,
+							(int) iov[0].iov_len, (char*) iov[0].iov_base);
+				}
 			}
 		}
-
-		return 0;
 	}
-
-	ast_log (LOG_ERROR, "[%s] at cmd receive buffer overflow\n", dev);
-
-	return -1;
+	else
+		ast_log (LOG_ERROR, "[%s] at cmd receive buffer overflow\n", dev);
+	return n;
 }
 
 EXPORT_DEF int at_read_result_iov (const char * dev, int * read_result, struct ringbuffer* rb, struct iovec iov[2])
@@ -119,7 +115,7 @@ EXPORT_DEF int at_read_result_iov (const char * dev, int * read_result, struct r
 	{
 /*		ast_debug (5, "[%s] d_read_result %d len %d input [%.*s]\n", dev, *read_result, s, MIN(s, rb->size - rb->read), (char*)rb->buffer + rb->read);
 */
-		
+
 		if (*read_result == 0)
 		{
 			res = rb_memcmp (rb, "\r\n", 2);
@@ -205,7 +201,7 @@ EXPORT_DEF at_res_t at_read_result_classification (struct ringbuffer * rb, size_
 {
 	at_res_t at_res = RES_UNKNOWN;
 	unsigned idx;
-	
+
 	for(idx = at_responses.ids_first; idx < at_responses.ids; idx++)
 	{
 		if (rb_memcmp (rb, at_responses.responses[idx].id, at_responses.responses[idx].idlen) == 0)
@@ -232,7 +228,7 @@ EXPORT_DEF at_res_t at_read_result_classification (struct ringbuffer * rb, size_
 			len += 1;
 			break;
 	}
-	
+
 	rb_read_upd (rb, len);
 
 /*	ast_debug (5, "receive result '%s'\n", at_res2str (at_res));

@@ -237,7 +237,7 @@ static void disconnect_datacard (struct pvt* pvt)
 {
 	struct cpvt * cpvt, * next;
 
-	if (pvt->chansno)
+	if (!PVT_NO_CHANS(pvt))
 	{
 		ast_debug (1, "[%s] Datacard disconnecting, hanging up channels\n", PVT_ID(pvt));
 
@@ -310,10 +310,10 @@ static void disconnect_datacard (struct pvt* pvt)
 	pvt->volume_sync_step = VOLUME_SYNC_BEGIN;
 
 	pvt->current_state = DEV_STATE_STOPPED;
-/*
-	pvt->desired_state = DEV_STATE_STARTED;
-	pvt->restart_time = RESTATE_TIME_NOW;
-*/
+
+	/* clear statictics */
+	memset(&pvt->stat, 0, sizeof(pvt->stat));
+
 	ast_verb (3, "Datacard %s has disconnected\n", PVT_ID(pvt));
 	ast_debug (1, "[%s] Datacard disconnected\n", PVT_ID(pvt));
 
@@ -418,15 +418,20 @@ static void* do_monitor_phone (void* data)
 			}
 		}
 
-		if (at_read (fd, dev, &rb))
+		/* FIXME: access to device not locked */
+		iovcnt = at_read (fd, dev, &rb);
+		if (iovcnt < 0)
 		{
 			break;
 		}
+
+		PVT_STAT(pvt, d_read_bytes) += iovcnt;
 		while ((iovcnt = at_read_result_iov (dev, &read_result, &rb, iov)) > 0)
 		{
 			at_res = at_read_result_classification (&rb, iov[0].iov_len + iov[1].iov_len);
 
 			ast_mutex_lock (&pvt->lock);
+			PVT_STAT(pvt, at_responces) ++;
 			if (at_response (pvt, iov, iovcnt, at_res))
 			{
 				goto e_cleanup;
@@ -803,20 +808,25 @@ EXPORT_DEF struct ast_str* pvt_str_state_ex(const struct pvt* pvt)
 		ast_str_append (&buf, 0, "%s", state);
 	else
 	{
-		if(pvt->ring || pvt->chan_count[CALL_STATE_INCOMING])
+		if(pvt->ring || PVT_STATE(pvt, chan_count[CALL_STATE_INCOMING]))
 			ast_str_append (&buf, 0, "Ring ");
 
-		if(pvt->dialing || (pvt->chan_count[CALL_STATE_INIT] + pvt->chan_count[CALL_STATE_DIALING] + pvt->chan_count[CALL_STATE_ALERTING]) > 0)
+		if(pvt->dialing || 
+			(PVT_STATE(pvt, chan_count[CALL_STATE_INIT])
+				+
+			PVT_STATE(pvt, chan_count[CALL_STATE_DIALING])
+				+
+			PVT_STATE(pvt, chan_count[CALL_STATE_ALERTING])) > 0)
 			ast_str_append (&buf, 0, "Dialing ");
 
-		if(pvt->cwaiting || pvt->chan_count[CALL_STATE_WAITING])
+		if(pvt->cwaiting || PVT_STATE(pvt, chan_count[CALL_STATE_WAITING]))
 			ast_str_append (&buf, 0, "Waiting ");
 
-		if(pvt->chan_count[CALL_STATE_ACTIVE] > 0)
-			ast_str_append (&buf, 0, "Active %u ", pvt->chan_count[CALL_STATE_ACTIVE]);
+		if(PVT_STATE(pvt, chan_count[CALL_STATE_ACTIVE]) > 0)
+			ast_str_append (&buf, 0, "Active %u ", PVT_STATE(pvt, chan_count[CALL_STATE_ACTIVE]));
 
-		if(pvt->chan_count[CALL_STATE_ONHOLD] > 0)
-			ast_str_append (&buf, 0, "Held %u ", pvt->chan_count[CALL_STATE_ONHOLD]);
+		if(PVT_STATE(pvt, chan_count[CALL_STATE_ONHOLD]) > 0)
+			ast_str_append (&buf, 0, "Held %u ", PVT_STATE(pvt, chan_count[CALL_STATE_ONHOLD]));
 
 		if(pvt->incoming_sms)
 			ast_str_append (&buf, 0, "Incoming SMS ");

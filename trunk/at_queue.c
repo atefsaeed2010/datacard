@@ -64,7 +64,8 @@ static void at_queue_remove (struct pvt * pvt)
 
 	if (task)
 	{
-		PVT_STAT_PUMP(at_tasks,--);
+		PVT_STATE(pvt, at_tasks)--;
+		PVT_STATE(pvt, at_cmds) -= task->cmdsno - task->cindex;
 		ast_debug (4, "[%s] remove task with %u command(s) begin with '%s' expected response '%s' from queue\n", 
 				PVT_ID(pvt), task->cmdsno, at_cmd2str (task->cmds[0].cmd), 
 				at_res2str (task->cmds[0].res));
@@ -94,7 +95,6 @@ static at_queue_cmd_t* at_queue_head_cmd_nc (const struct pvt* pvt)
 #/* */
 static int at_queue_add (struct cpvt* cpvt, const at_queue_cmd_t* cmds, unsigned cmdsno, int prio)
 {
-	
 	if(cmdsno > 0)
 	{
 		at_queue_task_t * e = ast_malloc (sizeof(*e) + cmdsno * sizeof(*cmds));
@@ -102,12 +102,12 @@ static int at_queue_add (struct cpvt* cpvt, const at_queue_cmd_t* cmds, unsigned
 		{
 			pvt_t* pvt = cpvt->pvt;
 			at_queue_task_t * first;
-			
+
 			e->entry.next = 0;
 			e->cmdsno = cmdsno;
 			e->cindex = 0;
 			e->cpvt = cpvt;
-			
+
 			memcpy(&e->cmds[0], cmds, cmdsno * sizeof(*cmds));
 
 
@@ -116,8 +116,11 @@ static int at_queue_add (struct cpvt* cpvt, const at_queue_cmd_t* cmds, unsigned
 			else
 				AST_LIST_INSERT_TAIL (&pvt->at_queue, e, entry);
 
-			PVT_STAT_PUMP(at_tasks, ++);
-			PVT_STAT_PUMP(at_cmds, += cmdsno);
+			PVT_STATE(pvt, at_tasks) ++;
+			PVT_STATE(pvt, at_cmds)+= cmdsno;
+
+			PVT_STAT(pvt, at_tasks) ++;
+			PVT_STAT(pvt, at_cmds) += cmdsno;
 
 			ast_debug (4, "[%s] insert task with %u commands begin with '%s' expected response '%s' %s of queue\n", 
 					PVT_ID(pvt), e->cmdsno, at_cmd2str (e->cmds[0].cmd), 
@@ -148,7 +151,7 @@ EXPORT_DEF size_t write_all (int fd, const char* buf, size_t count)
 	ssize_t out_count;
 	size_t total = 0;
 	unsigned errs = 10;
-	
+
 	while (count > 0)
 	{
 		out_count = write (fd, buf, count);
@@ -186,17 +189,18 @@ EXPORT_DEF size_t write_all (int fd, const char* buf, size_t count)
 #/* */
 EXPORT_DEF int at_write (struct pvt* pvt, const char* buf, size_t count)
 {
-	int failed;
-	
+	size_t wrote;
+
 	ast_debug (5, "[%s] [%.*s]\n", PVT_ID(pvt), (int) count, buf);
 
-	failed = write_all(pvt->data_fd, buf, count) != count;
-	if(failed)
+	wrote = write_all(pvt->data_fd, buf, count);
+	PVT_STAT(pvt, d_write_bytes) += wrote;
+	if(wrote != count)
 	{
 		ast_debug (1, "[%s] write() error: %d\n", PVT_ID(pvt), errno);
 	}
-	
-	return failed;
+
+	return wrote != count;
 }
 
 /*!
@@ -216,15 +220,15 @@ EXPORT_DEF void at_queue_remove_cmd (struct pvt* pvt, at_res_t res)
 				PVT_ID(pvt), at_cmd2str (task->cmds[index].cmd), 
 				at_res2str (task->cmds[index].res), at_res2str (res), 
 				task->cindex, task->cmdsno, task->cmds[index].flags);
-		
+
 		if((task->cindex >= task->cmdsno) || (task->cmds[index].res != res && (task->cmds[index].flags & ATQ_CMD_FLAG_IGNORE) == 0))
 		{
-			PVT_STAT_PUMP(at_cmds, -= task->cmdsno - index);
+			PVT_STATE(pvt, at_cmds) -= task->cmdsno - index;
 			at_queue_remove(pvt);
 		}
 		else
 		{
-			PVT_STAT_PUMP(at_cmds,--);
+			PVT_STATE(pvt, at_cmds)--;
 		}
 	}
 }
@@ -299,7 +303,7 @@ static void at_queue_write (struct pvt* pvt)
 EXPORT_DEF int at_queue_insert_const (struct cpvt* cpvt, const at_queue_cmd_t * cmds, unsigned cmdsno, int athead)
 {
 	int fail = at_queue_add(cpvt, cmds, cmdsno, athead);
-	
+
 	at_queue_write(cpvt->pvt);
 
 	return fail;
@@ -310,7 +314,7 @@ EXPORT_DEF int at_queue_insert(struct cpvt* cpvt, at_queue_cmd_t * cmds, unsigne
 {
 	unsigned idx;
 	int fail = at_queue_add(cpvt, cmds, cmdsno, athead);
-	
+
 	if(fail)
 	{
 		for(idx = 0; idx < cmdsno; idx++)
