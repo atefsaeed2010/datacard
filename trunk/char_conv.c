@@ -14,14 +14,7 @@
 
 #include <sys/types.h>
 
-#ifdef HAVE_ICONV_H
 #include <iconv.h>			/* iconv_t iconv() */
-#else
-#ifdef HAVE_SYS_ICONV_H
-#include <sys/iconv.h>			/* iconv_t iconv() */
-#endif
-#endif
-
 #include <string.h>			/* memcpy() */
 #include <stdio.h>			/* sscanf() snprintf() */
 #include <errno.h>			/* EINVAL */

@@ -16,9 +16,6 @@
 /* Define to 1 if you have the <iconv.h> header file. */
 #undef HAVE_ICONV_H
 
-/* Define to 1 if you have the <sys/iconv.h> header file. */
-#undef HAVE_SYS_ICONV_H
-
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
@@ -79,13 +76,13 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* has iconv() const declaration of input buffer */
+/* Define to const if you has iconv() const declaration of input buffer */
 #undef ICONV_CONST
 
-/* has iconv_t */
+/* Define to iconv_t if you has iconv_t in iconv.h */
 #undef ICONV_T
 
-/* has AST_CONTROL_SRCCHANGE */
+/* Define to 1 if you have HAVE_AST_CONTROL_SRCCHANGE in asterisk/frame.h */
 #undef HAVE_AST_CONTROL_SRCCHANGE
 
 /* Define to the address where bug reports for this package should be sent. */
