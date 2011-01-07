@@ -310,9 +310,10 @@ static void disconnect_datacard (struct pvt* pvt)
 	pvt->volume_sync_step = VOLUME_SYNC_BEGIN;
 
 	pvt->current_state = DEV_STATE_STOPPED;
+/*
 	pvt->desired_state = DEV_STATE_STARTED;
 	pvt->restart_time = RESTATE_TIME_NOW;
-
+*/
 	ast_verb (3, "Datacard %s has disconnected\n", PVT_ID(pvt));
 	ast_debug (1, "[%s] Datacard disconnected\n", PVT_ID(pvt));
 
@@ -480,7 +481,7 @@ static void pvt_stop(struct pvt * pvt)
 		pvt->terminate_monitor = 0;
 		pvt->monitor_thread = AST_PTHREADT_NULL;
 	}
-	pvt->current_state = DEV_STATE_STOPPED;
+//	pvt->current_state = DEV_STATE_STOPPED;
 }
 
 #/* */
