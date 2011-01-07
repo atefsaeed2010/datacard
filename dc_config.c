@@ -58,6 +58,7 @@ EXPORT_DEF void dc_sconfig_fill_defaults(struct dc_sconfig * config)
 	config->reset_datacard		=  1;
 	config->callingpres		= -1;
 	config->call_waiting 		= CALL_WAITING_AUTO;
+	config->dtmf			= DC_DTMF_SETTING_RELAX;
 
 	config->mindtmfgap		= DEFAULT_MINDTMFGAP;
 	config->mindtmfduration		= DEFAULT_MINDTMFDURATION;
@@ -147,13 +148,24 @@ EXPORT_DEF void dc_sconfig_fill(struct ast_config * cfg, const char * cat, struc
 			if(strcasecmp(v->value, "auto"))
 				config->call_waiting = ast_true (v->value);
 		}
+		else if (!strcasecmp (v->name, "dtmf"))
+		{
+			if(!strcasecmp(v->value, "off"))
+				config->dtmf = DC_DTMF_SETTING_OFF;
+			else if(!strcasecmp(v->value, "inband"))
+				config->dtmf = DC_DTMF_SETTING_INBAND;
+			else if(!strcasecmp(v->value, "relax"))
+				config->dtmf = DC_DTMF_SETTING_RELAX;
+			else
+			ast_log(LOG_ERROR, "Invalid valie for 'dtmf': '%s', setting default 'relax'\n", v->value);
+		}
 		else if (!strcasecmp (v->name, "mindtmfgap"))
 		{
 			errno = 0;
 			config->mindtmfgap = (int) strtol (v->value, (char**) NULL, 10);
 			if ((config->mindtmfgap == 0 && errno == EINVAL) || config->mindtmfgap < 0)
 			{
-				ast_log(LOG_ERROR, "Invalid valie for mindtmfgap '%s', setting default %d\n", v->value, DEFAULT_MINDTMFGAP);
+				ast_log(LOG_ERROR, "Invalid valie for 'mindtmfgap' '%s', setting default %d\n", v->value, DEFAULT_MINDTMFGAP);
 				config->mindtmfgap = DEFAULT_MINDTMFGAP;
 			}
 		}
@@ -163,7 +175,7 @@ EXPORT_DEF void dc_sconfig_fill(struct ast_config * cfg, const char * cat, struc
 			config->mindtmfduration = (int) strtol (v->value, (char**) NULL, 10);
 			if ((config->mindtmfduration == 0 && errno == EINVAL) || config->mindtmfduration < 0)
 			{
-				ast_log(LOG_ERROR, "Invalid valie for mindtmfgap '%s', setting default %d\n", v->value, DEFAULT_MINDTMFDURATION);
+				ast_log(LOG_ERROR, "Invalid valie for 'mindtmfgap' '%s', setting default %d\n", v->value, DEFAULT_MINDTMFDURATION);
 				config->mindtmfduration = DEFAULT_MINDTMFDURATION;
 			}
 		}
@@ -173,7 +185,7 @@ EXPORT_DEF void dc_sconfig_fill(struct ast_config * cfg, const char * cat, struc
 			config->mindtmfinterval = (int) strtol (v->value, (char**) NULL, 10);
 			if ((config->mindtmfinterval == 0 && errno == EINVAL) || config->mindtmfinterval < 0)
 			{
-				ast_log(LOG_ERROR, "Invalid valie for mindtmfinterval '%s', setting default %d\n", v->value, DEFAULT_MINDTMFINTERVAL);
+				ast_log(LOG_ERROR, "Invalid valie for 'mindtmfinterval' '%s', setting default %d\n", v->value, DEFAULT_MINDTMFINTERVAL);
 				config->mindtmfduration = DEFAULT_MINDTMFINTERVAL;
 			}
 		}

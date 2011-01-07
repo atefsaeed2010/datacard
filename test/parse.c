@@ -1,7 +1,9 @@
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 #include "at_parse.h"			/* at_parse_*() */
-#include "helpers.h"			/* ITEMS_OF() */
+#include "mutils.h"			/* ITEMS_OF() */
 
 
 int ok = 0;

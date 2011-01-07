@@ -10,6 +10,7 @@
 
 #include "export.h"				/* EXPORT_DECL EXPORT_DEF */
 #include "mixbuffer.h"				/* struct mixstream */
+#include "mutils.h"				/* enum2str() ITEMS_OF() */
 
 #define FRAME_SIZE		320
 
@@ -70,7 +71,7 @@ typedef struct cpvt {
 	struct mixstream	mixstream;			/*!< mix stream */
 	char			a_read_buf[FRAME_SIZE + AST_FRIENDLY_OFFSET];/*!< audio read buffer */
 	struct ast_frame	a_read_frame;			/*!< readed frame buffer */
-	
+
 //	size_t			write;				/*!< write position in pvt->a_write_buf */
 //	size_t			used;				/*!< bytes used in pvt->a_write_buf */
 //	char			a_write_buf[FRAME_SIZE * 5];	/*!< audio write buffer */
@@ -92,6 +93,25 @@ EXPORT_DECL struct cpvt * cpvt_alloc(struct pvt * pvt, int call_idx, unsigned di
 EXPORT_DECL void cpvt_free(struct cpvt* cpvt);
 
 EXPORT_DECL struct cpvt * pvt_find_cpvt(struct pvt * pvt, int call_idx);
-EXPORT_DECL const char * call_state2str(call_state_t state);
+
+#/* */
+INLINE_DECL const char * call_state2str(call_state_t state)
+{
+	static const char * const states[] = {
+	/* real device states */
+		"active",
+		"held",
+		"dialing",
+		"alerting",
+		"incoming",
+		"waiting",
+
+	/* pseudo states */
+		"released",
+		"initialize"
+	};
+
+	return enum2str(state, states, ITEMS_OF(states));
+}
 
 #endif /* CHAN_DATACARD_CPVT_H_INCLUDED */

@@ -18,9 +18,35 @@
 #include "cpvt.h"				/* struct cpvt */
 #include "export.h"				/* EXPORT_DECL EXPORT_DEF */
 #include "dc_config.h"				/* pvt_config_t */
-#include "helpers.h"
 
 #define MODULE_DESCRIPTION	"Datacard Channel Driver"
+
+typedef enum {
+	DEV_STATE_STOPPED	= 0,
+	DEV_STATE_RESTARTED,
+	DEV_STATE_REMOVED,
+	DEV_STATE_STARTED,
+} dev_state_t;
+
+INLINE_DECL const char * dev_state2str(dev_state_t state)
+{
+	static const char * const states[] = { "stop", "restart", "remove", "start" };
+	return enum2str(state, states, ITEMS_OF(states));
+}
+
+INLINE_DECL const char * dev_state2str_msg(dev_state_t state)
+{
+	static const char * const states[] = { "Stop scheduled", "Restart scheduled", "Removal scheduled", "Start scheduled" };
+	return enum2str(state, states, ITEMS_OF(states));
+}
+
+typedef enum {
+	RESTATE_TIME_NOW	= 0,
+	RESTATE_TIME_GRACEFULLY,
+	RESTATE_TIME_CONVENIENT,
+} restate_time_t;
+
+
 
 struct at_queue_task;
 
@@ -76,6 +102,7 @@ typedef struct pvt
 //	char			a_read_buf[FRAME_SIZE + AST_FRIENDLY_OFFSET];	/*!< audio read buffer */
 //	struct ast_frame	a_read_frame;			/*!< readed frame buffer */
 
+	
 	char			dtmf_digit;			/*!< last DTMF digit */
 	struct timeval		dtmf_begin_time;		/*!< time of begin of last DTMF digit */
 	struct timeval		dtmf_end_time;			/*!< time of end of last DTMF digit */
@@ -142,11 +169,13 @@ typedef struct pvt
 	pvt_config_t		settings;			/*!< all device settings from config file */
 	pvt_stat_t		stat;				/*!< various statistics */
 } pvt_t;
+
 #define CONF_GLOBAL(name)	(gpublic->global_settings.name)
 #define SCONF_GLOBAL(state, name)	((state)->global_settings.name)
-#define CONF_SHARED(pvt, name)	((pvt)->settings.shared.name)
-#define CONF_UNIQ(pvt, name)	((pvt)->settings.unique.name)
-#define PVT_ID(pvt)		((pvt)->settings.unique.id)
+
+#define CONF_SHARED(pvt, name)	SCONFIG(&((pvt)->settings), name)
+#define CONF_UNIQ(pvt, name)	UCONFIG(&((pvt)->settings), name)
+#define PVT_ID(pvt)		UCONFIG(&((pvt)->settings), id)
 
 typedef struct public_state
 {
@@ -164,8 +193,9 @@ EXPORT_DECL public_state_t * gpublic;
 EXPORT_DECL int pvt_get_pseudo_call_idx(const struct pvt * pvt);
 EXPORT_DECL int ready4voice_call(const struct pvt* pvt, const struct cpvt * current_cpvt, int opts);
 EXPORT_DECL int is_dial_possible(const struct pvt * pvt, int opts);
-EXPORT_DECL const char* pvt_str_state(const struct pvt* pvt);
-EXPORT_DECL struct ast_str* pvt_str_state_ex(const struct pvt* pvt);
+
+EXPORT_DECL const char * pvt_str_state(const struct pvt* pvt);
+EXPORT_DECL struct ast_str * pvt_str_state_ex(const struct pvt* pvt);
 EXPORT_DECL const char * GSM_regstate2str(int gsm_reg_status);
 EXPORT_DECL const char * sys_mode2str(int sys_mode);
 EXPORT_DECL const char * sys_submode2str(int sys_submode);

@@ -18,7 +18,7 @@
 #include <asterisk/pbx.h>			/* ast_pbx_start() */
 
 #include "at_response.h"
-#include "helpers.h"				/* STRLEN() */
+#include "mutils.h"				/* STRLEN() */
 #include "at_queue.h"
 #include "chan_datacard.h"
 #include "at_parse.h"
@@ -1288,7 +1288,7 @@ static int at_response_sms_prompt (struct pvt* pvt)
 
 static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 {
-	static const char * types[] = {
+	static const char * const types[] = {
 		"USSD Notify",
 		"USSD Request",
 		"USSD Terminated by network",
@@ -1305,6 +1305,7 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 	char		text_base64[16384];
 	str_encoding_t	ussd_encoding;
 	char		typebuf[2];
+	const char*	typestr;
 
 	if (at_parse_cusd (str, &type, &cusd, &dcs))
 	{
@@ -1314,9 +1315,10 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 
 	if(type < 0 || type >= (int)ITEMS_OF(types))
 	{
-		ast_log (LOG_ERROR, "[%s] Unknown CUSD type: %d\n", PVT_ID(pvt), type);
-		return -1;
+		ast_log (LOG_WARNING, "[%s] Unknown CUSD type: %d\n", PVT_ID(pvt), type);
 	}
+
+	typestr = enum2str(type, types, ITEMS_OF(types));
 
 	typebuf[0] = type + '0';
 	typebuf[1] = 0;
@@ -1337,7 +1339,7 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 		return -1;
 	}
 
-	ast_verb (1, "[%s] Got USSD type '%s': '%s'\n", PVT_ID(pvt), types[type], cusd);
+	ast_verb (1, "[%s] Got USSD type %d '%s': '%s'\n", PVT_ID(pvt), type, typestr, cusd);
 	ast_base64encode (text_base64, (unsigned char*)cusd, strlen(cusd), sizeof(text_base64));
 
 #ifdef BUILD_MANAGER
@@ -1350,7 +1352,7 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 		channel_var_t vars[] = 
 		{
 			{ "USSD_TYPE", typebuf },
-			{ "USSD_TYPE_STR", (char*)types[type] },
+			{ "USSD_TYPE_STR", ast_strdupa(typestr) },
 			{ "USSD", cusd },
 			{ "USSD_BASE64", text_base64 },
 			{ NULL, NULL },

@@ -8,7 +8,7 @@
 #include <asterisk.h>
 #include <asterisk/linkedlists.h>		/* AST_LIST_ENTRY() */
 
-#include "helpers.h"
+#include "mutils.h"
 #include "tty.h"
 
 struct dev_descr {

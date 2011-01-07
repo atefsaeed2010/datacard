@@ -6,6 +6,9 @@
 
 #include "export.h"		/* EXPORT_DECL EXPORT_DEF */
 #include "dc_config.h"		/* call_waiting_t */
+#include "mutils.h"		/* enum2str_def() ITEMS_OF() */
+
+#define CCWA_CLASS_VOICE	1
 
 /* magic order !!! keep order of this values like in at_cmd2str()
 */
@@ -69,8 +72,77 @@ typedef enum {
 	CMD_AT_CLCC
 } at_cmd_t;
 
+/*!
+ * \brief Get the string representation of the given AT command
+ * \param cmd -- the command to process
+ * \return a string describing the given command
+ */
 
-#define CCWA_CLASS_VOICE	1
+INLINE_DECL const char* at_cmd2str (at_cmd_t cmd)
+{
+	/* magic!!! must be in same order as elements of enums in at_cmd_t */
+	static const char * const cmds[] = {
+		"USER'S",
+
+		"AT",
+		"ATA",
+		"AT+CCWA?",
+		"AT+CCWA=",
+		"AT+CFUN",
+
+		"AT+CGMI",
+		"AT+CGMM",
+		"AT+CGMR",
+		"AT+CGSN",
+
+		"AT+CHUP",
+		"AT+CIMI",
+//		"AT+CLIP",
+		"AT+CLIR",
+
+		"AT+CLVL",
+		"AT+CMGD",
+		"AT+CMGF",
+		"AT+CMGR",
+
+		"AT+CMGS",
+		"SMSTEXT",
+		"AT+CNMI",
+		"AT+CNUM",
+
+		"AT+COPS?",
+		"AT+COPS=",
+		"AT+CPIN?",
+		"AT+CPMS",
+
+		"AT+CREG?",
+		"AT+CREG=",
+		"AT+CSCS",
+		"AT+CSQ",
+
+		"AT+CSSN",
+		"AT+CUSD",
+		"AT^CVOICE",
+		"ATD",
+
+		"AT^DDSETEX",
+		"AT^DTMF",
+		"ATE",
+
+		"AT^U2DIAG",
+		"ATZ",
+		"AT+CMEE",
+		"AT+CSCA",
+
+		"AT+CHLD=1x",
+		"AT+CHLD=2x",
+		"AT+CHLD=2",
+		"AT+CHLD=3",
+		"AT+CLCC"
+	};
+	return enum2str_def(cmd, cmds, ITEMS_OF(cmds), "UNDEFINED");
+}
+
 
 struct cpvt;
 
