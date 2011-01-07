@@ -1,7 +1,7 @@
 Known bugs
 
-1) SMS sending charset problem
-
+	1) SMS sending charset problem
+		solved by PDU
 2) HW: Terminate (from both side) active call break voice on all held
 
 3) HW: Terminate held call locally break voice on all active
@@ -14,6 +14,7 @@ kill device. Device not responding on commands but still sending ^BOOT: and ^RSS
 6) white noise on x86_64
 
 7) Some characters wrong encoded for SMS
+	think iconv and localization trouble
 
 8) command removed from queue by timeout when response already in read buffer
 

@@ -85,6 +85,9 @@
 /* has iconv_t */
 #undef ICONV_T
 
+/* has AST_CONTROL_SRCCHANGE */
+#undef HAVE_AST_CONTROL_SRCCHANGE
+
 /* Define to the address where bug reports for this package should be sent. */
 #undef MODULE_BUGREPORT
 

@@ -35,7 +35,8 @@ added 20.11.2010
 	Added tool for discover of modems
 	Intergation to main code planing
 
-11) Complete fix of DTMF duplication
+	11) Complete fix of DTMF duplication
+		added  dtmf = off | inband | relax settings at 08.01.2011 in r145
 
 	12) Full support of SMS receive with active voice call
 		feel satisfied at 16.12.2010
@@ -44,7 +45,7 @@ added 24.11.2010
 
 	13) Device files locking
 		done at 17.12.2010 in r106
-		
+
 	14) SMS PDU mode
 		duplicate for 9)
 			added from internal source at 25.11.2010
@@ -61,14 +62,15 @@ added 24.11.2010
 
 18) Add PIN code detection
 
-19) Cleanup code
+	19) Cleanup code
 
 	20) Make a better Makefile
 		switch to autoconf at 05.12.2010
 
-21) Write a better documentation
-	done paritally with samples
-	
+	21) Write a better documentation
+		done paritally with samples
+		at 04.01.2010 http://wiki.e1550.mobi/ published
+
 22) Add more API commands
 
 	22.1) 'disable' option in device section
@@ -82,7 +84,8 @@ added 24.11.2010
 
 23)
 
-24) reconfigure on fly
+	24) reconfigure on fly
+		added 07.01.2011 in r140
 
 	25) implement command "datacard show version"
 		done at 06.12.2010 in r77
@@ -116,7 +119,9 @@ added 17.12.2010
 
 34) SMS deletion function
 
-35) receive SMS notification
+35) receive on-screen SMS
 
-36) receive on-screen SMS
+added 08.01.2011
+
+36) dtmf detection control from dialplan
 
