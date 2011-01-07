@@ -70,12 +70,14 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 		astman_append (s, "Send SMS as PDU: %s\r\n", CONF_SHARED(pvt, smsaspdu) ? "Yes" : "No");
 		astman_append (s, "Disable SMS: %s\r\n", CONF_SHARED(pvt, disablesms) ? "Yes" : "No");
 		astman_append (s, "Channel Language: %s\r\n", CONF_SHARED(pvt, language));
+		astman_append (s, "DTMF: %s\r\n", dc_dtmf_setting2str(CONF_SHARED(pvt, dtmf)));
 		astman_append (s, "Minimal DTMF Gap: %d\r\n", CONF_SHARED(pvt, mindtmfgap));
 		astman_append (s, "Minimal DTMF Duration: %d\r\n", CONF_SHARED(pvt, mindtmfduration));
 		astman_append (s, "Minimal DTMF Interval: %d\r\n", CONF_SHARED(pvt, mindtmfinterval));
 		astman_append (s, "Call Waiting: %s\r\n", pvt->has_call_waiting ? "Enabled" : "Disabled");
 /*		astman_append (s, "Tasks in Queue: %u\r\n", pvt->at_tasks);
 		astman_append (s, "Commands in Queue: %u\r\n", pvt->at_cmds);
+
 */
 		astman_append (s, "\r\n");
 		ast_mutex_unlock (&pvt->lock);

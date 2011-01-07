@@ -5,9 +5,13 @@
  *
  * Artem Makhutov <artem@makhutov.org>
  * http://www.makhutov.org
- * 
+ *
  * Dmitry Vagin <dmitry2004@yandex.ru>
  *
+ * Copyright (C) 2011
+ * bg <bg_one@mail.ru>
+ * http://www.e1550.mobi
+ * 
  * chan_datacard is based on chan_mobile by Digium
  * (Mark Spencer <markster@digium.com>)
  *
@@ -23,7 +27,7 @@
  * \author Artem Makhutov <artem@makhutov.org>
  * \author Dave Bowerman <david.bowerman@gmail.com>
  * \author Dmitry Vagin <dmitry2004@yandex.ru>
- * \author B      G <bg@mail.ru>
+ * \author B      G <bg_one@mail.ru>
  *
  * \ingroup channel_drivers
  */
@@ -52,7 +56,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev: " PACKAGE_REVISION " $")
 #include "at_response.h"			/* at_res_t */
 #include "at_queue.h"				/* struct at_queue_task_cmd at_queue_head_cmd() */
 #include "at_command.h"				/* at_cmd2str() */
-#include "helpers.h"				/* ITEMS_OF() */
+#include "mutils.h"				/* ITEMS_OF() */
+#include "helpers.h"				/* find_device */
 #include "at_read.h"
 #include "cli.h"
 #include "app.h"
@@ -253,7 +258,8 @@ static void disconnect_datacard (struct pvt* pvt)
 	pvt->data_fd = -1;
 	pvt->audio_fd = -1;
 
-	ast_dsp_digitreset(pvt->dsp);
+	if(pvt->dsp)
+		ast_dsp_digitreset(pvt->dsp);
 	pvt_on_remove_last_channel(pvt);
 
 /*	pvt->a_write_rb */
@@ -516,7 +522,8 @@ static void pvt_start(struct pvt * pvt)
 static void pvt_free(struct pvt * pvt)
 {
 	at_queue_flush(pvt);
-	ast_dsp_free(pvt->dsp);
+	if(pvt->dsp)
+		ast_dsp_free(pvt->dsp);
 
 	ast_mutex_unlock(&pvt->lock);
 
@@ -634,7 +641,8 @@ EXPORT_DEF void pvt_on_create_1st_channel(struct pvt* pvt)
 		pvt->a_timer = ast_timer_open ();
 
 /* FIXME: do on each channel switch */
-	ast_dsp_digitreset (pvt->dsp);
+	if(pvt->dsp)
+		ast_dsp_digitreset (pvt->dsp);
 	pvt->dtmf_digit = 0;
 	pvt->dtmf_begin_time.tv_sec = 0;
 	pvt->dtmf_begin_time.tv_usec = 0;
@@ -828,15 +836,6 @@ EXPORT_DEF struct ast_str* pvt_str_state_ex(const struct pvt* pvt)
 }
 
 #/* */
-static const char* str_descibe(const char * const * strings, unsigned items, int value)
-{
-	if(value >= 0 && value < (int)items)
-		return strings[value];
-
-	return "Unknown";
-}
-
-#/* */
 EXPORT_DEF const char* GSM_regstate2str(int gsm_reg_status)
 {
 	static const char * const gsm_states[] = {
@@ -846,7 +845,7 @@ EXPORT_DEF const char* GSM_regstate2str(int gsm_reg_status)
 		"Registration denied",
 		"Registered, roaming",
 		};
-	return str_descibe (gsm_states, ITEMS_OF (gsm_states), gsm_reg_status);
+	return enum2str_def(gsm_reg_status, gsm_states, ITEMS_OF (gsm_states), "Unknown");
 }
 
 #/* */
@@ -862,7 +861,7 @@ EXPORT_DEF const char* sys_mode2str(int sys_mode)
 		"GPS",
 		};
 
-	return str_descibe (sys_modes, ITEMS_OF (sys_modes), sys_mode);
+	return enum2str_def(sys_mode, sys_modes, ITEMS_OF (sys_modes), "Unknown");
 }
 
 #/* */
@@ -879,7 +878,7 @@ EXPORT_DEF const char * sys_submode2str(int sys_submode)
 		"HSDPA and HSUPA",
 		};
 
-	return str_descibe (sys_submodes, ITEMS_OF (sys_submodes), sys_submode);
+	return enum2str_def(sys_submode, sys_submodes, ITEMS_OF (sys_submodes), "Unknown");
 }
 
 #/* */
@@ -906,6 +905,40 @@ EXPORT_DEF char* rssi2dBm(int rssi, char * buf, unsigned len)
 
 
 /* Module */
+
+#/* */
+static void pvt_dsp_setup(struct pvt * pvt, const pvt_config_t * settings)
+{
+	/* first remove dsp if off or changed */
+	if(SCONFIG(settings, dtmf) != CONF_SHARED(pvt, dtmf))
+	{
+		if(pvt->dsp)
+		{
+			ast_dsp_free(pvt->dsp);
+			pvt->dsp = NULL;
+		}
+	}
+
+	/* wake up and initialize dsp */
+	if(SCONFIG(settings, dtmf) != DC_DTMF_SETTING_OFF)
+	{
+		pvt->dsp = ast_dsp_new();
+		if(pvt->dsp)
+		{
+			int digitmode = DSP_DIGITMODE_DTMF;
+			if(SCONFIG(settings, dtmf) == DC_DTMF_SETTING_RELAX)
+				digitmode |= DSP_DIGITMODE_RELAXDTMF;
+
+			ast_dsp_set_features(pvt->dsp, DSP_FEATURE_DIGIT_DETECT);
+			ast_dsp_set_digitmode(pvt->dsp, digitmode);
+		}
+		else
+		{
+			ast_log(LOG_ERROR, "[%s] Can't setup dsp for dtmf detection, ignored\n", UCONFIG(settings, id));
+		}
+	}
+}
+
 static struct pvt * pvt_create(const pvt_config_t * settings)
 {
 	struct pvt * pvt = ast_calloc (1, sizeof (*pvt));
@@ -931,26 +964,15 @@ static struct pvt * pvt_create(const pvt_config_t * settings)
 
 		pvt->desired_state = DEV_STATE_STARTED;
 
-		/* setup the dsp */
-		pvt->dsp = ast_dsp_new ();
-		if (pvt->dsp)
-		{
-			ast_dsp_set_features (pvt->dsp, DSP_FEATURE_DIGIT_DETECT);
-			ast_dsp_set_digitmode (pvt->dsp, DSP_DIGITMODE_DTMF | DSP_DIGITMODE_RELAXDTMF);
+		pvt_dsp_setup(pvt, settings);
 
-			/* and copy settings */
-			memcpy(&pvt->settings, settings, sizeof(pvt->settings));
-			return pvt;
-		}
-		else
-		{
-			ast_log(LOG_ERROR, "Skipping device %s. Error setting up dsp for dtmf detection\n", UCONFIG(settings, id));
-		}
-		ast_free (pvt);
+		/* and copy settings */
+		memcpy(&pvt->settings, settings, sizeof(pvt->settings));
+		return pvt;
 	}
 	else
 	{
-		ast_log (LOG_ERROR, "Skipping device %s. Error allocating memory\n", UCONFIG(settings, id));
+		ast_log (LOG_ERROR, "[%s] Skipping device: Error allocating memory\n", UCONFIG(settings, id));
 	}
 	return NULL;
 }
@@ -1009,6 +1031,9 @@ static int pvt_reconfigure(struct pvt * pvt, const pvt_config_t * settings, rest
 			pvt->restart_time = when;
 			rv = pvt_time4restate(pvt);
 		}
+
+		pvt_dsp_setup(pvt, settings);
+
 		/* and copy settings */
 		memcpy(&pvt->settings, settings, sizeof(pvt->settings));
 	}

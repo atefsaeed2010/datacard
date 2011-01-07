@@ -23,7 +23,7 @@
 #include <asterisk/utils.h>
 
 #include "at_command.h"
-#include "helpers.h"
+//#include ".h"
 #include "at_queue.h"
 #include "char_conv.h"			/* char_to_hexstr_7bit() */
 #include "chan_datacard.h"		/* struct pvt */
@@ -102,82 +102,6 @@ static int __attribute__ ((format(printf, 4, 5))) at_enque_generic (struct cpvt*
 }
 
 /*!
- * \brief Get the string representation of the given AT command
- * \param cmd -- the command to process
- * \return a string describing the given command
- */
-
-EXPORT_DEF const char* at_cmd2str (at_cmd_t cmd)
-{
-	/* magic!!! must be in same order as elements of enums in at_cmd_t */
-	static const char * const cmds[] = {
-		"USER'S",
-		
-		"AT",
-		"ATA",
-		"AT+CCWA?",
-		"AT+CCWA=",
-		"AT+CFUN",
-
-		"AT+CGMI",
-		"AT+CGMM",
-		"AT+CGMR",
-		"AT+CGSN",
-
-		"AT+CHUP",
-		"AT+CIMI",
-//		"AT+CLIP",
-		"AT+CLIR",
-
-		"AT+CLVL",
-		"AT+CMGD",
-		"AT+CMGF",
-		"AT+CMGR",
-
-		"AT+CMGS",
-		"SMSTEXT",
-		"AT+CNMI",
-		"AT+CNUM",
-
-		"AT+COPS?",
-		"AT+COPS=",
-		"AT+CPIN?",
-		"AT+CPMS",
-
-		"AT+CREG?",
-		"AT+CREG=",
-		"AT+CSCS",
-		"AT+CSQ",
-
-		"AT+CSSN",
-		"AT+CUSD",
-		"AT^CVOICE",
-		"ATD",
-
-		"AT^DDSETEX",
-		"AT^DTMF",
-		"ATE",
-
-		"AT^U2DIAG",
-		"ATZ",
-		"AT+CMEE",
-		"AT+CSCA",
-
-		"AT+CHLD=1x",
-		"AT+CHLD=2x",
-		"AT+CHLD=2",
-		"AT+CHLD=3",
-		"AT+CLCC"
-	};
-	int idx = cmd;
-	if(idx >= 0 && idx < (int)ITEMS_OF(cmds))
-		return cmds[idx];
-	return "UNDEFINED";
-}
-
-
-
-/*!
  * \brief Enque initialization commands
  * \param cpvt -- cpvt structure
  * \param from_command -- begin initialization from this command in list
@@ -253,7 +177,7 @@ EXPORT_DEF int at_enque_initialization(struct cpvt* cpvt, at_cmd_t from_command)
 	char * ptmp2 = NULL;
 	pvt_t * pvt = cpvt->pvt;
 	at_queue_cmd_t cmds[ITEMS_OF(st_cmds)];
-	
+
 	/* customize list */
 	for(in = out = 0; in < ITEMS_OF(st_cmds); in++)
 	{
@@ -264,7 +188,7 @@ EXPORT_DEF int at_enque_initialization(struct cpvt* cpvt, at_cmd_t from_command)
 			else
 				continue;
 		}
-		
+
 		if(st_cmds[in].cmd == CMD_AT_Z && !CONF_SHARED(pvt, reset_datacard))
 			continue;
 		if(st_cmds[in].cmd == CMD_AT_U2DIAG && CONF_SHARED(pvt, u2diag) == -1)
@@ -487,7 +411,7 @@ EXPORT_DEF int at_enque_cusd (struct cpvt* cpvt, const char* code)
  * \brief Enque a DTMF command
  * \param cpvt -- cpvt structure
  * \param digit -- the dtmf digit to send
- * \return -1 if digis is invalid, 0 on success
+ * \return -2 if digis is invalid, 0 on success
  */
 
 EXPORT_DEF int at_enque_dtmf (struct cpvt* cpvt, char digit)
@@ -495,17 +419,16 @@ EXPORT_DEF int at_enque_dtmf (struct cpvt* cpvt, char digit)
 	switch (digit)
 	{
 /* unsupported, but AT^DTMF=1,22 OK and "2" sent
+*/
 		case 'a':
 		case 'b':
 		case 'c':
 		case 'd':
-			digit = toupper(digit);
-			// passthru
 		case 'A':
 		case 'B':
 		case 'C':
 		case 'D':
-*/
+			return -1974;
 		case '0':
 		case '1':
 		case '2':

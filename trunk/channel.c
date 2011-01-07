@@ -35,7 +35,7 @@ static int parse_dial_string(char * dialstr, const char** number, int * opts)
 	char* options;
 	char* dest_num;
 	int lopts = 0;
-	
+
 	options = strchr (dialstr, '/');
 	if (!options)
 	{
@@ -63,7 +63,7 @@ static int parse_dial_string(char * dialstr, const char** number, int * opts)
 			return AST_CAUSE_INCOMPATIBLE_DESTINATION;
 		}
 	}
-	
+
 	if (*dest_num == '\0')
 	{
 		ast_log (LOG_WARNING, "Empty destination in chan_datacard\n");
@@ -122,7 +122,7 @@ static struct ast_channel* channel_request (attribute_unused const char* type, i
 	size_t			c;
 	size_t			last_used;
 	int			opts = CALL_FLAG_NONE;
-	
+
 	if (!data)
 	{
 		ast_log (LOG_WARNING, "Channel requested with no data\n");
@@ -362,7 +362,7 @@ static struct ast_channel* channel_request (attribute_unused const char* type, i
 		{
 			ast_mutex_unlock (&pvt->lock);
 		}
-	
+
 		ast_log (LOG_WARNING, "Request to call on device '%s' which can not make call at this moment\n", dest_dev);
 		*cause = AST_CAUSE_REQUESTED_CHAN_UNAVAIL;
 
@@ -515,7 +515,7 @@ static void activate_call(struct cpvt* cpvt)
 //		cpvt->write = pvt->a_write_rb.write;
 //		cpvt->used = pvt->a_write_rb.used;
 	}
-	
+
 	if (pvt->audio_fd >= 0)
 	{
 		CPVT_SET_FLAGS(cpvt, CALL_FLAG_ACTIVATED | CALL_FLAG_MASTER);
@@ -530,6 +530,9 @@ static void activate_call(struct cpvt* cpvt)
 */
 			}
 		}
+		if(pvt->dsp)
+			ast_dsp_digitreset(pvt->dsp);
+		pvt->dtmf_digit = 0;
 		ast_debug (6, "[%s] call idx %d was master\n", PVT_ID(pvt), cpvt->call_idx);
 	}
 }
@@ -585,7 +588,7 @@ static int channel_answer (struct ast_channel* channel)
 		return 0;
 	}
 	pvt = cpvt->pvt;
-	
+
 	ast_mutex_lock (&pvt->lock);
 
 	if (cpvt->dir == CALL_DIR_INCOMING)
@@ -606,6 +609,7 @@ static int channel_digit_begin (struct ast_channel* channel, char digit)
 {
 	struct cpvt* cpvt = channel->tech_pvt;
 	struct pvt* pvt;
+	int rv;
 
 	if(!cpvt || cpvt->channel != channel || !cpvt->pvt)
 	{
@@ -616,17 +620,20 @@ static int channel_digit_begin (struct ast_channel* channel, char digit)
 
 	ast_mutex_lock (&pvt->lock);
 
-	if (at_enque_dtmf (cpvt, digit))
+	rv = at_enque_dtmf (cpvt, digit);
+	if (rv)
 	{
 		ast_mutex_unlock (&pvt->lock);
-		ast_log (LOG_ERROR, "[%s] Error adding DTMF %c command to queue\n", PVT_ID(pvt), digit);
-
+		if(rv == -1974)
+			ast_log (LOG_WARNING, "[%s] Sending DTMF %c not supported by datacard. Tell Asterisk to generate inband\n", PVT_ID(pvt), digit);
+		else
+			ast_log (LOG_ERROR, "[%s] Error adding DTMF %c command to queue\n", PVT_ID(pvt), digit);
 		return -1;
 	}
 
 	ast_mutex_unlock (&pvt->lock);
 
-	ast_debug (1, "[%s] Send DTMF %c\n", PVT_ID(pvt), digit);
+	ast_debug (3, "[%s] Send DTMF %c\n", PVT_ID(pvt), digit);
 
 	return 0;
 }
@@ -642,7 +649,7 @@ static void iov_write(struct pvt* pvt, int fd, struct iovec * iov, int iovcnt)
 	ssize_t written;
 	ssize_t done = 0;
 	int count = 10;
-	
+
 	while(iovcnt)
 	{
 again:
@@ -679,7 +686,7 @@ again:
 		}
 	}
 	PVT_STAT_PUMP(write_bytes, += done);
-	
+
 	if (done != FRAME_SIZE)
 	{
 		ast_debug (1, "[%s] Write error!\n", PVT_ID(pvt));
@@ -768,9 +775,9 @@ static void timing_write (struct pvt* pvt)
 //		iov_add(buffer, sizeof(buffer), iov);
 		if(msg)
 			ast_debug (7, msg, PVT_ID(pvt));
-	
+
 //	}
-	
+
 
 	PVT_STAT_PUMP(write_frames, ++);
 	iov_write(pvt, pvt->audio_fd, iov, iovcnt);
@@ -848,6 +855,7 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 		cpvt->a_read_frame.subclass_codec= AST_FORMAT_SLINEAR;
 		cpvt->a_read_frame.data.ptr = cpvt->a_read_buf + AST_FRIENDLY_OFFSET;
 		cpvt->a_read_frame.offset = AST_FRIENDLY_OFFSET;
+		cpvt->a_read_frame.src = AST_MODULE;
 
 		res = read (CPVT_IS_MASTER(cpvt) ? pvt->audio_fd : cpvt->rd_pipe[PIPE_READ], cpvt->a_read_frame.data.ptr, FRAME_SIZE);
 		if (res <= 0)
@@ -859,7 +867,7 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 
 			goto e_return;
 		}
-		
+
 /*		ast_debug (7, "[%s] call idx %d read %u\n", PVT_ID(pvt), cpvt->call_idx, (unsigned)res);
 		ast_debug (6, "[%s] read | call idx %d fd %d readed %d bytes\n", PVT_ID(pvt), cpvt->call_idx, pvt->audio_fd, res);
 */
@@ -874,13 +882,18 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 			if(res < FRAME_SIZE)
 				PVT_STAT_PUMP(read_sframes, ++);
 		}
-		
+
 		cpvt->a_read_frame.samples	= res / 2;
 		cpvt->a_read_frame.datalen	= res;
-
+/*
+		cpvt->a_read_frame.ts;
+		cpvt->a_read_frame.len;
+		cpvt->a_read_frame.seqno;
+*/
+		f = &cpvt->a_read_frame;
 		if (pvt->dsp)
 		{
-			f = ast_dsp_process (channel, pvt->dsp, &cpvt->a_read_frame);
+			f = ast_dsp_process (channel, pvt->dsp, f);
 			if ((f->frametype == AST_FRAME_DTMF_END) || (f->frametype == AST_FRAME_DTMF_BEGIN))
 			{
 				if ((f->subclass_integer == 'm') || (f->subclass_integer == 'u'))
@@ -929,7 +942,7 @@ static struct ast_frame* channel_read (struct ast_channel* channel)
 			}
 		}
 
-		if (CONF_SHARED(pvt, rxgain))
+		if (CONF_SHARED(pvt, rxgain) && f->frametype == AST_FRAME_VOICE)
 		{
 			if (ast_frame_adjust_volume (f, CONF_SHARED(pvt, rxgain)) == -1)
 			{
@@ -967,7 +980,7 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 	/* never write to same device from other channel its possible for call hold or conference */
 	if(CPVT_TEST_FLAG(cpvt, CALL_FLAG_BRIDGE_LOOP))
 		return 0;
-	
+
 	pvt = cpvt->pvt;
 
 	ast_debug (7, "[%s] write call idx %d state %d\n", PVT_ID(pvt), cpvt->call_idx, cpvt->state);
@@ -985,7 +998,7 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 		struct ast_channel* bridged = ast_bridged_channel(channel);
 
 		CPVT_SET_FLAGS(cpvt, CALL_FLAG_BRIDGE_CHECK);
-		
+
 		if(bridged && bridged->tech == &channel_tech && bridged->tech_pvt && ((struct cpvt*)bridged->tech_pvt)->pvt == pvt)
 		{
 			CPVT_SET_FLAGS(cpvt, CALL_FLAG_BRIDGE_LOOP);
@@ -1019,7 +1032,7 @@ static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 			}
 			gain = - pvt->chan_count[CALL_STATE_ACTIVE];
 		}
-		
+
 		/* down volume for reduce level of mixed channels */
 		if (gain < -1 && f->datalen > 0)
 		{
@@ -1108,14 +1121,14 @@ static int channel_fixup (struct ast_channel* oldchannel, struct ast_channel* ne
 {
 	struct cpvt * cpvt = newchannel->tech_pvt;
 	struct pvt* pvt;
-	
+
 	if (!cpvt || !cpvt->pvt)
 	{
 		ast_log (LOG_WARNING, "call on unreferenced %s\n", newchannel->name);
 		return -1;
 	}
 	pvt = cpvt->pvt;
-	
+
 	ast_mutex_lock (&pvt->lock);
 	if (cpvt->channel == oldchannel)
 	{
@@ -1214,7 +1227,7 @@ EXPORT_DEF void change_channel_state(struct cpvt * cpvt, unsigned newstate, int 
 	{
 		pvt = cpvt->pvt;
 		channel = cpvt->channel;
-		
+
 		cpvt->state = newstate;
 		pvt->chan_count[oldstate]--;
 		pvt->chan_count[newstate]++;
@@ -1302,7 +1315,7 @@ EXPORT_DEF void change_channel_state(struct cpvt * cpvt, unsigned newstate, int 
 				disactivate_call(cpvt);
 				/* from +CEND, restart or disconnect */
 
-				
+
 				/* drop channel -> cpvt reference */
 				channel->tech_pvt = NULL;
 				cpvt_free(cpvt);
@@ -1328,7 +1341,7 @@ static void set_channel_vars(struct pvt* pvt, struct ast_channel* channel)
 		{ "IMSI", pvt->imsi },
 		{ "CNUMBER", pvt->subscriber_number },
 	};
-	
+
 	ast_string_field_set (channel, language, CONF_SHARED(pvt, language));
 
 	for(idx = 0; idx < ITEMS_OF(dev_vars); ++idx)
@@ -1365,7 +1378,7 @@ EXPORT_DEF struct ast_channel* new_channel (struct pvt* pvt, int ast_state, cons
 			{
 				channel->rings = 1;
 			}
-			
+
 			set_channel_vars(pvt, channel);
 
 			if(dnid != NULL && dnid[0] != 0)
@@ -1545,13 +1558,13 @@ static int channel_func_write(struct ast_channel* channel, const char* function,
 			ast_log(LOG_WARNING, "Invalid value for %s(callstate).", function);
 			return -1;
 		}
-		
+
 		while (ast_mutex_trylock (&cpvt->pvt->lock))
 		{
 			CHANNEL_DEADLOCK_AVOIDANCE (channel);
 		}
 		oldstate = cpvt->state;
-		
+
 		if (oldstate == newstate)
 			;
 		else if (oldstate == CALL_STATE_ONHOLD)

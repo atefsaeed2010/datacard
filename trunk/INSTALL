@@ -28,3 +28,5 @@
 		make
     2.5) Install package
 		make install
+
+More documentation on http://wiki.e1550.mobi/

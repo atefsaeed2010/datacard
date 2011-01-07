@@ -8,6 +8,7 @@
 #include <asterisk/channel.h>		/* AST_MAX_CONTEXT MAX_LANGUAGE */
 
 #include "export.h"			/* EXPORT_DECL EXPORT_DEF */
+#include "mutils.h"
 
 #define CONFIG_FILE		"datacard.conf"
 
@@ -16,6 +17,24 @@ typedef enum {
 	CALL_WAITING_ALLOWED,
 	CALL_WAITING_AUTO
 } call_waiting_t;
+
+INLINE_DECL const char * dc_cw_setting2str(call_waiting_t cw)
+{
+	static const char * const options[] = { "disabled", "allowed", "auto" };
+	return enum2str(cw, options, ITEMS_OF(options));
+}
+
+typedef enum {
+	DC_DTMF_SETTING_OFF = 0,
+	DC_DTMF_SETTING_INBAND,
+	DC_DTMF_SETTING_RELAX,
+} dc_dtmf_setting_t;
+
+INLINE_DECL const char * dc_dtmf_setting2str(dc_dtmf_setting_t dtmf)
+{
+	static const char * const options[] = { "off", "inband", "relax" };
+	return enum2str(dtmf, options, ITEMS_OF(options));
+}
 
 /* Global inherited (shared) settings */
 typedef struct dc_sconfig
@@ -37,6 +56,7 @@ typedef struct dc_sconfig
 	unsigned int		disable:1;			/*! 0 */
 
 	call_waiting_t		call_waiting;			/*!< enable/disable/auto call waiting CALL_WAITING_AUTO */
+	dc_dtmf_setting_t	dtmf;				/*!< off/inband/relax incoming DTMF detection, default DC_DTMF_SETTING_RELAX */
 
 	int			mindtmfgap;			/*!< minimal time in ms from end of previews DTMF and begining of next */
 #define DEFAULT_MINDTMFGAP	45
@@ -78,5 +98,6 @@ EXPORT_DECL void dc_sconfig_fill_defaults(struct dc_sconfig * config);
 EXPORT_DECL void dc_sconfig_fill(struct ast_config * cfg, const char * cat, struct dc_sconfig * config);
 EXPORT_DECL void dc_gconfig_fill(struct ast_config * cfg, const char * cat, struct dc_gconfig * config);
 EXPORT_DECL int dc_config_fill(struct ast_config * cfg, const char * cat, const struct dc_sconfig * parent, struct pvt_config * config);
+
 
 #endif /* CHAN_DATACARD_DC_CONFIG_H_INCLUDED */

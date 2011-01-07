@@ -27,7 +27,7 @@
 #include <errno.h>			/* EINVAL */
 
 #include "char_conv.h"
-#include "helpers.h"			/* ITEMS_OF() */
+#include "mutils.h"			/* ITEMS_OF() */
 
 static ssize_t convert_string (const char* in, size_t in_length, char* out, size_t out_size, char* from, char* to)
 {

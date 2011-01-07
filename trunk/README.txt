@@ -106,3 +106,11 @@ datacard remove when convenient <device>
 datacard reload gracefully
 datacard reload now
 datacard reload when convenient
+
+For reading installation notes please look to INSTALL file.
+
+For additional information about Huawei datacard usage
+look to chan_datacard Wiki at http://wiki.e1550.mobi
+and chan_datacard project home at http://code.google.com/p/datacard/
+
+Base branch of chan_datacard located at http://forge.asterisk.org/gf/project/chan_datacard/
