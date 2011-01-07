@@ -96,38 +96,34 @@ static char* cli_show_devices (struct ast_cli_entry* e, int cmd, struct ast_cli_
 	return CLI_SUCCESS;
 }
 
-static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+static char* cli_show_device_settings (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
 	struct pvt* pvt;
-	struct ast_str* statebuf;
-	char buf[40];
 
 	switch (cmd)
 	{
 		case CLI_INIT:
-			e->command =	"datacard show device";
-			e->usage   =	"Usage: datacard show device <device>\n"
-					"       Shows the state and config of Datacard device.\n";
+			e->command =	"datacard show device settings";
+			e->usage   =	"Usage: datacard show device settings <device>\n"
+					"       Shows the settings of Datacard device.\n";
 			return NULL;
 
 		case CLI_GENERATE:
-			if (a->pos == 3)
+			if (a->pos == 4)
 			{
 				return complete_device (a->word, a->n);
 			}
 			return NULL;
 	}
 
-	if (a->argc != 4)
+	if (a->argc != 5)
 	{
 		return CLI_SHOWUSAGE;
 	}
 
-	pvt = find_device (a->argv[3]);
+	pvt = find_device (a->argv[4]);
 	if (pvt)
 	{
-		statebuf = pvt_str_state_ex(pvt);
-
 		ast_mutex_lock (&pvt->lock);
 
 		ast_cli (a->fd, "------------- Settings ------------\n");
@@ -151,8 +147,54 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "  DTMF                    : %s\n", dc_dtmf_setting2str(CONF_SHARED(pvt, dtmf)));
 		ast_cli (a->fd, "  Minimal DTMF Gap        : %d\n", CONF_SHARED(pvt, mindtmfgap));
 		ast_cli (a->fd, "  Minimal DTMF Duration   : %d\n", CONF_SHARED(pvt, mindtmfduration));
-		ast_cli (a->fd, "  Minimal DTMF Interval   : %d\n", CONF_SHARED(pvt, mindtmfinterval));
+		ast_cli (a->fd, "  Minimal DTMF Interval   : %d\n\n", CONF_SHARED(pvt, mindtmfinterval));
+
+		ast_mutex_unlock (&pvt->lock);
+	}
+	else
+	{
+		ast_cli (a->fd, "Device %s not found\n", a->argv[4]);
+	}
+
+	return CLI_SUCCESS;
+}
+
+static char* cli_show_device_state (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+{
+	struct pvt* pvt;
+	struct ast_str* statebuf;
+	char buf[40];
+
+	switch (cmd)
+	{
+		case CLI_INIT:
+			e->command =	"datacard show device state";
+			e->usage   =	"Usage: datacard show device state <device>\n"
+					"       Shows the state of Datacard device.\n";
+			return NULL;
+
+		case CLI_GENERATE:
+			if (a->pos == 4)
+			{
+				return complete_device (a->word, a->n);
+			}
+			return NULL;
+	}
+
+	if (a->argc != 5)
+	{
+		return CLI_SHOWUSAGE;
+	}
+
+	pvt = find_device (a->argv[4]);
+	if (pvt)
+	{
+		statebuf = pvt_str_state_ex(pvt);
+
+		ast_mutex_lock (&pvt->lock);
+
 		ast_cli (a->fd, "-------------- Status -------------\n");
+		ast_cli (a->fd, "  Device                  : %s\n", PVT_ID(pvt));
 		ast_cli (a->fd, "  State                   : %s\n", ast_str_buffer(statebuf));
 		ast_cli (a->fd, "  Voice                   : %s\n", (pvt->has_voice) ? "Yes" : "No");
 		ast_cli (a->fd, "  SMS                     : %s\n", (pvt->has_sms) ? "Yes" : "No");
@@ -173,7 +215,18 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 		ast_cli (a->fd, "  Use UCS-2 encoding      : %s\n", pvt->use_ucs2_encoding ? "Yes" : "No");
 		ast_cli (a->fd, "  USSD use 7 bit encoding : %s\n", pvt->cusd_use_7bit_encoding ? "Yes" : "No");
 		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
-		ast_cli (a->fd, "  Call Waiting            : %s\n\n", pvt->has_call_waiting ? "Enabled" : "Disabled" );
+		ast_cli (a->fd, "  Tasks in queue          : %u\n", PVT_STATE(pvt, at_tasks));
+		ast_cli (a->fd, "  Commands in queue       : %u\n", PVT_STATE(pvt, at_cmds));
+		ast_cli (a->fd, "  Call Waiting status     : %s\n", pvt->has_call_waiting ? "Enabled" : "Disabled" );
+		ast_cli (a->fd, "  Calls/Channels          : %u\n", PVT_STATE(pvt, chansno));
+		ast_cli (a->fd, "    Active                : %u\n", PVT_STATE(pvt, chan_count[CALL_STATE_ACTIVE]));
+		ast_cli (a->fd, "    Held                  : %u\n", PVT_STATE(pvt, chan_count[CALL_STATE_ONHOLD]));
+		ast_cli (a->fd, "    Dialing               : %u\n", PVT_STATE(pvt, chan_count[CALL_STATE_DIALING]));
+		ast_cli (a->fd, "    Alerting              : %u\n", PVT_STATE(pvt, chan_count[CALL_STATE_ALERTING]));
+		ast_cli (a->fd, "    Incoming              : %u\n", PVT_STATE(pvt, chan_count[CALL_STATE_INCOMING]));
+		ast_cli (a->fd, "    Waiting               : %u\n", PVT_STATE(pvt, chan_count[CALL_STATE_WAITING]));
+		ast_cli (a->fd, "    Releasing             : %u\n", PVT_STATE(pvt, chan_count[CALL_STATE_RELEASED]));
+		ast_cli (a->fd, "    Initializing          : %u\n\n", PVT_STATE(pvt, chan_count[CALL_STATE_INIT]));
 /* TODO: show call waiting  network setting and local config value */
 		ast_mutex_unlock (&pvt->lock);
 
@@ -181,11 +234,77 @@ static char* cli_show_device (struct ast_cli_entry* e, int cmd, struct ast_cli_a
 	}
 	else
 	{
-		ast_cli (a->fd, "Device %s not found\n", a->argv[2]);
+		ast_cli (a->fd, "Device %s not found\n", a->argv[4]);
 	}
 
 	return CLI_SUCCESS;
 }
+
+static char* cli_show_device_statictics (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+{
+	struct pvt* pvt;
+
+	switch (cmd)
+	{
+		case CLI_INIT:
+			e->command =	"datacard show device statictics";
+			e->usage   =	"Usage: datacard show device statictics <device>\n"
+					"       Shows the statictics of Datacard device.\n";
+			return NULL;
+
+		case CLI_GENERATE:
+			if (a->pos == 4)
+			{
+				return complete_device (a->word, a->n);
+			}
+			return NULL;
+	}
+
+	if (a->argc != 5)
+	{
+		return CLI_SHOWUSAGE;
+	}
+
+	pvt = find_device (a->argv[4]);
+	if (pvt)
+	{
+		ast_mutex_lock (&pvt->lock);
+
+		ast_cli (a->fd, "-------------- Statictics -------------\n");
+		ast_cli (a->fd, "  Device                      : %s\n", PVT_ID(pvt));
+		ast_cli (a->fd, "  Queue tasks                 : %u\n", PVT_STAT(pvt, at_tasks));
+		ast_cli (a->fd, "  Queue commands              : %u\n", PVT_STAT(pvt, at_cmds));
+		ast_cli (a->fd, "  Responses                   : %u\n", PVT_STAT(pvt, at_responces));
+		ast_cli (a->fd, "  Bytes of readed responces   : %u\n", PVT_STAT(pvt, d_read_bytes));
+		ast_cli (a->fd, "  Bytes of wrote commands     : %u\n", PVT_STAT(pvt, d_write_bytes));
+		ast_cli (a->fd, "  Bytes of readed audio       : %llu\n", PVT_STAT(pvt, a_read_bytes));
+		ast_cli (a->fd, "  Bytes of wrote audio        : %llu\n", PVT_STAT(pvt, a_write_bytes));
+		ast_cli (a->fd, "  Readed frames               : %u\n", PVT_STAT(pvt, read_frames));
+		ast_cli (a->fd, "  Readed short frames         : %u\n", PVT_STAT(pvt, read_sframes));
+		ast_cli (a->fd, "  Wrote frames                : %u\n", PVT_STAT(pvt, write_frames));
+		ast_cli (a->fd, "  Wrote short frames          : %u\n", PVT_STAT(pvt, write_tframes));
+		ast_cli (a->fd, "  Wrote silence frames        : %u\n", PVT_STAT(pvt, write_sframes));
+		ast_cli (a->fd, "  Write buffer overflow bytes : %llu\n", PVT_STAT(pvt, write_rb_overflow_bytes));
+		ast_cli (a->fd, "  Write buffer overflow times : %u\n", PVT_STAT(pvt, write_rb_overflow));
+		ast_cli (a->fd, "  Incoming calls              : %u\n", PVT_STAT(pvt, in_calls));
+		ast_cli (a->fd, "  Waiting calls               : %u\n", PVT_STAT(pvt, cw_calls));
+		ast_cli (a->fd, "  Handled input calls         : %u\n", PVT_STAT(pvt, in_calls_handled));
+		ast_cli (a->fd, "  Fails to PBX run            : %u\n", PVT_STAT(pvt, in_pbx_fails));
+		ast_cli (a->fd, "  Answered outgoing calls     : %u\n", PVT_STAT(pvt, calls_answered[CALL_DIR_OUTGOING]));
+		ast_cli (a->fd, "  Answered incoming calls     : %u\n", PVT_STAT(pvt, calls_answered[CALL_DIR_INCOMING]));
+		ast_cli (a->fd, "  Seconds of outgoing calls   : %u\n", PVT_STAT(pvt, calls_duration[CALL_DIR_OUTGOING]));
+		ast_cli (a->fd, "  Seconds of incoming calls   : %u\n\n", PVT_STAT(pvt, calls_duration[CALL_DIR_INCOMING]));
+
+		ast_mutex_unlock (&pvt->lock);
+	}
+	else
+	{
+		ast_cli (a->fd, "Device %s not found\n", a->argv[4]);
+	}
+
+	return CLI_SUCCESS;
+}
+
 
 static char* cli_show_version (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
@@ -599,7 +718,9 @@ static char * cli_reload(struct ast_cli_entry *e, int cmd, struct ast_cli_args *
 
 static struct ast_cli_entry cli[] = {
 	AST_CLI_DEFINE (cli_show_devices,	"Show Datacard devices state"),
-	AST_CLI_DEFINE (cli_show_device,	"Show Datacard device state and config"),
+	AST_CLI_DEFINE (cli_show_device_settings,"Show Datacard device settings"),
+	AST_CLI_DEFINE (cli_show_device_state,	 "Show Datacard device state"),
+	AST_CLI_DEFINE (cli_show_device_statictics,"Show Datacard device statictics"),
 	AST_CLI_DEFINE (cli_show_version,	"Show module version"),
 	AST_CLI_DEFINE (cli_cmd,		"Send commands to port for debugging"),
 	AST_CLI_DEFINE (cli_ussd,		"Send USSD commands to the datacard"),
@@ -612,25 +733,7 @@ static struct ast_cli_entry cli[] = {
 	AST_CLI_DEFINE (cli_remove,		"Remove datacard"),
 	AST_CLI_DEFINE (cli_reload,		"Reload datacard"),
 
-/*
-	AST_CLI_DEFINE (cli_stop_now,		"Stop datacard now"),
-	AST_CLI_DEFINE (cli_stop_gracefully,	"Stop datacard gracefully"),
-	AST_CLI_DEFINE (cli_stop_convenient,	"Stop datacard when convenient"),
-
-	AST_CLI_DEFINE (cli_restart_now,	"Restart datacard now"),
-	AST_CLI_DEFINE (cli_restart_gracefully,	"Restart datacard"),
-	AST_CLI_DEFINE (cli_restart_convenient,	"Restart datacard when convenient"),
-
-	AST_CLI_DEFINE (cli_remove_now,		"Remove datacard now"),
-	AST_CLI_DEFINE (cli_remove_gracefully,	"Remove datacard gracefully"),
-	AST_CLI_DEFINE (cli_remove_convenient,	"Remove datacard when convenient"),
-*/
 	AST_CLI_DEFINE (cli_start,		"Start datacard"),
-/*
-	AST_CLI_DEFINE (cli_reload_now,		"Reload datacard now"),
-	AST_CLI_DEFINE (cli_reload_gracefully,	"Reload datacard gracefully"),
-	AST_CLI_DEFINE (cli_reload_convenient,	"Reload datacard when convenient"),
-*/
 };
 
 #/* */

@@ -441,7 +441,6 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 				pvt->use_ucs2_encoding = 0;
 				break;
 
-				
 			case CMD_AT_A:
 			case CMD_AT_CHLD_2x:
 				ast_log (LOG_ERROR, "[%s] Answer failed for call idx %d\n", PVT_ID(pvt), task->cpvt->call_idx);
@@ -456,7 +455,6 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 			case CMD_AT_CLIR:
 				ast_log (LOG_ERROR, "[%s] Setting CLIR failed\n", PVT_ID(pvt));
 				break;
-				
 
 			case CMD_AT_CHLD_2:
 				if(!CPVT_TEST_FLAG(task->cpvt, CALL_FLAG_HOLD_OTHER) || task->cpvt->state != CALL_STATE_INIT)
@@ -548,13 +546,13 @@ e_return:
 static int at_response_rssi (struct pvt* pvt, const char* str)
 {
 	int rssi = at_parse_rssi (str);
-	
+
 	if (rssi == -1)
 	{
 		ast_debug (2, "[%s] Error parsing RSSI event '%s'\n", PVT_ID(pvt), str);
 		return -1;
 	}
-	
+
 	pvt->rssi = rssi;
 	return 0;
 }
@@ -607,15 +605,15 @@ static int at_response_orig (struct pvt* pvt, const char* str)
 	int call_index;
 	int call_type;
 	struct cpvt * cpvt = pvt->last_dialed_cpvt;
-	
+
 	pvt->last_dialed_cpvt = NULL;
 	if(!cpvt)
 	{
 		ast_log (LOG_ERROR, "[%s] ^ORIG '%s' for unknown ATD\n", PVT_ID(pvt), str);
 		return 0;
 	}
-	
-	
+
+
 	/*
 	 * parse ORIG info in the following format:
 	 * ^ORIG:<call_index>,<call_type>
@@ -631,7 +629,7 @@ static int at_response_orig (struct pvt* pvt, const char* str)
 
 	if (call_type == CLCC_CALL_TYPE_VOICE)
 	{
-		
+
 		if(call_index >= MIN_CALL_IDX && call_index <= MAX_CALL_IDX)
 		{
 			/* set REAL call idx */
@@ -677,7 +675,7 @@ static int at_response_conf (struct pvt* pvt, const char* str)
 {
 	int call_index;
 	struct cpvt * cpvt;
-	
+
 	/*
 	 * parse CONF info in the following format:
 	 * ^CONF: <call_index>
@@ -737,6 +735,7 @@ static int at_response_cend (struct pvt* pvt, const char* str)
 	cpvt = pvt_find_cpvt(pvt, call_index);
 	if (cpvt)
 	{
+		PVT_STAT(pvt, calls_duration[cpvt->dir]) += duration;
 		CPVT_RESET_FLAGS(cpvt, CALL_FLAG_NEED_HANGUP);
 		change_channel_state(cpvt, CALL_STATE_RELEASED, cc_cause);
 	}
@@ -787,9 +786,9 @@ static int at_response_conn (struct pvt* pvt, const char* str)
 	pvt->ring = 0;
 	pvt->dialing = 0;
 	pvt->cwaiting = 0;
-	
+
 	request_clcc(pvt);
-	
+
 	/*
 	 * parse CONN info in the following format:
 	 * ^CONN:<call_index>,<call_type>
@@ -809,6 +808,7 @@ static int at_response_conn (struct pvt* pvt, const char* str)
 		{
 /* FIXME: delay until CLCC handle?
 */
+			PVT_STAT(pvt, calls_answered[cpvt->dir]) ++;
 			change_channel_state(cpvt, CALL_STATE_ACTIVE, 0);
 			if(CPVT_TEST_FLAG(cpvt, CALL_FLAG_CONFERENCE))
 				at_enque_conference(cpvt);
@@ -852,7 +852,7 @@ static int start_pbx(struct pvt* pvt, const char * number, int call_idx, call_st
 	{
 		channel->tech_pvt = NULL;
 		cpvt_free(cpvt);
-		
+
 		ast_hangup (channel);
 		ast_log (LOG_ERROR, "[%s] Unable to start pbx on incoming call\n", PVT_ID(pvt));
 		// TODO: count fails and reset incoming when count reach limit ?
@@ -927,11 +927,21 @@ static int at_response_clcc (struct pvt* pvt, char* str)
 					}
 					else if(dir == CALL_DIR_INCOMING && (state == CALL_STATE_INCOMING || state == CALL_STATE_WAITING))
 					{
+						if(state == CALL_STATE_INCOMING)
+							PVT_STAT(pvt, in_calls) ++;
+						else
+							PVT_STAT(pvt, cw_calls) ++;
 						if(pvt_enabled(pvt))
 						{
 							/* TODO: give dialplan level user tool for checking device is voice enabled or not  */
-							if(start_pbx(pvt, number, call_idx, state) == 0 && !pvt->has_voice)
-								ast_log (LOG_WARNING, "[%s] pbx started for device not voice capable\n", PVT_ID(pvt));
+							if(start_pbx(pvt, number, call_idx, state) == 0)
+							{
+								PVT_STAT(pvt, in_calls_handled) ++;
+								if(!pvt->has_voice)
+									ast_log (LOG_WARNING, "[%s] pbx started for device not voice capable\n", PVT_ID(pvt));
+							}
+							else
+								PVT_STAT(pvt, in_pbx_fails) ++;
 						}
 					}
 
@@ -1019,7 +1029,7 @@ static int at_response_ccwa(struct pvt* pvt, char* str)
 {
 	int status, n;
 	unsigned class;
-	
+
 	/* 
 	 * CCWA may be in form:
 	 *	in response of AT+CCWA=?
@@ -1084,6 +1094,7 @@ static int at_response_ring (struct pvt* pvt)
 		pvt->rings++;
 
 		request_clcc(pvt);
+
 		/* We only want to syncronize volume on the first ring and if no channels yes */
 		if (pvt->volume_sync_step == VOLUME_SYNC_BEGIN && PVT_NO_CHANS(pvt))
 		{
@@ -1553,7 +1564,7 @@ static int at_response_cgmi (struct pvt* pvt, const char* str)
 static int at_response_cgmm (struct pvt* pvt, const char* str)
 {
 	ast_copy_string (pvt->model, str, sizeof (pvt->model));
-	
+
 	if (!strcmp (pvt->model, "E1550") || !strcmp (pvt->model, "E1750") || !strcmp (pvt->model, "E160X"))
 	{
 		pvt->cusd_use_7bit_encoding = 1;
@@ -1615,7 +1626,7 @@ static void at_response_busy(struct pvt* pvt, enum ast_control_frame_type contro
 {
 	const struct at_queue_task * task = at_queue_head_task (pvt);
 	struct cpvt* cpvt = task->cpvt;
-	
+
 	if(cpvt == &pvt->sys_chan)
 		cpvt = pvt->last_dialed_cpvt;
 
@@ -1641,6 +1652,7 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 	size_t		len;
 	const struct at_queue_cmd*	ecmd = at_queue_head_cmd(pvt);
 
+
 	if(iov[0].iov_len + iov[1].iov_len > 0)
 	{
 		len = iov[0].iov_len + iov[1].iov_len - 1;
@@ -1648,7 +1660,7 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 		if (iovcnt == 2)
 		{
 			ast_debug (5, "[%s] iovcnt == 2\n", PVT_ID(pvt));
-			
+
 			str = alloca(len + 1);
 			if (!str)
 			{

@@ -46,31 +46,53 @@ typedef enum {
 	RESTATE_TIME_CONVENIENT,
 } restate_time_t;
 
+/* state */
+typedef struct pvt_state
+{
+	uint32_t		at_tasks;			/*!< number of active tasks in at_queue */
+	uint32_t		at_cmds;			/*!< number of active commands in at_queue */
+	uint32_t		chansno;			/*!< number of channels in channels list */
+	uint8_t			chan_count[CALL_STATES_NUMBER];	/*!< channel number grouped by state */
+} pvt_state_t;
 
+#define PVT_STATE_T(state, name)			((state)->name)
 
-struct at_queue_task;
-
+/* statictics */
 typedef struct pvt_stat
 {
-	/* statictics / debugging */
-	unsigned int		at_tasks;			/* number of active tasks in at_queue */
-	unsigned int		at_cmds;			/* number of active commands in at_queue */
+	uint32_t		at_tasks;			/*!< number of tasks added to queue */
+	uint32_t		at_cmds;			/*!< number of commands added to queue */
+	uint32_t		at_responces;			/*!< number of responses handled */
 
-	uint64_t		read_bytes;			/*!< number of bytes of audio actually readed from device */
-	uint64_t		write_bytes;			/*!< number of bytes of audio actually written to device */
+	uint32_t		d_read_bytes;			/*!< number of bytes of commands actually readed from device */
+	uint32_t		d_write_bytes;			/*!< number of bytes of commands actually written to device */
 
-	unsigned int		read_frames;			/*!< number of frames readed from device */
-	unsigned int		read_sframes;			/*!< number of truncated frames readed from device */
+	uint64_t		a_read_bytes;			/*!< number of bytes of audio readed from device */
+	uint64_t		a_write_bytes;			/*!< number of bytes of audio written to device */
 
-	unsigned int		write_frames;			/*!< number of tries to frame write */
-	unsigned int		write_tframes;			/*!< number of truncated frames to write */
-	unsigned int		write_sframes;			/*!< number of silence frames to write */
+	uint32_t		read_frames;			/*!< number of frames readed from device */
+	uint32_t		read_sframes;			/*!< number of truncated frames readed from device */
+
+	uint32_t		write_frames;			/*!< number of tries to frame write */
+	uint32_t		write_tframes;			/*!< number of truncated frames to write */
+	uint32_t		write_sframes;			/*!< number of silence frames to write */
 
 	uint64_t		write_rb_overflow_bytes;	/*!< number of overflow bytes */
-	unsigned int		write_rb_overflow;		/*!< number of times when a_write_rb overflowed */
-} pvt_stat_t;
-#define PVT_STAT_PUMP(name, expr)		pvt->stat.name expr
+	uint32_t		write_rb_overflow;		/*!< number of times when a_write_rb overflowed */
 
+	uint32_t		in_calls;			/*!< number of incoming calls not including waiting */
+	uint32_t		cw_calls;			/*!< number of waiting calls */
+	uint32_t		out_calls;			/*!< number of all outgoing calls attempts */
+	uint32_t		in_calls_handled;		/*!< number of ncoming/waiting calls passed to dialplan */
+	uint32_t		in_pbx_fails;			/*!< number of start_pbx fails */
+
+	uint32_t		calls_answered[2];		/*!< number of outgoing and incoming/waiting calls answered */
+	uint32_t		calls_duration[2];		/*!< seconds of outgoing and incoming/waiting calls */
+} pvt_stat_t;
+
+#define PVT_STAT_T(stat, name)			((stat)->name)
+
+struct at_queue_task;
 
 typedef struct pvt
 {
@@ -80,8 +102,6 @@ typedef struct pvt
 	AST_LIST_HEAD_NOLOCK (, at_queue_task) at_queue;	/*!< queue for commands to modem */
 
 	AST_LIST_HEAD_NOLOCK (, cpvt)		chans;		/*!< list of channels */
-	unsigned short		chan_count[CALL_STATES_NUMBER];	/*!< channel number grouped by state */
-	unsigned		chansno;			/*!< number of channels in channels list */
 	struct cpvt		sys_chan;			/*!< system channel */
 	struct cpvt		*last_dialed_cpvt;		/*!< channel what last call successfully set ATDnum; leave until ^ORIG received; need because real call idx of dialing call unknown until ^ORIG */
 
@@ -167,15 +187,19 @@ typedef struct pvt
 	dev_state_t		current_state;			/*!< current state */
 
 	pvt_config_t		settings;			/*!< all device settings from config file */
+	pvt_state_t		state;				/*!< state */
 	pvt_stat_t		stat;				/*!< various statistics */
 } pvt_t;
 
-#define CONF_GLOBAL(name)	(gpublic->global_settings.name)
+#define CONF_GLOBAL(name)		(gpublic->global_settings.name)
 #define SCONF_GLOBAL(state, name)	((state)->global_settings.name)
 
-#define CONF_SHARED(pvt, name)	SCONFIG(&((pvt)->settings), name)
-#define CONF_UNIQ(pvt, name)	UCONFIG(&((pvt)->settings), name)
-#define PVT_ID(pvt)		UCONFIG(&((pvt)->settings), id)
+#define CONF_SHARED(pvt, name)		SCONFIG(&((pvt)->settings), name)
+#define CONF_UNIQ(pvt, name)		UCONFIG(&((pvt)->settings), name)
+#define PVT_ID(pvt)			UCONFIG(&((pvt)->settings), id)
+
+#define PVT_STATE(pvt, name)		PVT_STATE_T(&(pvt)->state, name)
+#define PVT_STAT(pvt, name)		PVT_STAT_T(&(pvt)->stat, name)
 
 typedef struct public_state
 {
@@ -209,6 +233,6 @@ EXPORT_DECL void pvt_try_restate(struct pvt * pvt);
 
 EXPORT_DECL struct ast_module* self_module();
 
-#define PVT_NO_CHANS(pvt)		((pvt)->chansno == 0)
+#define PVT_NO_CHANS(pvt)		(PVT_STATE(pvt, chansno) == 0)
 
 #endif /* CHAN_DATACARD_H_INCLUDED */
