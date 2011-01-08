@@ -49,6 +49,8 @@ typedef enum {
 /* state */
 typedef struct pvt_state
 {
+	char			audio_tty[DEVPATHLEN];		/*!< tty for audio connection */
+	char			data_tty[DEVPATHLEN];		/*!< tty for AT commands */
 	uint32_t		at_tasks;			/*!< number of active tasks in at_queue */
 	uint32_t		at_cmds;			/*!< number of active commands in at_queue */
 	uint32_t		chansno;			/*!< number of channels in channels list */
@@ -230,6 +232,11 @@ EXPORT_DECL void pvt_on_remove_last_channel(struct pvt* pvt);
 EXPORT_DECL void pvt_reload(restate_time_t when);
 EXPORT_DECL int pvt_enabled(const struct pvt * pvt);
 EXPORT_DECL void pvt_try_restate(struct pvt * pvt);
+
+EXPORT_DECL int opentty (const char* dev, char ** lockfile);
+EXPORT_DECL void closetty(int fd, char ** lockfname);
+EXPORT_DECL int lock_try(const char * devname, char ** lockname);
+
 
 EXPORT_DECL struct ast_module* self_module();
 

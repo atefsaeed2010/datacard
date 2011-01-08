@@ -39,31 +39,32 @@
 #include <asterisk.h>
 ASTERISK_FILE_VERSION(__FILE__, "$Rev: " PACKAGE_REVISION " $")
 
-#include <asterisk/stringfields.h>		/* AST_DECLARE_STRING_FIELDS for asterisk/manager.h */
+#include <asterisk/stringfields.h>	/* AST_DECLARE_STRING_FIELDS for asterisk/manager.h */
 #include <asterisk/manager.h>
 #include <asterisk/dsp.h>
 #include <asterisk/callerid.h>
-#include <asterisk/module.h>			/* AST_MODULE_LOAD_DECLINE ... */
-#include <asterisk/timing.h>			/* ast_timer_open() ast_timer_fd() */
+#include <asterisk/module.h>		/* AST_MODULE_LOAD_DECLINE ... */
+#include <asterisk/timing.h>		/* ast_timer_open() ast_timer_fd() */
 
-#include <sys/stat.h>				/* S_IRUSR | S_IRGRP | S_IROTH */
-#include <termios.h>				/* struct termios tcgetattr() tcsetattr()  */
-#include <pthread.h>				/* pthread_t pthread_kill() pthread_join() */
-#include <fcntl.h>				/* O_RDWR O_NOCTTY */
-#include <signal.h>				/* SIGURG */
+#include <sys/stat.h>			/* S_IRUSR | S_IRGRP | S_IROTH */
+#include <termios.h>			/* struct termios tcgetattr() tcsetattr()  */
+#include <pthread.h>			/* pthread_t pthread_kill() pthread_join() */
+#include <fcntl.h>			/* O_RDWR O_NOCTTY */
+#include <signal.h>			/* SIGURG */
 
 #include "chan_datacard.h"
-#include "at_response.h"			/* at_res_t */
-#include "at_queue.h"				/* struct at_queue_task_cmd at_queue_head_cmd() */
-#include "at_command.h"				/* at_cmd2str() */
-#include "mutils.h"				/* ITEMS_OF() */
-#include "helpers.h"				/* find_device */
+#include "at_response.h"		/* at_res_t */
+#include "at_queue.h"			/* struct at_queue_task_cmd at_queue_head_cmd() */
+#include "at_command.h"			/* at_cmd2str() */
+#include "mutils.h"			/* ITEMS_OF() */
+#include "helpers.h"			/* find_device */
 #include "at_read.h"
 #include "cli.h"
 #include "app.h"
 #include "manager.h"
-#include "channel.h"				/* channel_queue_hangup() */
-#include "dc_config.h"				/* dc_uconfig_fill() dc_gconfig_fill() dc_sconfig_fill()  */
+#include "channel.h"			/* channel_queue_hangup() */
+#include "dc_config.h"			/* dc_uconfig_fill() dc_gconfig_fill() dc_sconfig_fill()  */
+#include "pdiscovery.h"			/* pdiscovery_lookup()  */
 
 EXPORT_DEF public_state_t * gpublic;
 
@@ -123,7 +124,7 @@ static int lock_create(const char * lockfile)
 }
 
 #/* return pid of owner, 0 if free */
-static int lock_try(const char * devname, char ** lockname)
+EXPORT_DEF int lock_try(const char * devname, char ** lockname)
 {
 	int fd;
 	int len;
@@ -142,7 +143,7 @@ static int lock_try(const char * devname, char ** lockname)
 		{
 			pidb[len] = 0;
 			len = strtol(pidb, NULL, 10);
-			if(kill(len, 0) == 0)
+			if(len > 0 && kill(len, 0) == 0)
 				pid = len;
 		}
 		close(fd);
@@ -158,7 +159,7 @@ static int lock_try(const char * devname, char ** lockname)
 }
 
 #/* */
-static void closetty(int fd, char ** lockfname)
+EXPORT_DEF void closetty(int fd, char ** lockfname)
 {
 	close(fd);
 
@@ -168,25 +169,25 @@ static void closetty(int fd, char ** lockfname)
 	*lockfname = NULL;
 }
 
-static int opentty (const char* dev, char ** lockfile)
+EXPORT_DEF int opentty (const char* dev, char ** lockfile)
 {
 	int		pid;
 	int		fd;
 	struct termios	term_attr;
 
-	fd = open (dev, O_RDWR | O_NOCTTY);
-
-	if (fd < 0)
-	{
-		ast_log (LOG_WARNING, "Unable to open '%s': %s\n", dev, strerror(errno));
-		return -1;
-	}
 
 	pid = lock_try(dev, lockfile);
 	if(pid != 0)
 	{
-		close(fd);
 		ast_log (LOG_WARNING, "'%s' already used by process %d\n", dev, pid);
+		return -1;
+	}
+
+	fd = open (dev, O_RDWR | O_NOCTTY);
+	if (fd < 0)
+	{
+		closetty(fd, lockfile);
+		ast_log (LOG_WARNING, "Unable to open '%s': %s\n", dev, strerror(errno));
 		return -1;
 	}
 
@@ -208,7 +209,6 @@ static int opentty (const char* dev, char ** lockfile)
 	{
 		ast_log (LOG_WARNING, "tcsetattr() failed '%s': %s\n", dev, strerror(errno));
 	}
-
 
 	return fd;
 }
@@ -314,13 +314,15 @@ static void disconnect_datacard (struct pvt* pvt)
 	/* clear statictics */
 	memset(&pvt->stat, 0, sizeof(pvt->stat));
 
+	ast_copy_string (PVT_STATE(pvt, data_tty),  CONF_UNIQ(pvt, data_tty), sizeof (PVT_STATE(pvt, data_tty)));
+	ast_copy_string (PVT_STATE(pvt, audio_tty), CONF_UNIQ(pvt, audio_tty), sizeof (PVT_STATE(pvt, audio_tty)));
+
 	ast_verb (3, "Datacard %s has disconnected\n", PVT_ID(pvt));
 	ast_debug (1, "[%s] Datacard disconnected\n", PVT_ID(pvt));
 
 #ifdef BUILD_MANAGER
 	manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Disconnect\r\nDevice: %s\r\n", PVT_ID(pvt));
 #endif
-	/* TODO: wakeup discovery thread after some delay */
 }
 
 /*!
@@ -454,6 +456,7 @@ e_restart:
 //	pvt->monitor_running = 0;
 	ast_mutex_unlock (&pvt->lock);
 
+	/* TODO: wakeup discovery thread after some delay */
 	return NULL;
 }
 
@@ -490,6 +493,38 @@ static void pvt_stop(struct pvt * pvt)
 }
 
 #/* */
+static int pvt_discovery(struct pvt * pvt)
+{
+	int not_resolved = 0;
+	if(CONF_UNIQ(pvt, data_tty)[0] == 0 && CONF_UNIQ(pvt, audio_tty)[0] == 0) {
+		pdiscovery_t pdisc;
+		char * data_tty;
+		char * audio_tty;
+
+		ast_verb (3, "[%s] Trying port discovery for IMEI '%s' IMSI '%s'\n", PVT_ID(pvt), CONF_UNIQ(pvt, imei), CONF_UNIQ(pvt, imsi));
+		not_resolved = ! pdiscovery_lookup(&pdisc, CONF_UNIQ(pvt, imei), CONF_UNIQ(pvt, imsi), &data_tty, &audio_tty);
+		if(!not_resolved) {
+			ast_copy_string (PVT_STATE(pvt, data_tty),  data_tty,  sizeof (PVT_STATE(pvt, data_tty)));
+			ast_copy_string (PVT_STATE(pvt, audio_tty), audio_tty, sizeof (PVT_STATE(pvt, audio_tty)));
+
+			ast_free(audio_tty);
+			ast_free(data_tty);
+			ast_verb (3, "[%s] IMEI '%s' IMSI '%s' found on data_tty '%s' audio_tty '%s'\n", 
+				PVT_ID(pvt), 
+				CONF_UNIQ(pvt, imei), 
+				CONF_UNIQ(pvt, imsi), 
+				PVT_STATE(pvt, data_tty), 
+				PVT_STATE(pvt, audio_tty)
+				);
+		}
+	} else {
+		ast_copy_string (PVT_STATE(pvt, data_tty),  CONF_UNIQ(pvt, data_tty), sizeof (PVT_STATE(pvt, data_tty)));
+		ast_copy_string (PVT_STATE(pvt, audio_tty), CONF_UNIQ(pvt, audio_tty), sizeof (PVT_STATE(pvt, audio_tty)));
+	}
+	return not_resolved;
+}
+
+#/* */
 static void pvt_start(struct pvt * pvt)
 {
 	/* prevent start_monitor() multiple times and on turned off devices */
@@ -497,13 +532,16 @@ static void pvt_start(struct pvt * pvt)
 //	&& (pvt->monitor_thread == AST_PTHREADT_NULL || (pthread_kill(pvt->monitor_thread, 0) != 0 && errno == ESRCH)))
 	{
 		pvt_stop(pvt);
-		ast_verb (3, "Datacard %s trying to connect on %s...\n", PVT_ID(pvt), CONF_UNIQ(pvt, data_tty));
 
-		pvt->data_fd = opentty(CONF_UNIQ(pvt, data_tty), &pvt->dlock);
+		if(pvt_discovery(pvt))
+			return;
+		ast_verb (3, "Datacard %s trying to connect on %s...\n", PVT_ID(pvt), PVT_STATE(pvt, data_tty));
+
+		pvt->data_fd = opentty(PVT_STATE(pvt, data_tty), &pvt->dlock);
 		if (pvt->data_fd >= 0)
 		{
 			// TODO: delay until device activate voice call or at pvt_on_create_1st_channel()
-			pvt->audio_fd = opentty(CONF_UNIQ(pvt, audio_tty), &pvt->alock);
+			pvt->audio_fd = opentty(PVT_STATE(pvt, audio_tty), &pvt->alock);
 			if (pvt->audio_fd >= 0)
 			{
 				if (start_monitor (pvt))
@@ -1024,9 +1062,14 @@ static int pvt_reconfigure(struct pvt * pvt, const pvt_config_t * settings, rest
 	else
 	{
 		/* apply new config */
-		if(strcmp(UCONFIG(settings, audio_tty), CONF_UNIQ(pvt, audio_tty))
+		if(
+		   strcmp(UCONFIG(settings, audio_tty), CONF_UNIQ(pvt, audio_tty))
 			||
 		   strcmp(UCONFIG(settings, data_tty), CONF_UNIQ(pvt, data_tty))
+			||
+		   strcmp(UCONFIG(settings, imei), CONF_UNIQ(pvt, imei))
+			||
+		   strcmp(UCONFIG(settings, imsi), CONF_UNIQ(pvt, imsi))
 			||
 		   SCONFIG(settings, u2diag) != CONF_SHARED(pvt, u2diag)
 			||

@@ -125,3 +125,8 @@ added 08.01.2011
 
 36) dtmf detection control from dialplan
 
+37) volume settings
+
+38) response timeout handling
+
+39) use ast_exists_extension for sms and ussd
