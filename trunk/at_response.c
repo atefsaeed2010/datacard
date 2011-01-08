@@ -14,7 +14,6 @@
 
 #include <asterisk.h>
 #include <asterisk/logger.h>			/* ast_debug() */
-#include <asterisk/timing.h>			/* ast_timer_set_rate() */
 #include <asterisk/pbx.h>			/* ast_pbx_start() */
 
 #include "at_response.h"

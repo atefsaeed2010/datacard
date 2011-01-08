@@ -11,6 +11,9 @@
 #include "mutils.h"
 
 #define CONFIG_FILE		"datacard.conf"
+#define IMEI_SIZE		15
+#define IMSI_SIZE		15
+#define DEVPATHLEN		256
 
 typedef enum {
 	CALL_WAITING_DISALLOWED = 0,
@@ -29,12 +32,6 @@ typedef enum {
 	DC_DTMF_SETTING_INBAND,
 	DC_DTMF_SETTING_RELAX,
 } dc_dtmf_setting_t;
-
-INLINE_DECL const char * dc_dtmf_setting2str(dc_dtmf_setting_t dtmf)
-{
-	static const char * const options[] = { "off", "inband", "relax" };
-	return enum2str(dtmf, options, ITEMS_OF(options));
-}
 
 /* Global inherited (shared) settings */
 typedef struct dc_sconfig
@@ -81,8 +78,10 @@ typedef struct dc_uconfig
 {
 	/* unique settings */
 	char			id[31];				/*!< id from datacard.conf */
-	char			audio_tty[256];			/*!< tty for audio connection */
-	char			data_tty[256];			/*!< tty for AT commands */
+	char			audio_tty[DEVPATHLEN];		/*!< tty for audio connection */
+	char			data_tty[DEVPATHLEN];		/*!< tty for AT commands */
+	char			imei[IMEI_SIZE+1];		/*!< search device by imei */
+	char			imsi[IMSI_SIZE+1];		/*!< search device by imsi */
 } dc_uconfig_t;
 
 /* all Config settings join in one place */
@@ -94,6 +93,7 @@ typedef struct pvt_config
 #define SCONFIG(cfg,name)	((cfg)->shared.name)
 #define UCONFIG(cfg,name)	((cfg)->unique.name)
 
+EXPORT_DECL const char * dc_dtmf_setting2str(dc_dtmf_setting_t dtmf);
 EXPORT_DECL void dc_sconfig_fill_defaults(struct dc_sconfig * config);
 EXPORT_DECL void dc_sconfig_fill(struct ast_config * cfg, const char * cat, struct dc_sconfig * config);
 EXPORT_DECL void dc_gconfig_fill(struct ast_config * cfg, const char * cat, struct dc_gconfig * config);

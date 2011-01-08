@@ -28,4 +28,20 @@ INLINE_DECL const char * enum2str(unsigned value, const char * const names[], un
 	return enum2str_def(value, names, items, "unknown");
 }
 
+
+INLINE_DECL int str2enum(const char * value, const char * const options[], unsigned items)
+{
+	unsigned index;
+	for(index = 0; index < items; index++)
+	{
+		if(strcasecmp(value, options[index]) == 0)
+			return index;
+	}
+
+	return -1;
+}
+
+
+
+
 #endif /* CHAN_DATACARD_MUTILS_H_INCLUDED */
