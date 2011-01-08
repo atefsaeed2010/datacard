@@ -31,9 +31,10 @@ added 20.11.2010
 		send in UCS-2 added at 05.12.2010 r72
 		receive side done at 06.12.2010 r75
 
-10) Automatic device discovery by IMEI or IMSI
-	Added tool for discover of modems
-	Intergation to main code planing
+	10) Automatic device discovery by IMEI or IMSI
+		added 08.01.2011 in r150
+			Added tool for discover of modems
+			Intergation to main code planing
 
 	11) Complete fix of DTMF duplication
 		added  dtmf = off | inband | relax settings at 08.01.2011 in r145
