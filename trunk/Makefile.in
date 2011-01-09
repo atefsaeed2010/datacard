@@ -20,7 +20,9 @@ tools_SOURCES = tools/discovery.c tools/tty.c
 
 HEADERS = app.h at_command.h at_parse.h at_queue.h at_read.h at_response.h \
 	chan_datacard.h channel.h char_conv.h cli.h cpvt.h dc_config.h export.h \
-	helpers.h manager.h memmem.h ringbuffer.h pdu.h mixbuffer.h pdiscovery.h
+	helpers.h manager.h memmem.h ringbuffer.h pdu.h mixbuffer.h pdiscovery.h \
+	mutils.h
+
 tools_HEADERS = tools/tty.h
 
 EXTRA_DIST = BUGS COPYRIGHT.txt LICENSE.txt README.txt TODO.txt INSTALL \
