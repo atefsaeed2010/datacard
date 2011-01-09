@@ -183,6 +183,7 @@ typedef struct pvt
 
 	unsigned int		has_subscriber_number:1;	/*!< subscriber_number field is valid */
 //	unsigned int		monitor_running:1;		/*!< true if monitor thread is running */
+	unsigned int		must_remove:1;			/*!< mean not listed in config file when reload */
 
 	dev_state_t		desired_state;			/*!< desired state */
 	restate_time_t		restart_time;			/*!< time when change state */

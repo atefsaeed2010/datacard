@@ -808,7 +808,7 @@ EXPORT_DEF int ready4voice_call(const struct pvt* pvt, const struct cpvt * curre
 }
 
 #/* */
-static const char * pvt_state_int(const struct pvt * pvt)
+static const char * pvt_state_base(const struct pvt * pvt)
 {
 	const char * state = NULL;
 
@@ -820,19 +820,20 @@ static const char * pvt_state_int(const struct pvt * pvt)
 		state = "Not initialized";
 	else if(!pvt->gsm_registered)
 		state = "GSM not registered";
-	else if(!is_dial_possible(pvt, CALL_FLAG_NONE))
-		state = "Busy";
-	else if(pvt->outgoing_sms || pvt->incoming_sms)
-		state = "SMS";
 	return state;
 }
 
 #/* */
 EXPORT_DEF const char* pvt_str_state(const struct pvt* pvt)
 {
-	const char * state = pvt_state_int(pvt);
-	if(!state)
+	const char * state = pvt_state_base(pvt);
+	if(!state) {
+		if(!is_dial_possible(pvt, CALL_FLAG_NONE))
+			state = "Busy";
+		else if(pvt->outgoing_sms || pvt->incoming_sms)
+			state = "SMS";
 		state = "Free";
+	}
 	return state;
 }
 
@@ -840,7 +841,7 @@ EXPORT_DEF const char* pvt_str_state(const struct pvt* pvt)
 EXPORT_DEF struct ast_str* pvt_str_state_ex(const struct pvt* pvt)
 {
 	struct ast_str* buf = ast_str_create (256);
-	const char * state = pvt_state_int(pvt);
+	const char * state = pvt_state_base(pvt);
 
 	if(state)
 		ast_str_append (&buf, 0, "%s", state);
@@ -1054,14 +1055,12 @@ static int pvt_reconfigure(struct pvt * pvt, const pvt_config_t * settings, rest
 
 	if(SCONFIG(settings, disable))
 	{
-		/* TODO: schedule device delete */
-		pvt->desired_state = DEV_STATE_REMOVED;
-		pvt->restart_time = when;
-		rv = pvt_time4restate(pvt);
+		/* handle later, in one place */
+		pvt->must_remove = 0;
 	}
 	else
 	{
-		/* apply new config */
+		/* check what changes require restaring */
 		if(
 		   strcmp(UCONFIG(settings, audio_tty), CONF_UNIQ(pvt, audio_tty))
 			||
@@ -1082,8 +1081,9 @@ static int pvt_reconfigure(struct pvt * pvt, const pvt_config_t * settings, rest
 		{
 			/* TODO: schedule restart */
 			pvt->desired_state = DEV_STATE_RESTARTED;
-			pvt->restart_time = when;
+
 			rv = pvt_time4restate(pvt);
+			pvt->restart_time = rv ? RESTATE_TIME_NOW : when;
 		}
 
 		pvt_dsp_setup(pvt, settings);
@@ -1091,8 +1091,6 @@ static int pvt_reconfigure(struct pvt * pvt, const pvt_config_t * settings, rest
 		/* and copy settings */
 		memcpy(&pvt->settings, settings, sizeof(pvt->settings));
 	}
-	if(rv)
-		pvt->restart_time = RESTATE_TIME_NOW;
 	return rv;
 }
 
@@ -1106,7 +1104,7 @@ static int reload_config(public_state_t * state, int recofigure, restate_time_t 
 	pvt_config_t settings;
 	int err;
 	struct pvt * pvt;
-	unsigned reloads = 0;
+	unsigned reload_now = 0;
 
 	if ((cfg = ast_config_load (CONFIG_FILE, config_flags)) == NULL)
 	{
@@ -1119,6 +1117,16 @@ static int reload_config(public_state_t * state, int recofigure, restate_time_t 
 	/* read defaults */
 	dc_sconfig_fill_defaults(&config_defaults);
 	dc_sconfig_fill(cfg, "defaults", &config_defaults);
+
+	/* FIXME: deadlock avoid ? */
+	AST_RWLIST_WRLOCK (&state->devices);
+	AST_RWLIST_TRAVERSE (&state->devices, pvt, entry)
+	{
+		ast_mutex_lock(&pvt->lock);
+		pvt->must_remove = 1;
+		ast_mutex_unlock(&pvt->lock);
+	}
+	AST_RWLIST_UNLOCK (&state->devices);
 
 	/* now load devices */
 	for (cat = ast_category_browse (cfg, NULL); cat; cat = ast_category_browse (cfg, cat))
@@ -1138,7 +1146,8 @@ static int reload_config(public_state_t * state, int recofigure, restate_time_t 
 					else
 					{
 						ast_mutex_lock(&pvt->lock);
-						reloads += pvt_reconfigure(pvt, &settings, when);
+						pvt->must_remove = 0;
+						reload_now += pvt_reconfigure(pvt, &settings, when);
 						ast_mutex_unlock(&pvt->lock);
 					}
 				}
@@ -1154,10 +1163,11 @@ static int reload_config(public_state_t * state, int recofigure, restate_time_t 
 						pvt = pvt_create(&settings);
 						if(pvt)
 						{
+							/* FIXME: deadlock avoid ? */
 							AST_RWLIST_WRLOCK (&state->devices);
 							AST_RWLIST_INSERT_TAIL (&state->devices, pvt, entry);
 							AST_RWLIST_UNLOCK (&state->devices);
-							reloads++;
+							reload_now++;
 
 							ast_debug (1, "[%s] Loaded device\n", PVT_ID(pvt));
 							ast_log (LOG_NOTICE, "Loaded device %s\n", PVT_ID(pvt));
@@ -1167,10 +1177,31 @@ static int reload_config(public_state_t * state, int recofigure, restate_time_t 
 			}
 		}
 	}
-
 	ast_config_destroy (cfg);
+
+	/* FIXME: deadlock avoid ? */
+	/* schedule removal of devices not listed in config file or disabled */
+	AST_RWLIST_WRLOCK (&state->devices);
+	AST_RWLIST_TRAVERSE (&state->devices, pvt, entry)
+	{
+		ast_mutex_lock(&pvt->lock);
+		if(pvt->must_remove)
+		{
+			pvt->desired_state = DEV_STATE_REMOVED;
+			if(pvt_time4restate(pvt))
+			{
+				pvt->restart_time = RESTATE_TIME_NOW;
+				reload_now++;
+			}
+			else
+				pvt->restart_time = when;
+		}
+		ast_mutex_unlock(&pvt->lock);
+	}
+	AST_RWLIST_UNLOCK (&state->devices);
+
 	if(reload_immediality)
-		*reload_immediality = reloads;
+		*reload_immediality = reload_now;
 	return 0;
 }
 
