@@ -404,7 +404,8 @@ static void* do_monitor_phone (void* data)
 			ecmd = at_queue_head_cmd (pvt);
 			if(ecmd)
 			{
-				ast_debug (1, "[%s] timeout while waiting '%s' in response to '%s'\n", PVT_ID(pvt), at_res2str (ecmd->res), at_cmd2str (ecmd->cmd));
+				ast_log (LOG_ERROR, "[%s] timedout while waiting '%s' in response to '%s'\n", PVT_ID(pvt), at_res2str (ecmd->res), at_cmd2str (ecmd->cmd));
+				ast_debug (1, "[%s] timedout while waiting '%s' in response to '%s'\n", PVT_ID(pvt), at_res2str (ecmd->res), at_cmd2str (ecmd->cmd));
 				goto e_cleanup;
 			}
 			at_enque_ping(&pvt->sys_chan);
@@ -1069,7 +1070,7 @@ static int pvt_reconfigure(struct pvt * pvt, const pvt_config_t * settings, rest
 	if(SCONFIG(settings, disable))
 	{
 		/* handle later, in one place */
-		pvt->must_remove = 0;
+		pvt->must_remove = 1;
 	}
 	else
 	{
