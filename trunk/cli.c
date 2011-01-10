@@ -281,14 +281,14 @@ static char* cli_show_device_statictics (struct ast_cli_entry* e, int cmd, struc
 		ast_cli (a->fd, "  Responses                   : %u\n", PVT_STAT(pvt, at_responces));
 		ast_cli (a->fd, "  Bytes of readed responces   : %u\n", PVT_STAT(pvt, d_read_bytes));
 		ast_cli (a->fd, "  Bytes of wrote commands     : %u\n", PVT_STAT(pvt, d_write_bytes));
-		ast_cli (a->fd, "  Bytes of readed audio       : %llu\n", PVT_STAT(pvt, a_read_bytes));
-		ast_cli (a->fd, "  Bytes of wrote audio        : %llu\n", PVT_STAT(pvt, a_write_bytes));
+		ast_cli (a->fd, "  Bytes of readed audio       : %llu\n", (unsigned long long int)PVT_STAT(pvt, a_read_bytes));
+		ast_cli (a->fd, "  Bytes of wrote audio        : %llu\n", (unsigned long long int)PVT_STAT(pvt, a_write_bytes));
 		ast_cli (a->fd, "  Readed frames               : %u\n", PVT_STAT(pvt, read_frames));
 		ast_cli (a->fd, "  Readed short frames         : %u\n", PVT_STAT(pvt, read_sframes));
 		ast_cli (a->fd, "  Wrote frames                : %u\n", PVT_STAT(pvt, write_frames));
 		ast_cli (a->fd, "  Wrote short frames          : %u\n", PVT_STAT(pvt, write_tframes));
 		ast_cli (a->fd, "  Wrote silence frames        : %u\n", PVT_STAT(pvt, write_sframes));
-		ast_cli (a->fd, "  Write buffer overflow bytes : %llu\n", PVT_STAT(pvt, write_rb_overflow_bytes));
+		ast_cli (a->fd, "  Write buffer overflow bytes : %llu\n", (unsigned long long int)PVT_STAT(pvt, write_rb_overflow_bytes));
 		ast_cli (a->fd, "  Write buffer overflow times : %u\n", PVT_STAT(pvt, write_rb_overflow));
 		ast_cli (a->fd, "  Incoming calls              : %u\n", PVT_STAT(pvt, in_calls));
 		ast_cli (a->fd, "  Waiting calls               : %u\n", PVT_STAT(pvt, cw_calls));

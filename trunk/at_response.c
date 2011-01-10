@@ -114,7 +114,13 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 	const at_queue_task_t * task = at_queue_head_task (pvt);
 	const at_queue_cmd_t * ecmd = at_queue_task_cmd(task);
 
-	if ((ecmd) && (ecmd->res == RES_OK || ecmd->res == RES_CMGR))
+	if(!ecmd)
+	{
+		ast_log (LOG_ERROR, "[%s] Received unexpected 'OK'\n", PVT_ID(pvt));
+		return 0;
+	}
+
+	if(ecmd->res == RES_OK || ecmd->res == RES_CMGR)
 	{
 		switch (ecmd->cmd)
 		{
@@ -288,16 +294,11 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 				ast_log (LOG_ERROR, "[%s] Received 'OK' for unhandled command '%s'\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd));
 				break;
 		}
-
 		at_queue_handle_result (pvt, res);
-	}
-	else if (ecmd)
-	{
-		ast_log (LOG_ERROR, "[%s] Received 'OK' when expecting '%s', ignoring\n", PVT_ID(pvt), at_res2str (ecmd->res));
 	}
 	else
 	{
-		ast_log (LOG_ERROR, "[%s] Received unexpected 'OK'\n", PVT_ID(pvt));
+		ast_log (LOG_ERROR, "[%s] Received 'OK' when expecting '%s', ignoring\n", PVT_ID(pvt), at_res2str (ecmd->res));
 	}
 
 	return 0;
@@ -1268,9 +1269,8 @@ static int at_response_cmgr (struct pvt* pvt, const char* str, size_t len)
 
 static int at_response_sms_prompt (struct pvt* pvt)
 {
-	const struct at_queue_cmd* ecmd;
-
-	if ((ecmd = at_queue_head_cmd (pvt)) && ecmd->res == RES_SMS_PROMPT)
+	const struct at_queue_cmd * ecmd = at_queue_head_cmd (pvt);
+	if (ecmd && ecmd->res == RES_SMS_PROMPT)
 	{
 		at_queue_handle_result (pvt, RES_SMS_PROMPT);
 	}
@@ -1695,7 +1695,8 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 				return 0;
 
 			case RES_OK:
-				return at_response_ok (pvt, at_res);
+				at_response_ok (pvt, at_res);
+				return 0;
 
 			case RES_RSSI:
 				/* An error here is not fatal. Just keep going. */

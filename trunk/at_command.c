@@ -29,6 +29,7 @@
 #include "chan_datacard.h"		/* struct pvt */
 #include "pdu.h"			/* build_pdu() */
 
+static const char cmd_at[] 	 = "AT\r";
 static const char cmd_chld1x[]   = "AT+CHLD=1%d\r";
 static const char cmd_chld2[]    = "AT+CHLD=2\r";
 static const char cmd_clcc[]     = "AT+CLCC\r";
@@ -109,7 +110,6 @@ static int __attribute__ ((format(printf, 4, 5))) at_enque_generic (struct cpvt*
  */
 EXPORT_DEF int at_enque_initialization(struct cpvt* cpvt, at_cmd_t from_command)
 {
-	static const char cmd1[] = "AT\r";
 	static const char cmd2[] = "ATZ\r";
 	static const char cmd3[] = "ATE0\r";
 
@@ -138,7 +138,7 @@ EXPORT_DEF int at_enque_initialization(struct cpvt* cpvt, at_cmd_t from_command)
 	static const char cmd24[] = "AT+CSQ\r";
 
 	static const at_queue_cmd_t st_cmds[] = {
-		ATQ_CMD_DECLARE_ST(CMD_AT, cmd1),
+		ATQ_CMD_DECLARE_ST(CMD_AT, cmd_at),
 		ATQ_CMD_DECLARE_ST(CMD_AT_Z, cmd2),		/* optional,  reload configuration */
 		ATQ_CMD_DECLARE_ST(CMD_AT_E, cmd3),		/* disable echo */
 		ATQ_CMD_DECLARE_DYN(CMD_AT_U2DIAG),		/* optional, Enable or disable some devices */
@@ -459,13 +459,14 @@ EXPORT_DEF int at_enque_set_ccwa (struct cpvt* cpvt, attribute_unused const char
 	int err;
 	call_waiting_t value;
 	at_queue_cmd_t cmds[] = {
-		ATQ_CMD_DECLARE_DYNI(CMD_AT_CCWA_SET),			/* Set Call-Waiting On/Off */
-		ATQ_CMD_DECLARE_ST(CMD_AT_CCWA_STATUS, cmd_ccwa_get),	/* Query CCWA Status for Voice Call */
-		
+		/* 5 seconds timeout */
+		ATQ_CMD_DECLARE_DYNIT(CMD_AT_CCWA_SET, ATQ_CMD_TIMEOUT_10S, 0),				/* Set Call-Waiting On/Off */
+		ATQ_CMD_DECLARE_STIT(CMD_AT_CCWA_STATUS, cmd_ccwa_get, ATQ_CMD_TIMEOUT_10S, 0),		/* Query CCWA Status for Voice Call  */
+
 	};
 	at_queue_cmd_t * pcmd = cmds;
 	unsigned count = ITEMS_OF(cmds);
-	
+
 	if(call_waiting == CALL_WAITING_DISALLOWED || call_waiting == CALL_WAITING_ALLOWED)
 	{
 		value = call_waiting;
@@ -639,6 +640,20 @@ EXPORT_DEF int at_enque_flip_hold (struct cpvt* cpvt)
 	static const at_queue_cmd_t cmds[] = {
 		ATQ_CMD_DECLARE_ST(CMD_AT_CHLD_2, cmd_chld2),
 		ATQ_CMD_DECLARE_ST(CMD_AT_CLCC, cmd_clcc),
+		};
+
+	return at_queue_insert_const(cpvt, cmds, ITEMS_OF(cmds), 1);
+}
+
+/*!
+ * \brief Enque ping command
+ * \param pvt -- pvt structure
+ * \return 0 on success
+ */
+EXPORT_DEF int at_enque_ping (struct cpvt * cpvt)
+{
+	static const at_queue_cmd_t cmds[] = {
+		ATQ_CMD_DECLARE_STIT(CMD_AT, cmd_at, ATQ_CMD_TIMEOUT_1S, 0),		/* 1 second timeout */
 		};
 
 	return at_queue_insert_const(cpvt, cmds, ITEMS_OF(cmds), 1);

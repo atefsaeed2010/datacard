@@ -6,6 +6,7 @@
    
    Dmitry Vagin <dmitry2004@yandex.ru>
 
+   Copyright (C) 2010 - 2011
    bg <bg_one@mail.ru>
 */
 #ifdef HAVE_CONFIG_H
@@ -23,7 +24,7 @@
  * \param cmd - struct at_queue_cmd
  */
 #/* */
-static void at_queue_free_data(at_queue_cmd_t* cmd)
+static void at_queue_free_data(at_queue_cmd_t * cmd)
 {
 	if(cmd->data)
 	{
@@ -75,7 +76,7 @@ static void at_queue_remove (struct pvt * pvt)
 }
 
 #/* */
-static at_queue_cmd_t* at_queue_head_cmd_nc (const struct pvt* pvt)
+static at_queue_cmd_t* at_queue_head_cmd_nc (const struct pvt * pvt)
 {
 	at_queue_task_t * e = AST_LIST_FIRST (&pvt->at_queue);
 	if(e)
@@ -93,7 +94,7 @@ static at_queue_cmd_t* at_queue_head_cmd_nc (const struct pvt* pvt)
  * \return 0 on success
  */
 #/* */
-static int at_queue_add (struct cpvt* cpvt, const at_queue_cmd_t* cmds, unsigned cmdsno, int prio)
+static int at_queue_add (struct cpvt * cpvt, const at_queue_cmd_t * cmds, unsigned cmdsno, int prio)
 {
 	if(cmdsno > 0)
 	{
@@ -234,15 +235,15 @@ EXPORT_DEF void at_queue_remove_cmd (struct pvt* pvt, at_res_t res)
 }
 
 /*!
- * \brief Try real write first command on queue to
+ * \brief Try real write first command on queue
  * \param pvt -- pvt structure
- * \return 0 on success non-0 on error
+ * \return 0 on success, non-0 on error
  */
 #/* */
-static int try_write (struct pvt* pvt)
+EXPORT_DEF int at_queue_run (struct pvt * pvt)
 {
 	int fail = 0;
-	at_queue_cmd_t* cmd = at_queue_head_cmd_nc(pvt);
+	at_queue_cmd_t * cmd = at_queue_head_cmd_nc(pvt);
 
 	if(cmd)
 	{
@@ -252,20 +253,21 @@ static int try_write (struct pvt* pvt)
 					PVT_ID(pvt), at_cmd2str (cmd->cmd), at_res2str (cmd->res), cmd->length);
 
 			fail = at_write(pvt, cmd->data, cmd->length);
-			if(!fail)
+			if(fail)
 			{
-				/* setting expire time */
+				ast_log (LOG_ERROR, "[%s] Error write command '%s' expected response '%s' length %u, cancel\n", PVT_ID(pvt), at_cmd2str (cmd->cmd), at_res2str (cmd->res), cmd->length);
+				at_queue_remove_cmd(pvt, cmd->res + 1);
+			}
+			else
+			{
+				/* set expire time */
 				cmd->timeout = ast_tvadd (ast_tvnow(), cmd->timeout);
 
 				/* free data and mark as written */
 				at_queue_free_data(cmd);
 			}
-			else
-			{
-				ast_log (LOG_ERROR, "[%s] Error write command '%s' expected response '%s' length %u, cancel\n", PVT_ID(pvt), at_cmd2str (cmd->cmd), at_res2str (cmd->res), cmd->length);
-				at_queue_remove_cmd(pvt, cmd->res + 1);
-			}
 		}
+#if 0
 		else
 		{
 			/* check expiration */
@@ -276,22 +278,10 @@ static int try_write (struct pvt* pvt)
 				fail = -1;
 			}
 		}
+#endif /* 0 */
 	}
 	/* else empty nothing todo */
 	return fail;
-}
-
-/*!
- * \brief Try real write first command on queue to
- * \param pvt -- pvt structure
- */
-#/* */
-static void at_queue_write (struct pvt* pvt)
-{
-	int failed;
-	do	{
-		failed = try_write(pvt);
-		} while(failed);
 }
 
 /*!
@@ -300,17 +290,13 @@ static void at_queue_write (struct pvt* pvt)
  * \return 0 on success non-0 on error
  */
 #/* */
-EXPORT_DEF int at_queue_insert_const (struct cpvt* cpvt, const at_queue_cmd_t * cmds, unsigned cmdsno, int athead)
+EXPORT_DEF int at_queue_insert_const (struct cpvt * cpvt, const at_queue_cmd_t * cmds, unsigned cmdsno, int athead)
 {
-	int fail = at_queue_add(cpvt, cmds, cmdsno, athead);
-
-	at_queue_write(cpvt->pvt);
-
-	return fail;
+	return at_queue_add(cpvt, cmds, cmdsno, athead) || at_queue_run(cpvt->pvt);
 }
 
 #/* */
-EXPORT_DEF int at_queue_insert(struct cpvt* cpvt, at_queue_cmd_t * cmds, unsigned cmdsno, int athead)
+EXPORT_DEF int at_queue_insert(struct cpvt * cpvt, at_queue_cmd_t * cmds, unsigned cmdsno, int athead)
 {
 	unsigned idx;
 	int fail = at_queue_add(cpvt, cmds, cmdsno, athead);
@@ -323,7 +309,8 @@ EXPORT_DEF int at_queue_insert(struct cpvt* cpvt, at_queue_cmd_t * cmds, unsigne
 		}
 	}
 
-	at_queue_write(cpvt->pvt);
+	if(at_queue_run(cpvt->pvt))
+		fail = 1;
 
 	return fail;
 }
@@ -334,9 +321,6 @@ EXPORT_DEF void at_queue_handle_result (struct pvt* pvt, at_res_t res)
 {
 	/* move queue */
 	at_queue_remove_cmd(pvt, res);
-
-	/* oh, do it ... */
-	at_queue_write(pvt);
 }
 
 /*!
@@ -361,7 +345,7 @@ EXPORT_DEF void at_queue_flush (struct pvt* pvt)
  * \return a pointer to the first command of the given queue
  */
 #/* */
-EXPORT_DEF const struct at_queue_task* at_queue_head_task (const struct pvt* pvt)
+EXPORT_DEF const struct at_queue_task* at_queue_head_task (const struct pvt * pvt)
 {
 	return AST_LIST_FIRST (&pvt->at_queue);
 }
@@ -373,7 +357,25 @@ EXPORT_DEF const struct at_queue_task* at_queue_head_task (const struct pvt* pvt
  * \return a pointer to the first command of the given queue
  */
 #/* */
-EXPORT_DEF const at_queue_cmd_t * at_queue_head_cmd(const struct pvt* pvt)
+EXPORT_DEF const at_queue_cmd_t * at_queue_head_cmd(const struct pvt * pvt)
 {
 	return at_queue_task_cmd(at_queue_head_task(pvt));
 }
+
+#/* */
+EXPORT_DEF int at_queue_timeout(const struct pvt * pvt)
+{
+	int ms_timeout = -1;
+	const at_queue_cmd_t * cmd = at_queue_head_cmd(pvt);
+
+	if(cmd)
+	{
+		if(cmd->length == 0)
+		{
+			ms_timeout = ast_tvdiff_ms(cmd->timeout, ast_tvnow());
+		}
+	}
+
+	return ms_timeout;
+}
+

@@ -388,23 +388,34 @@ static void* do_monitor_phone (void* data)
 
 		if(pvt->terminate_monitor)
 		{
-			ast_log (LOG_NOTICE, "[%s] stop by request %s\n", PVT_ID(pvt), dev_state2str(pvt->desired_state));
+			ast_log (LOG_NOTICE, "[%s] stop by %s request\n", PVT_ID(pvt), dev_state2str(pvt->desired_state));
 			goto e_restart;
 		}
 
-		t = pvt->timeout;
+		t = at_queue_timeout(pvt);
+		if(t < 0)
+			t = pvt->timeout;
 
 		ast_mutex_unlock (&pvt->lock);
 
-
 		if (!at_wait (fd, &t))
 		{
+			ast_mutex_lock (&pvt->lock);
+			ecmd = at_queue_head_cmd (pvt);
+			if(ecmd)
+			{
+				ast_debug (1, "[%s] timeout while waiting '%s' in response to '%s'\n", PVT_ID(pvt), at_res2str (ecmd->res), at_cmd2str (ecmd->cmd));
+				goto e_cleanup;
+			}
+			at_enque_ping(&pvt->sys_chan);
+			ast_mutex_unlock (&pvt->lock);
+			continue;
+/*
 			ast_mutex_lock (&pvt->lock);
 			if (!pvt->initialized)
 			{
 				ast_debug (1, "[%s] timeout waiting for data, disconnecting\n", PVT_ID(pvt));
 
-				ecmd = at_queue_head_cmd (pvt);
 				if (ecmd)
 				{
 					ast_debug (1, "[%s] timeout while waiting '%s' in response to '%s'\n", PVT_ID(pvt),
@@ -418,6 +429,7 @@ static void* do_monitor_phone (void* data)
 				ast_mutex_unlock (&pvt->lock);
 				continue;
 			}
+*/
 		}
 
 		/* FIXME: access to device not locked */
@@ -434,7 +446,7 @@ static void* do_monitor_phone (void* data)
 
 			ast_mutex_lock (&pvt->lock);
 			PVT_STAT(pvt, at_responces) ++;
-			if (at_response (pvt, iov, iovcnt, at_res))
+			if (at_response (pvt, iov, iovcnt, at_res) || at_queue_run(pvt))
 			{
 				goto e_cleanup;
 			}
@@ -832,7 +844,8 @@ EXPORT_DEF const char* pvt_str_state(const struct pvt* pvt)
 			state = "Busy";
 		else if(pvt->outgoing_sms || pvt->incoming_sms)
 			state = "SMS";
-		state = "Free";
+		else
+			state = "Free";
 	}
 	return state;
 }
