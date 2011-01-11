@@ -7,8 +7,10 @@ At this moment, only *Huawei* modems are supported. Check *Details* for the most
 
 If you want to contribute, the best way is to find (www.dc-files.com) any stable firmware (or update) that contains the following chains:
 
-*^DDSETEX* <br>
+{{{
+*^DDSETEX*
 *^CVOICE*
+}}}
 
 Open the firmware file with any text editor and look for the mentioned text. If found, that means the modem is voice capable. The next step is to check if voice is enabled or not. A good solution is to download dc-unlocker client for that purpose. 
 
@@ -192,7 +194,7 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 
 <p />
 <br><br><br><br><br><br><br><br><br>
-[1] voice capable with special driver, read http://wiki.e1550.mobi/doku.php?id=troubleshooting#one_way_voice_on_huawei_e150
+[ 1 ] voice capable with special driver, please read [http://wiki.e1550.mobi/doku.php?id=troubleshooting#one_way_voice_on_huawei_e150 One way voice on Huawei E150]
 
 <br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
 == Credits ==
