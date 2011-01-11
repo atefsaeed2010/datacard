@@ -31,7 +31,7 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 <td>+</td>
 <td>?</td>
 <td>?</td>
-<td>One way voice by default, but can work http://wiki.e1550.mobi/doku.php?id=troubleshooting#one_way_voice_on_huawei_e150</td>
+<td>~~one way voice~~ see ,,[1],,</td>
 </tr>
 
 <tr>
@@ -191,6 +191,9 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 </table>
 
 <p />
+<br><br><br><br><br><br><br><br><br>
+[1] voice capable with special driver, read http://wiki.e1550.mobi/doku.php?id=troubleshooting#one_way_voice_on_huawei_e150
+
 <br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
 == Credits ==
 Thanks to Paco for the idea and information
