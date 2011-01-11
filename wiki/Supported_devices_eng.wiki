@@ -28,10 +28,10 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 
 <tr>
 <td>E150</td>
-<td>-</td>
+<td>+</td>
 <td>?</td>
 <td>?</td>
-<td>One way voice</td>
+<td>One way voice by default, but can work http://wiki.e1550.mobi/doku.php?id=troubleshooting#one_way_voice_on_huawei_e150</td>
 </tr>
 
 <tr>
