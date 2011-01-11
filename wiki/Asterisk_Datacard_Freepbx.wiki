@@ -205,8 +205,10 @@ http://192.168.0.218/freepbx/admin (admin/admin)
 
 Получение текущих исходников из SVN и сборка модуля:
 {{{
+apt-get install automake
 svn co https://datacard.googlecode.com/svn/trunk/ /usr/src/datacard
 cd /usr/src/datacard
+automake
 ./configure
 make install
 cp etc/datacard.conf /etc/asterisk
