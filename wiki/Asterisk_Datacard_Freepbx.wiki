@@ -1,27 +1,28 @@
 **UBUNTU 10.04 LTS Server + Asterisk+FreePBX+GSM HUAWAY**
-===== 1. Установка операционной системы =====
+===== 1. Install of Operational System =====
 
-Выполняется типовая установка ОС Ubuntu 10.04 LTS Server со следующими предустановленными компонентами:
+Do typical setup of OS Ubuntu 10.04 LTS Server with these components:
 {{{
 LAMP Server
 OpenSSH Server
 Samba file Server
 }}}
 
-Локализация: русская
+Localization: english
 
-Везде пароли: YourPassWord
+Passwords everywhere: YourPassWord
 
-После установки необходимо активировать учетку root, так-как вся настройка выполянется с полными правами.
+After setup done, should activate root account, because remaining done with full rights
 {{{sudo passwd root}}}
-===== 2. Загрузка компонентов из сети =====
+===== 2. Installing components from network =====
 
-Качаем и ставим компоненты из репозитория ~44,4 Мб +~12 Мб апдейтов
+Download and setup from repositories ~44,4 MB + +~12 of updates
 {{{
 apt-get update
 apt-get install php5-mysql libapache2-mod-php5 mysql-server libmysqlclient15-dev php-db php5-gd php-pear sox curl g++ libncurses-dev libxml2-dev subversion
 }}}
-Установка драйверов DAHDI (можно не выполнять, если не нужны конференции и нет соответствующего оборудования).
+
+Setup DAHDI drivers (optional if conference support not required or no appropriate hardware
 {{{
 apt-get install dahdi
 /etc/init.d/dahdi start
@@ -34,7 +35,9 @@ make
 make install
 make config
 }}}
-Качаем исходники Asterisk и FreePBX от производителей. Ориентировочный объём: 24Мб+0.9Мб+6.2Мб
+
+Download Asterisk and FreePBX sources from vendors. Size around 24MB + 0.9MB + 6.2MB
+
 {{{
 cd /tmp
 wget http://downloads.asterisk.org/pub/telephony/asterisk/releases/asterisk-1.6.2.13.tar.gz
@@ -42,27 +45,28 @@ wget http://downloads.asterisk.org/pub/telephony/asterisk/asterisk-addons-1.6.2.
 wget http://mirror.freepbx.org/freepbx-2.8.0.tar.gz
 }}}
 
-Распаковываем запакованные исходнички:
+Unpack packed sources:
 {{{
 cd /usr/src
 tar xvfz /tmp/asterisk-1.6.2.13.tar.gz
 tar xvfz /tmp/asterisk-addons-1.6.2.2.tar.gz
 tar xvfz /tmp/freepbx-2.8.0.tar.gz
-}}}  
+}}}
 
-===== 3. Устанавливаем Астериск =====
+===== 3. Setup Asterisk =====
 {{{
 cd /usr/src/asterisk-1.6.2.13
 ./configure
 }}}
-Во время установки программа автоматически скачиваются звуковые файы. Необходимо убедиться, что выход в интернет работает.
+
+When installing voice packages automatically downloaded. Check what has internet connection at that time
 {{{
 make install
 make config
 make samples
 }}}
-===== 4. Ставим дополнения к Астериску =====
-Дополнения требуются для включения возможности записи информации о звонках (cdr) в mysql в формате, требуемом для корректной работы FreePBX
+===== 4. Installing Asterisk Addons =====
+Addons required for save CDRs to mysql in format required by FreePBX
 {{{  
 cd /usr/src/asterisk-addons-1.6.2.2
 perl -p -i.bak -e 's/CFLAGS.*D_GNU_SOURCE/CFLAGS+=-D_GNU_SOURCE\nCFLAGS+=-DMYSQL_LOGUNIQUEID/' Makefile
@@ -71,37 +75,43 @@ make
 make install
 }}}
 
-===== 5. Конфигурируем Апач =====
+===== 5. Configure Apache2 =====
 
 
-Добавляем юзера и даем ему права
+Adding user and get rights
 {{{
 adduser asterisk --disabled-password --gecos "Asterisk PBX"
 adduser www-data asterisk
 }}}
-Заставляем апач стартовать от имени юзера астериск
+
+Force apache2 started under asterisk permissions
 {{{
 nano /etc/apache2/envvars
 }}}
-закомментируем следующие строки 
+
+
+commenting next lines
 {{{
   #export APACHE_RUN_USER=www-data
   #export APACHE_RUN_GROUP=www-data
 }}}
-и добавляем данные строки
+
+adding next lines
 {{{
 export APACHE_RUN_USER=asterisk
 export APACHE_RUN_GROUP=asterisk
 }}}
-записываем изменения Ctrl+O и выходим из редактора nano Ctrl+X
 
-Применяем параметры апачу
+save changes with Ctrl+O and exit with Ctrl+X
+
+
+Restarting apache2
 {{{
 apache2ctl graceful
 }}}
-===== 6. Ставим FREEPBX =====
+===== 6. Installing FreePBX =====
 
-==== Подготовка баз MYSQL для FREEPBX ====
+==== Prepare Mysql databases for FreePBX  ====
 {{{
 cd /usr/src/freepbx-2.8.0
 mysqladmin create asterisk -pYourPassWord
@@ -115,17 +125,20 @@ flush privileges;
 quit;
 }}}
 
-==== Установка FREEPBX ====
+==== Installing FreePBX ====
 
-Запускаем Астериск перед установкой Freepbx
+Run asterisk before FreeBPX install
 {{{
 /etc/init.d/asterisk start
 }}}
-Запускаем установку:
+
+Run installer
 {{{
 ./install_amp
 }}}
-ВАЖНО остальные параметры __кроме указанных__, менять НЕЛЬЗЯ!!! Параметры которые надо поменять в мастере установки:
+
+IMPORTANT do not change other setting !!!
+Setting should changes in setup wizard:
 {{{
   Enter your PASSWORD to connect to the 'asterisk' database:
   [amp109] YourPassWord
@@ -141,69 +154,74 @@ quit;
   [passw0rd] YourPassWord
 }}}
 
-==== Корректировка параметров FreePBX после установки для его правильной работы ====
+==== Tune FreePBX settings after installing for right work ====
 
 nano /etc/amportal.conf
 
-Коментируем параметр, для работы FOP (флеш панель):
-
+Comment AMPWEBADDRESS for working FOP (flash panel)
 #AMPWEBADDRESS=xx.xx.xx.xx
 
-Исправляем параметр для включения авторизации доступа к web-админке и хранения учеток в базе данных (по умолчанию adminadmin):
+
+Change value of AUTHTYPE for secured access for administratove pannel and store accounts in database (adminadmin by default):
 
 AUTHTYPE=database
 
-Исправляем пароль авторизации доступа к web-админке по управлению записями разговоров.
+Change value of password for administrative access to call record panel.
 
 ARI_ADMIN_PASSWORD=YourPassWord
 
-записываем изменения Ctrl+O и выходим из редактора nano Ctrl+X
 
-==== Исправление, для включения русского языка в web-интерфейсе FreePBX ====
+save changes with Ctrl+O and exit with Ctrl+X
+
+==== Fix for enable russian language in web panel of FreePBX ====
 
 nano /usr/share/locale/locale.alias
 
-Удаляем строку с кодировкой для russian и добавляем 3 строки вместо нее:
+Remove line with encoding for russian and adding 3 lines instead
 {{{
 russian         ru
 ru              ru_RU
 ru_RU           ru_RU.UTF-8
 }}}
-записываем изменения Ctrl+O и выходим из редактора nano Ctrl+X
 
-Делаем автостарт
+save changes with Ctrl+O and exit with Ctrl+X
+
+Enable auto start at boot
 {{{nano /etc/rc.local}}}
-дописываем перед строчкой exit 0 следующую строчку
+
+adding lines before exit 0 
 
 /usr/local/sbin/amportal start
 
-Перезагружаем сервер для проверки успешного автозапуска.
+Reboot server for auto start check
 {{{reboot}}}
 
-==== Обновление и получение модулей FreePBX с сервера разработчка ====
-Заходим в web-админку
+==== Updating and installing FreeBPX modules from vendor site ====
+
+Enter to web panel
 
 http://192.168.0.218/freepbx/admin (admin/admin)
 
-Первым делом применяем параметры конфигурации
+At first apply settings
 
 "Управление модулями" -> "Проверить обновление on-line" -> "Скачать все" -> "Обновить все" -> "Запустить процесс"
 
-Прокручиваем список обновляемых модулей вниз жмем "Подтвердить"
+Move down and press 'Confirm'
 
-в процессе выполнения в случае остановки процесса, его необходимо повторить пока все не обновится!
+Should restart and continue process in case if stopped until all is done
 
-===== 7. Подключение модема HUAWEI к Asterisk =====
+===== 7. Attaching Huawei datacard to Asterisk =====
 
-==== Некоторые приготовления перед подключением модема ====
+==== Preparation ====
 
-Обновление прошивок: http://www.dc-files.com/files/huawei/
+Firmware Updates: http://www.dc-files.com/files/huawei/
 
-Обязательное условие - отключение встроенных в модем устройств - (кард-ридер и вируальный CD-ROM с ПО для Windows). Для этого необходимо через терминал подключиться к консоли модема и выполнить AT комманду AT^U2DIAG=0. Если этого не сделать, то появится проблема с переподключениями модема по причине некорректного отмонтирования портов устройств.
+Mandatory: turn off all optional devices like CD-ROM, Flash reader, network interface
+With terminal type AT^U2DIAG=0 and replug modem
 
-==== Установка модуля DATACARD ====
+==== Installing of chan_datacard ====
 
-Получение текущих исходников из SVN и сборка модуля:
+Downloading and installing of chan_datacard channel module
 {{{
 apt-get install automake
 svn co https://datacard.googlecode.com/svn/trunk/ /usr/src/datacard
@@ -214,27 +232,27 @@ make install
 cp etc/datacard.conf /etc/asterisk
 }}}
 
-==== Настройка параметров модуля ====
+==== chan_datacard settings ====
 
 {{{nano /etc/asterisk/datacard.conf}}}
-в самом низу конфигурационного файла удаляем все данные (Ctrl+k) после последней черты  и вставляем данный конфиг
+at bottom of file remove all data and write
 {{{
 [000101]
-context=from-gsm                  ; context для входящих звонков
-audio=/dev/ttyUSB1                ; tty порт для аудио подключения
-data=/dev/ttyUSB2                 ; tty порт для управляющих AT комманд модема
-group=1                           ; Группа вызова
-rxgain=10                         ; Изменение громкости динамика
-txgain=-5                         ; Изменение громкости микрофона
-resetdatacard=yes                 ; Перезагрузка модема при перезапуске модуля
-autodeletesms=yes                 ; Удаление смс с симкарты при перезапуске
-usecallingpres=yes                ; use the caller ID presentation or not
-callingpres=allowed_passed_screen ; set caller ID presentation
+context=from-gsm
+audio=/dev/ttyUSB1
+data=/dev/ttyUSB2
+group=1
+rxgain=2
+txgain=-5
+resetdatacard=yes
+autodeletesms=yes
+usecallingpres=yes
+callingpres=allowed_passed_screen
 }}}
 
-записываем изменения Ctrl+O и выходим из редактора nano Ctrl+X
+save changes with Ctrl+O and exit with Ctrl+X
 
-Создаем специальный контекст в диалплане:
+Create context for incoming calls from datacard
 {{{nano /etc/asterisk/extensions_custom.conf}}}
 {{{
 [from-gsm]
@@ -243,50 +261,52 @@ exten => s,n,Set(CALLERID(num)=8${CALLERID(num):2})
 exten => s,n,goto(from-trunk,${IMEI},1)
 }}}
 
-Перезапускаем Asterisk
+restarting Asterisk
 {{{service asterisk restart}}}
 
-==== Методы контроля и управления модемом ====
+==== Check state & Control of datacard ====
 
 
-Проверка состояния модема
+Checking devices state
 {{{
 asterisk -r
 datacard show devices
-}}}  
-Отключаем и включаем питание конкретному модему:
+}}}
+
+Turn off and on power for modem
 
 Определяем порт:
 {{{dmesg usb | grep ttyUSB}}}
-смотрим последнюю строку:
+check last line
 
   [ 5191.602917] usb 1-3.5: GSM modem (1-port) converter now attached to ttyUSB3
 
-Отключаем и включаем питание устройсту usb 1-3.5
+Turn off and on power for usb device 1-3.5
 {{{
   echo suspend > /sys/bus/usb/devices/1-3.5/power/level
   echo on > /sys/bus/usb/devices/1-3.5/power/level
 }}}
 
-Послылаем модему команду перезагрузки
+Send to modem reboot command
 {{{datacard cmd 000101 AT+CFUN=1,1}}}
 
 
-==== Настройка FreePBX для работы с модемами ====
+==== Settings of FreePBX for datacards ====
 
-  * Создаем екстент (номер вашего клиентского телефона)
+  * Create exten (number of client phone)
 
 Конфигурация => Внутренние номера => Добавить SIP устройство (указываем имя, номер, пароль)
 
-  * Создаем специальный транк
+  * Create special trunk
 
 Конфигурация => Транки => Добавить специальный транк => Исходящие настройки Специальный набор => datacard/i:123456789012345/$OUTNUM$
-где 123456789012345 (IMEI модема)
+where 123456789012345 (IMEI of datacard)
 
-  * Создаем исходящий маршрут
+  * Create outgoing route
 
 Конфигурация => Исходящая маршрутизация => math patern => . (ставим точку в это поле), а в Trunk Sequence for Matched Routes выбираем наш транк.
 
-  * Делаем входящий маршрут
+  * Create incoming route
 
-Конфигурация => Входящая маршрутизация => Добавить входящий маршрут => Номер DID => 123456789012345 (IMEI модема), а в "Установить направление" выбрать получателя звонков, ваш экстент.
+Конфигурация => Входящая маршрутизация => Добавить входящий маршрут => Номер DID => 123456789012345 (IMEI модема), 
+а в "Установить направление" выбрать получателя звонков, ваш экстент.
