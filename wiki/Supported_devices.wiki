@@ -40,16 +40,6 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 || K3715 || + || + || + ||  ||
 || K3765 || + || + || + ||  ||
 
-
-<tr>
-<td>E150</td>
-<td>+</td>
-<td>?</td>
-<td>?</td>
-<td>~~one way voice~~ see ,,[1],,</td>
-</tr>
-
-
 <p />
 [ 1 ] voice capable with special driver, please read [http://wiki.e1550.mobi/doku.php?id=troubleshooting#one_way_voice_on_huawei_e150 One way voice on Huawei E150]
 
