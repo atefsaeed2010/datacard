@@ -17,16 +17,29 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 
 = Details =
 
-<table border="3" align="left" valign="middle">
-<tbody>
+|| *Device\Feature* || *Voice* || *SMS* || *USSD* || *Note* ||
+|| E150 || + || + || + || ~~one way voice~~ see ,,[1],, ||
+|| E1550 || + || + || + ||  ||
+|| E1552 || + || + || + ||  ||
+|| E1553 || + || + || + ||  ||
+|| E156 || ? || ? || ? || test required ||
+|| E160 || ? || ? || ? || test required ||
+|| E1612 || - || + || + ||  ||
+|| E166 || ? || ? || ? || test required ||
+|| E169 || + || + || + ||  ||
+|| E169G || - || ? || ? || test required ||
+|| E172 || - || ? || ? || test required ||
+|| E1756 || + || + || + ||  ||
+|| E178 || ? || ? || ? || test required ||
+|| E180 || ? || ? || ? || test required ||
+|| E220 || - || + || + ||  ||
+|| E270 || - || + || + ||  ||
+|| EG162G || ? || ? || ? || test required ||
+|| K3520 || + || + || + ||  ||
+|| K3565 || - || - || - ||  ||
+|| K3715 || + || + || + ||  ||
+|| K3765 || + || + || + ||  ||
 
-<tr>
-<th>Device\Feature</th>
-<th>Voice</th>
-<th>SMS</th>
-<th>USSD</th>
-<th>Note</th>
-</tr>
 
 <tr>
 <td>E150</td>
@@ -36,166 +49,9 @@ Open the firmware file with any text editor and look for the mentioned text. If 
 <td>~~one way voice~~ see ,,[1],,</td>
 </tr>
 
-<tr>
-<td>E1550</td>
-<td>+</td>
-<td>+</td>
-<td>+</td>
-<td> </td>
-</tr>
-
-<tr>
-<td>E1552</td>
-<td>+</td>
-<td>+</td>
-<td>+</td>
-<td> </td>
-</tr>
-
-<tr>
-<td>E156</td>
-<td>?</td>
-<td>?</td>
-<td>?</td>
-<td>test required</td>
-</tr>
-
-<tr>
-<td>E160</td>
-<td>?</td>
-<td>?</td>
-<td>?</td>
-<td>test required</td>
-</tr>
-
-
-<tr>
-<td>E1612</td>
-<td>-</td>
-<td>+</td>
-<td>+</td>
-<td> </td>
-</tr>
-
-<tr>
-<td>E166</td>
-<td>?</td>
-<td>?</td>
-<td>?</td>
-<td>test required</td>
-</tr>
-
-<tr>
-<td>E169</td>
-<td>+</td>
-<td>+</td>
-<td>+</td>
-<td> </td>
-</tr>
-
-<tr>
-<td>E169G</td>
-<td>-</td>
-<td>?</td>
-<td>?</td>
-<td>test required</td>
-</tr>
-
-<tr>
-<td>E172</td>
-<td>-</td>
-<td>?</td>
-<td>?</td>
-<td>test required</td>
-</tr>
-
-<tr>
-<td>E175X</td>
-<td>+</td>
-<td>+</td>
-<td>+</td>
-<td> </td>
-</tr>
-
-<tr>
-<td>E178</td>
-<td>?</td>
-<td>?</td>
-<td>?</td>
-<td>test required</td>
-</tr>
-
-<tr>
-<td>E180</td>
-<td>?</td>
-<td>?</td>
-<td>?</td>
-<td>test required</td>
-</tr>
-
-<tr>
-<td>E220</td>
-<td>-</td>
-<td>+</td>
-<td>+</td>
-<td> </td>
-</tr>
-
-<tr>
-<td>E270</td>
-<td>-</td>
-<td>+</td>
-<td>+</td>
-<td> </td>
-</tr>
-
-<tr>
-<td>EG162G</td>
-<td>?</td>
-<td>?</td>
-<td>?</td>
-<td>test required</td>
-</tr>
-
-<tr>
-<td>K3520</td>
-<td>+</td>
-<td>+</td>
-<td>+</td>
-<td> </td>
-</tr>
-
-<tr>
-<td>K3565</td>
-<td>-</td>
-<td>-</td>
-<td>-</td>
-<td> </td>
-</tr>
-
-<tr>
-<td>K3715</td>
-<td>+</td>
-<td>+</td>
-<td>+</td>
-<td> </td>
-</tr>
-
-<tr>
-<td>K3765</td>
-<td>+</td>
-<td>+</td>
-<td>+</td>
-<td></td>
-</tr>
-
-</tbody>
-</table>
 
 <p />
-<br><br><br><br><br><br><br><br><br>
 [ 1 ] voice capable with special driver, please read [http://wiki.e1550.mobi/doku.php?id=troubleshooting#one_way_voice_on_huawei_e150 One way voice on Huawei E150]
 
-<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
 == Credits ==
 Thanks to Paco for the idea and information
