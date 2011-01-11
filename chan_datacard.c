@@ -841,8 +841,22 @@ EXPORT_DEF const char* pvt_str_state(const struct pvt* pvt)
 {
 	const char * state = pvt_state_base(pvt);
 	if(!state) {
-		if(!is_dial_possible(pvt, CALL_FLAG_NONE))
-			state = "Busy";
+		if(pvt->ring || PVT_STATE(pvt, chan_count[CALL_STATE_INCOMING]))
+			state = "Ring";
+		else if(pvt->cwaiting || PVT_STATE(pvt, chan_count[CALL_STATE_WAITING]))
+			state = "Waiting";
+		else if(pvt->dialing ||
+			(PVT_STATE(pvt, chan_count[CALL_STATE_INIT])
+				+
+			PVT_STATE(pvt, chan_count[CALL_STATE_DIALING])
+				+
+			PVT_STATE(pvt, chan_count[CALL_STATE_ALERTING])) > 0)
+			state = "Dialing";
+
+		else if(PVT_STATE(pvt, chan_count[CALL_STATE_ACTIVE]) > 0)
+			state = "Active";
+		else if(PVT_STATE(pvt, chan_count[CALL_STATE_ONHOLD]) > 0)
+			state = "Held";
 		else if(pvt->outgoing_sms || pvt->incoming_sms)
 			state = "SMS";
 		else
@@ -864,7 +878,7 @@ EXPORT_DEF struct ast_str* pvt_str_state_ex(const struct pvt* pvt)
 		if(pvt->ring || PVT_STATE(pvt, chan_count[CALL_STATE_INCOMING]))
 			ast_str_append (&buf, 0, "Ring ");
 
-		if(pvt->dialing || 
+		if(pvt->dialing ||
 			(PVT_STATE(pvt, chan_count[CALL_STATE_INIT])
 				+
 			PVT_STATE(pvt, chan_count[CALL_STATE_DIALING])
@@ -889,7 +903,7 @@ EXPORT_DEF struct ast_str* pvt_str_state_ex(const struct pvt* pvt)
 
 		if(ast_str_strlen(buf) == 0)
 		{
-			ast_str_append (&buf, 0, "%s", pvt->current_state == DEV_STATE_STOPPED ? "Stopped" : "Free");
+			ast_str_append (&buf, 0, "%s", "Free");
 		}
 	}
 
