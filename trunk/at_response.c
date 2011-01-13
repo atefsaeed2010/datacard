@@ -200,7 +200,7 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 				{
 					pvt->timeout = DATA_READ_TIMEOUT;
 					pvt->initialized = 1;
-					ast_verb (3, "Datacard %s initialized and ready\n", PVT_ID(pvt));
+					ast_verb (3, "[%s] Datacard initialized and ready\n", PVT_ID(pvt));
 				}
 				break;
 
@@ -232,7 +232,7 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 				{
 					pvt->timeout = DATA_READ_TIMEOUT;
 					pvt->initialized = 1;
-					ast_verb (3, "Datacard %s initialized and ready\n", PVT_ID(pvt));
+					ast_verb (3, "[%s] Datacard initialized and ready\n", PVT_ID(pvt));
 				}
 				break;
 			case CMD_AT_CHUP:
@@ -379,7 +379,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 
 			case CMD_AT_CNUM:
 				ast_log (LOG_WARNING, "[%s] Error checking subscriber phone number\n", PVT_ID(pvt));
-				ast_verb (3, "Datacard %s needs to be reinitialized. The SIM card is not ready yet\n", PVT_ID(pvt));
+				ast_verb (3, "[%s] Datacard needs to be reinitialized. The SIM card is not ready yet\n", PVT_ID(pvt));
 				goto e_return;
 
 			case CMD_AT_CVOICE:
@@ -429,7 +429,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 						pvt->timeout = DATA_READ_TIMEOUT;
 						pvt->initialized = 1;
 					/* FIXME: say 'initialized and ready' but disconnect */
-//						ast_verb (3, "Datacard %s initialized and ready\n", PVT_ID(pvt));
+//						ast_verb (3, "[%s] Datacard initialized and ready\n", PVT_ID(pvt));
 					}
 					goto e_return;
 				}
@@ -1679,8 +1679,8 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 */
 
 		if(ecmd && ecmd->cmd == CMD_USER) {
-			ast_verb(1, "[%s] Response for user's command:'%s'\n", PVT_ID(pvt), str);
-			ast_log(LOG_NOTICE, "[%s] Response for user's command:'%s'\n", PVT_ID(pvt), str);
+			ast_verb(1, "[%s] Got Response for user's command:'%s'\n", PVT_ID(pvt), str);
+			ast_log(LOG_NOTICE, "[%s] Got Response for user's command:'%s'\n", PVT_ID(pvt), str);
 		}
 		switch (at_res)
 		{

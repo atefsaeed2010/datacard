@@ -179,7 +179,7 @@ EXPORT_DEF int opentty (const char* dev, char ** lockfile)
 	pid = lock_try(dev, lockfile);
 	if(pid != 0)
 	{
-		ast_log (LOG_WARNING, "'%s' already used by process %d\n", dev, pid);
+		ast_log (LOG_WARNING, "%s already used by process %d\n", dev, pid);
 		return -1;
 	}
 
@@ -187,14 +187,14 @@ EXPORT_DEF int opentty (const char* dev, char ** lockfile)
 	if (fd < 0)
 	{
 		closetty(fd, lockfile);
-		ast_log (LOG_WARNING, "Unable to open '%s': %s\n", dev, strerror(errno));
+		ast_log (LOG_WARNING, "unable to open %s: %s\n", dev, strerror(errno));
 		return -1;
 	}
 
 	if (tcgetattr (fd, &term_attr) != 0)
 	{
 		closetty(fd, lockfile);
-		ast_log (LOG_WARNING, "tcgetattr() failed '%s': %s\n", dev, strerror(errno));
+		ast_log (LOG_WARNING, "tcgetattr() failed for %s: %s\n", dev, strerror(errno));
 		return -1;
 	}
 
@@ -207,7 +207,7 @@ EXPORT_DEF int opentty (const char* dev, char ** lockfile)
 
 	if (tcsetattr (fd, TCSAFLUSH, &term_attr) != 0)
 	{
-		ast_log (LOG_WARNING, "tcsetattr() failed '%s': %s\n", dev, strerror(errno));
+		ast_log (LOG_WARNING, "tcsetattr() failed for %s: %s\n", dev, strerror(errno));
 	}
 
 	return fd;
@@ -317,7 +317,7 @@ static void disconnect_datacard (struct pvt* pvt)
 	ast_copy_string (PVT_STATE(pvt, data_tty),  CONF_UNIQ(pvt, data_tty), sizeof (PVT_STATE(pvt, data_tty)));
 	ast_copy_string (PVT_STATE(pvt, audio_tty), CONF_UNIQ(pvt, audio_tty), sizeof (PVT_STATE(pvt, audio_tty)));
 
-	ast_verb (3, "Datacard %s has disconnected\n", PVT_ID(pvt));
+	ast_verb (3, "[%s] Datacard has disconnected\n", PVT_ID(pvt));
 	ast_debug (1, "[%s] Datacard disconnected\n", PVT_ID(pvt));
 
 #ifdef BUILD_MANAGER
@@ -411,26 +411,6 @@ static void* do_monitor_phone (void* data)
 			at_enque_ping(&pvt->sys_chan);
 			ast_mutex_unlock (&pvt->lock);
 			continue;
-/*
-			ast_mutex_lock (&pvt->lock);
-			if (!pvt->initialized)
-			{
-				ast_debug (1, "[%s] timeout waiting for data, disconnecting\n", PVT_ID(pvt));
-
-				if (ecmd)
-				{
-					ast_debug (1, "[%s] timeout while waiting '%s' in response to '%s'\n", PVT_ID(pvt),
-							at_res2str (ecmd->res), at_cmd2str (ecmd->cmd));
-				}
-
-				goto e_cleanup;
-			}
-			else
-			{
-				ast_mutex_unlock (&pvt->lock);
-				continue;
-			}
-*/
 		}
 
 		/* FIXME: access to device not locked */
@@ -459,7 +439,7 @@ static void* do_monitor_phone (void* data)
 e_cleanup:
 	if (!pvt->initialized)
 	{
-		ast_verb (3, "Error initializing Datacard %s\n", PVT_ID(pvt));
+		ast_verb (3, "[%s] Error initializing Datacard\n", PVT_ID(pvt));
 	}
 	/* it real, unsolicited disconnect */
 	pvt->terminate_monitor = 0;
@@ -514,7 +494,7 @@ static int pvt_discovery(struct pvt * pvt)
 		char * data_tty;
 		char * audio_tty;
 
-		ast_verb (3, "[%s] Trying port discovery for IMEI '%s' IMSI '%s'\n", PVT_ID(pvt), CONF_UNIQ(pvt, imei), CONF_UNIQ(pvt, imsi));
+		ast_debug (3, "[%s] Trying port discovery for IMEI %s IMSI %s\n", PVT_ID(pvt), CONF_UNIQ(pvt, imei), CONF_UNIQ(pvt, imsi));
 		not_resolved = ! pdiscovery_lookup(&pdisc, CONF_UNIQ(pvt, imei), CONF_UNIQ(pvt, imsi), &data_tty, &audio_tty);
 		if(!not_resolved) {
 			ast_copy_string (PVT_STATE(pvt, data_tty),  data_tty,  sizeof (PVT_STATE(pvt, data_tty)));
@@ -522,7 +502,7 @@ static int pvt_discovery(struct pvt * pvt)
 
 			ast_free(audio_tty);
 			ast_free(data_tty);
-			ast_verb (3, "[%s] IMEI '%s' IMSI '%s' found on data_tty '%s' audio_tty '%s'\n", 
+			ast_verb (3, "[%s] IMEI %s IMSI %s found on data_tty %s audio_tty %s\n", 
 				PVT_ID(pvt), 
 				CONF_UNIQ(pvt, imei), 
 				CONF_UNIQ(pvt, imsi), 
@@ -548,7 +528,7 @@ static void pvt_start(struct pvt * pvt)
 
 		if(pvt_discovery(pvt))
 			return;
-		ast_verb (3, "Datacard %s trying to connect on %s...\n", PVT_ID(pvt), PVT_STATE(pvt, data_tty));
+		ast_verb (3, "[%s] Trying to connect on %s...\n", PVT_ID(pvt), PVT_STATE(pvt, data_tty));
 
 		pvt->data_fd = opentty(PVT_STATE(pvt, data_tty), &pvt->dlock);
 		if (pvt->data_fd >= 0)
@@ -564,7 +544,7 @@ static void pvt_start(struct pvt * pvt)
 #ifdef BUILD_MANAGER
 					manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Connect\r\nDevice: %s\r\n", PVT_ID(pvt));
 #endif
-					ast_verb (3, "Datacard %s has connected, initializing...\n", PVT_ID(pvt));
+					ast_verb (3, "[%s] Datacard has connected, initializing...\n", PVT_ID(pvt));
 					return;
 				}
 				closetty(pvt->audio_fd, &pvt->alock);
