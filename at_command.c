@@ -189,7 +189,7 @@ EXPORT_DEF int at_enque_initialization(struct cpvt* cpvt, at_cmd_t from_command)
 				continue;
 		}
 
-		if(st_cmds[in].cmd == CMD_AT_Z && !CONF_SHARED(pvt, reset_datacard))
+		if(st_cmds[in].cmd == CMD_AT_Z && !CONF_SHARED(pvt, resetdatacard))
 			continue;
 		if(st_cmds[in].cmd == CMD_AT_U2DIAG && CONF_SHARED(pvt, u2diag) == -1)
 			continue;
@@ -481,7 +481,7 @@ EXPORT_DEF int at_enque_set_ccwa (struct cpvt* cpvt, attribute_unused const char
 		pcmd++;
 		count--;
 	}
-	CONF_SHARED(cpvt->pvt, call_waiting) = value;
+	CONF_SHARED(cpvt->pvt, callwaiting) = value;
 
 	return at_queue_insert(cpvt, pcmd, count, 0);
 }
