@@ -274,7 +274,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 		{
 			if(res == -E2BIG)
 			{
-			ast_verb (3, "SMS Message too long, PDU has limit 140 octets\n");
+			ast_verb (3, "[%s] SMS Message too long, PDU has limit 140 octets\n", PVT_ID(pvt));
 			ast_log (LOG_WARNING, "[%s] SMS Message too long, PDU has limit 140 octets\n", PVT_ID(pvt));
 			}
 			/* TODO: complain on other errors */
