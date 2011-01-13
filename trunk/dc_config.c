@@ -85,9 +85,9 @@ EXPORT_DEF void dc_sconfig_fill_defaults(struct dc_sconfig * config)
 	ast_copy_string (config->language, DEFAULT_LANGUAGE, sizeof (config->language));
 
 	config->u2diag			= -1;
-	config->reset_datacard		=  1;
+	config->resetdatacard		=  1;
 	config->callingpres		= -1;
-	config->call_waiting 		= CALL_WAITING_AUTO;
+	config->callwaiting 		= CALL_WAITING_AUTO;
 	config->dtmf			= DC_DTMF_SETTING_RELAX;
 
 	config->mindtmfgap		= DEFAULT_MINDTMFGAP;
@@ -155,11 +155,11 @@ EXPORT_DEF void dc_sconfig_fill(struct ast_config * cfg, const char * cat, struc
 		}
 		else if (!strcasecmp (v->name, "autodeletesms"))
 		{
-			config->auto_delete_sms = ast_true (v->value);		/* auto_delete_sms is set to 0 if invalid */
+			config->autodeletesms = ast_true (v->value);		/* autodeletesms is set to 0 if invalid */
 		}
 		else if (!strcasecmp (v->name, "resetdatacard"))
 		{
-			config->reset_datacard = ast_true (v->value);		/* reset_datacard is set to 0 if invalid */
+			config->resetdatacard = ast_true (v->value);		/* resetdatacard is set to 0 if invalid */
 		}
 		else if (!strcasecmp (v->name, "disablesms"))
 		{
@@ -176,7 +176,7 @@ EXPORT_DEF void dc_sconfig_fill(struct ast_config * cfg, const char * cat, struc
 		else if (!strcasecmp (v->name, "callwaiting"))
 		{
 			if(strcasecmp(v->value, "auto"))
-				config->call_waiting = ast_true (v->value);
+				config->callwaiting = ast_true (v->value);
 		}
 		else if (!strcasecmp (v->name, "dtmf"))
 		{

@@ -33,6 +33,23 @@ typedef enum {
 	DC_DTMF_SETTING_RELAX,
 } dc_dtmf_setting_t;
 
+/*
+ Config API
+ Operations
+ 	convert from string to native
+ 	convent from native to string
+ 	get native value
+	get alternative presentation
+
+ 	set native value ?
+
+	types:
+		string of limited length
+		integer with limits
+		enum
+		boolean
+*/
+
 /* Global inherited (shared) settings */
 typedef struct dc_sconfig
 {
@@ -46,13 +63,13 @@ typedef struct dc_sconfig
 	int			callingpres;			/*!< calling presentation */
 
 	unsigned int		usecallingpres:1;		/*! -1 */
-	unsigned int		auto_delete_sms:1;		/*! 0 */
-	unsigned int		reset_datacard:1;		/*! 1 */
+	unsigned int		autodeletesms:1;		/*! 0 */
+	unsigned int		resetdatacard:1;		/*! 1 */
 	unsigned int		disablesms:1;			/*! 0 */
 	unsigned int		smsaspdu:1;			/*! 0 */
 	unsigned int		disable:1;			/*! 0 */
 
-	call_waiting_t		call_waiting;			/*!< enable/disable/auto call waiting CALL_WAITING_AUTO */
+	call_waiting_t		callwaiting;			/*!< enable/disable/auto call waiting CALL_WAITING_AUTO */
 	dc_dtmf_setting_t	dtmf;				/*!< off/inband/relax incoming DTMF detection, default DC_DTMF_SETTING_RELAX */
 
 	int			mindtmfgap;			/*!< minimal time in ms from end of previews DTMF and begining of next */

@@ -141,11 +141,11 @@ static char* cli_show_device_settings (struct ast_cli_entry* e, int cmd, struct 
 		ast_cli (a->fd, "  U2Diag                  : %d\n", CONF_SHARED(pvt, u2diag));
 		ast_cli (a->fd, "  Use CallingPres         : %s\n", CONF_SHARED(pvt, usecallingpres) ? "Yes" : "No");
 		ast_cli (a->fd, "  Default CallingPres     : %s\n", CONF_SHARED(pvt, callingpres) < 0 ? "<Not set>" : ast_describe_caller_presentation (CONF_SHARED(pvt, callingpres)));
-		ast_cli (a->fd, "  Auto delete SMS         : %s\n", CONF_SHARED(pvt, auto_delete_sms) ? "Yes" : "No");
+		ast_cli (a->fd, "  Auto delete SMS         : %s\n", CONF_SHARED(pvt, autodeletesms) ? "Yes" : "No");
 		ast_cli (a->fd, "  Disable SMS             : %s\n", CONF_SHARED(pvt, disablesms) ? "Yes" : "No");
-		ast_cli (a->fd, "  Reset Datacard          : %s\n", CONF_SHARED(pvt, reset_datacard) ? "Yes" : "No");
+		ast_cli (a->fd, "  Reset Datacard          : %s\n", CONF_SHARED(pvt, resetdatacard) ? "Yes" : "No");
 		ast_cli (a->fd, "  Send SMS as PDU         : %s\n", CONF_SHARED(pvt, smsaspdu) ? "Yes" : "No");
-		ast_cli (a->fd, "  Call Waiting Setting    : %s\n", dc_cw_setting2str(CONF_SHARED(pvt, call_waiting)));
+		ast_cli (a->fd, "  Call Waiting Setting    : %s\n", dc_cw_setting2str(CONF_SHARED(pvt, callwaiting)));
 		ast_cli (a->fd, "  DTMF                    : %s\n", dc_dtmf_setting2str(CONF_SHARED(pvt, dtmf)));
 		ast_cli (a->fd, "  Minimal DTMF Gap        : %d\n", CONF_SHARED(pvt, mindtmfgap));
 		ast_cli (a->fd, "  Minimal DTMF Duration   : %d\n", CONF_SHARED(pvt, mindtmfduration));

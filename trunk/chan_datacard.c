@@ -102,7 +102,7 @@ static int lock_build(const char * devname, char * buf, unsigned length)
 	else
 		basename = devname;
 
-	/* TODO: use asterisk build settings for /var/lock */
+	/* NOTE: use system system wide lock directory */
 	return snprintf(buf, length, "/var/lock/LOCK..%s", basename);
 }
 
@@ -824,7 +824,7 @@ EXPORT_DEF int ready4voice_call(const struct pvt* pvt, const struct cpvt * curre
 static const char * pvt_state_base(const struct pvt * pvt)
 {
 	const char * state = NULL;
-
+// length "AAAAAAAAAA"
 	if(pvt->current_state == DEV_STATE_STOPPED && pvt->desired_state == DEV_STATE_STOPPED)
 		state = "Stopped";
 	else if(!pvt->connected)
@@ -848,9 +848,9 @@ EXPORT_DEF const char* pvt_str_state(const struct pvt* pvt)
 		else if(pvt->dialing ||
 			(PVT_STATE(pvt, chan_count[CALL_STATE_INIT])
 				+
-			PVT_STATE(pvt, chan_count[CALL_STATE_DIALING])
+				PVT_STATE(pvt, chan_count[CALL_STATE_DIALING])
 				+
-			PVT_STATE(pvt, chan_count[CALL_STATE_ALERTING])) > 0)
+				PVT_STATE(pvt, chan_count[CALL_STATE_ALERTING])) > 0)
 			state = "Dialing";
 
 		else if(PVT_STATE(pvt, chan_count[CALL_STATE_ACTIVE]) > 0)
@@ -1100,11 +1100,11 @@ static int pvt_reconfigure(struct pvt * pvt, const pvt_config_t * settings, rest
 			||
 		   SCONFIG(settings, u2diag) != CONF_SHARED(pvt, u2diag)
 			||
-		   SCONFIG(settings, reset_datacard) != CONF_SHARED(pvt, reset_datacard)
+		   SCONFIG(settings, resetdatacard) != CONF_SHARED(pvt, resetdatacard)
 			||
 		   SCONFIG(settings, smsaspdu) != CONF_SHARED(pvt, smsaspdu)
 			||
-		   SCONFIG(settings, call_waiting) != CONF_SHARED(pvt, call_waiting)
+		   SCONFIG(settings, callwaiting) != CONF_SHARED(pvt, callwaiting)
 		   )
 		{
 			/* TODO: schedule restart */

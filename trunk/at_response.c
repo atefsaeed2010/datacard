@@ -1063,7 +1063,7 @@ static int at_response_ccwa(struct pvt* pvt, char* str)
 //		if (sscanf (str, "+CCWA: \"%*[+0-9*#ABCabc]\",%*d,%d", &class) == 1)
 		if (at_parse_ccwa(str, &class) == 0)
 		{
-			if (CONF_SHARED(pvt, call_waiting) != CALL_WAITING_DISALLOWED && class == CCWA_CLASS_VOICE)
+			if (CONF_SHARED(pvt, callwaiting) != CALL_WAITING_DISALLOWED && class == CCWA_CLASS_VOICE)
 			{
 				pvt->rings++;
 				pvt->cwaiting = 1;
@@ -1134,7 +1134,7 @@ static int at_response_cmti (struct pvt* pvt, const char* str)
 		}
 		else if(pvt_enabled(pvt))
 		{
-			if (at_enque_retrive_sms (&pvt->sys_chan, index, CONF_SHARED(pvt, auto_delete_sms)))
+			if (at_enque_retrive_sms (&pvt->sys_chan, index, CONF_SHARED(pvt, autodeletesms)))
 			{
 				ast_log (LOG_ERROR, "[%s] Error sending CMGR to retrieve SMS message\n", PVT_ID(pvt));
 				return -1;
@@ -1514,7 +1514,7 @@ static int at_response_creg (struct pvt* pvt, char* str, size_t len)
 	{
 		/* only if gsm_registered 0 -> 1 ? */
 		if(!pvt->gsm_registered)
-			at_enque_set_ccwa(&pvt->sys_chan, 0, 0, CONF_SHARED(pvt, call_waiting));
+			at_enque_set_ccwa(&pvt->sys_chan, 0, 0, CONF_SHARED(pvt, callwaiting));
 		pvt->gsm_registered = 1;
 	}
 	else
