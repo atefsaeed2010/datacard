@@ -56,6 +56,7 @@ struct pdiscovery_req {
 
 static const struct pdiscovery_device device_ids[] = {
 	{ 0x12d1, 0x1001, { 2, 1, 0 } },
+	{ 0x12d1, 0x140c, { 3, 2, 0 } },
 };
 
 #/* */
