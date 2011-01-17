@@ -30,6 +30,7 @@
 
 static char silence_frame[FRAME_SIZE];
 
+#/* */
 static int parse_dial_string(char * dialstr, const char** number, int * opts)
 {
 	char* options;
@@ -384,6 +385,7 @@ static struct ast_channel* channel_request (attribute_unused const char* type, i
 	return channel;
 }
 
+#/* */
 static int channel_call (struct ast_channel* channel, char* dest, attribute_unused int timeout)
 {
 	struct cpvt* cpvt = channel->tech_pvt;
@@ -459,7 +461,7 @@ static int channel_call (struct ast_channel* channel, char* dest, attribute_unus
 	return 0;
 }
 
-#/* */
+#/* ARCH: move to cpvt level */
 static void disactivate_call(struct cpvt* cpvt)
 {
 	if(cpvt->channel && CPVT_TEST_FLAG(cpvt, CALL_FLAG_ACTIVATED))
@@ -473,7 +475,7 @@ static void disactivate_call(struct cpvt* cpvt)
 	}
 }
 
-#/* */
+#/* ARCH: move to cpvt level */
 static void activate_call(struct cpvt* cpvt)
 {
 	struct cpvt* cpvt2;
@@ -538,7 +540,7 @@ static void activate_call(struct cpvt* cpvt)
 	}
 }
 
-/* we has 2 case of call this function, when local side want terminate call and when called for cleanup after remote side alreay terminate call, CEND received and cpvt destroyed */
+#/* we has 2 case of call this function, when local side want terminate call and when called for cleanup after remote side alreay terminate call, CEND received and cpvt destroyed */
 static int channel_hangup (struct ast_channel* channel)
 {
 	struct cpvt* cpvt = channel->tech_pvt;
@@ -578,6 +580,7 @@ static int channel_hangup (struct ast_channel* channel)
 	return 0;
 }
 
+#/* */
 static int channel_answer (struct ast_channel* channel)
 {
 	struct cpvt* cpvt = channel->tech_pvt;
@@ -606,6 +609,7 @@ static int channel_answer (struct ast_channel* channel)
 
 }
 
+#/* */
 static int channel_digit_begin (struct ast_channel* channel, char digit)
 {
 	struct cpvt* cpvt = channel->tech_pvt;
@@ -640,11 +644,13 @@ static int channel_digit_begin (struct ast_channel* channel, char digit)
 }
 
 
+#/* */
 static int channel_digit_end (attribute_unused struct ast_channel* channel, attribute_unused char digit, attribute_unused unsigned int duration)
 {
 	return 0;
 }
 
+#/* ARCH: move to cpvt level */
 static void iov_write(struct pvt* pvt, int fd, struct iovec * iov, int iovcnt)
 {
 	ssize_t written;
@@ -694,34 +700,7 @@ again:
 	}
 }
 
-
-#if 0
-static void iov_add(void * buffer, size_t length, struct iovec iov[2])
-{
-	size_t part;
-	short* src;
-	short* dst;
-
-	part = MIN(length, iov[0].iov_len);
-	part /= 2;
-	length -= part * 2;
-
-	/* FIXME: odd numbers */
-	for(dst = buffer, src = iov[0].iov_base; part ; dst++, src++, part--)
-	{
-		ast_slinear_saturated_add(dst, src);
-	}
-
-	/* FIXME: odd numbers */
-	part = MIN(length, iov[1].iov_len);
-	for(dst = buffer, src = iov[1].iov_base; part ; dst++, src++, part--)
-	{
-		ast_slinear_saturated_add(dst, src);
-	}
-
-}
-#endif // 0
-
+#/* */
 static void timing_write (struct pvt* pvt)
 {
 	size_t			used;
@@ -815,6 +794,7 @@ static void write_conference(struct pvt * pvt, const char * buffer, size_t lengt
 #define subclass_integer	subclass
 #endif
 
+#/* */
 static struct ast_frame* channel_read (struct ast_channel* channel)
 {
 	struct cpvt*		cpvt = channel->tech_pvt;
@@ -958,6 +938,7 @@ e_return:
 	return f;
 }
 
+#/* */
 static int channel_write (struct ast_channel* channel, struct ast_frame* f)
 {
 	struct cpvt* cpvt = channel->tech_pvt;
@@ -1113,11 +1094,10 @@ e_return:
 
 	return 0;
 }
-
 #undef subclass_integer
 #undef subclass_codec
 
-
+#/* */
 static int channel_fixup (struct ast_channel* oldchannel, struct ast_channel* newchannel)
 {
 	struct cpvt * cpvt = newchannel->tech_pvt;
@@ -1140,7 +1120,7 @@ static int channel_fixup (struct ast_channel* oldchannel, struct ast_channel* ne
 	return 0;
 }
 
-/* FIXME: must modify in conjuction with state on call not whole device? */
+#/* FIXME: must modify in conjuction with state on call not whole device? */
 static int channel_devicestate (void* data)
 {
 	char*	device;
@@ -1172,6 +1152,7 @@ static int channel_devicestate (void* data)
 	return res;
 }
 
+#/* */
 static int channel_indicate (struct ast_channel* channel, int condition, const void* data, attribute_unused size_t datalen)
 {
 	int res = 0;
@@ -1216,7 +1197,7 @@ static int channel_indicate (struct ast_channel* channel, int condition, const v
 }
 
 
-// TODO: move to cpvt.c
+/* ARCH: move to cpvt */
 /* FIXME: protection for cpvt->channel if exists */
 #/* NOTE: called from device level with locked pvt */
 EXPORT_DEF void change_channel_state(struct cpvt * cpvt, unsigned newstate, int cause)
@@ -1351,7 +1332,7 @@ static void set_channel_vars(struct pvt* pvt, struct ast_channel* channel)
 
 }
 
-/* NOTE: called from device and current levels with locked pvt */
+#/* NOTE: called from device and current levels with locked pvt */
 EXPORT_DEF struct ast_channel* new_channel (struct pvt* pvt, int ast_state, const char* cid_num, int call_idx, unsigned dir, call_state_t state, const char* dnid)
 {
 	struct ast_channel* channel;
@@ -1453,7 +1434,7 @@ EXPORT_DEF int queue_hangup(struct ast_channel* channel, int hangupcause)
 	return rv;
 }
 
-/* NOTE: bg: called from device level with pvt locked */
+#/* NOTE: bg: called from device level with pvt locked */
 EXPORT_DEF void start_local_channel (struct pvt* pvt, const char* exten, const char* number, channel_var_t* vars)
 {
 	struct ast_channel*	channel;
