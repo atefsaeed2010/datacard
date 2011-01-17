@@ -68,6 +68,25 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev: " PACKAGE_REVISION " $")
 
 EXPORT_DEF public_state_t * gpublic;
 
+/*!
+ * Get status of the datacard. It might happen that the device disappears
+ * (e.g. due to a USB unplug).
+ *
+ * \return 0 if device seems ok, non-0 if it seems not available
+ */
+
+static int port_status (int fd)
+{
+	struct termios t;
+
+	if (fd < 0)
+	{
+		return -1;
+	}
+
+	return tcgetattr (fd, &t);
+}
+
 #/* return length of lockname */
 static int lock_build(const char * devname, char * buf, unsigned length)
 {
@@ -116,7 +135,8 @@ static int lock_create(const char * lockfile)
 	fd = open(lockfile, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IRGRP | S_IROTH);
 	if(fd >= 0)
 	{
-		len = snprintf(pidb, sizeof(pidb), "%d", getpid());
+		/* NOTE: bg: i assume next open reuse same fd - not thread-safe */
+		len = snprintf(pidb, sizeof(pidb), "%d %d", getpid(), fd);
 		len = write(fd, pidb, len);
 		close(fd);
 	}
@@ -129,8 +149,10 @@ EXPORT_DEF int lock_try(const char * devname, char ** lockname)
 	int fd;
 	int len;
 	int pid = 0;
+	int assigned;
+	int fd2;
 	char name[1024];
-	char pidb[21];
+	char buffer[65];
 
 	lock_build(devname, name, sizeof(name));
 
@@ -138,13 +160,21 @@ EXPORT_DEF int lock_try(const char * devname, char ** lockname)
 	fd = open(name, O_RDONLY);
 	if(fd >= 0)
 	{
-		len = read(fd, pidb, sizeof(pidb) - 1);
+		len = read(fd, buffer, sizeof(buffer) - 1);
 		if(len > 0)
 		{
-			pidb[len] = 0;
-			len = strtol(pidb, NULL, 10);
-			if(len > 0 && kill(len, 0) == 0)
-				pid = len;
+			buffer[len] = 0;
+			assigned = sscanf(buffer, "%d %d", &len, &fd2);
+			if(assigned > 0 && kill(len, 0) == 0)
+			{
+				if(len == getpid() && assigned > 1)
+				{
+					if(port_status(fd2) == 0)
+						pid = len;
+				}
+				else
+					pid = len;
+			}
 		}
 		close(fd);
 	}
@@ -171,6 +201,7 @@ EXPORT_DEF void closetty(int fd, char ** lockfname)
 
 EXPORT_DEF int opentty (const char* dev, char ** lockfile)
 {
+	int		flags;
 	int		pid;
 	int		fd;
 	struct termios	term_attr;
@@ -191,6 +222,14 @@ EXPORT_DEF int opentty (const char* dev, char ** lockfile)
 		return -1;
 	}
 
+	flags = fcntl(fd, F_GETFD);
+	if(flags == -1 || fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == -1)
+	{
+		closetty(fd, lockfile);
+		ast_log (LOG_WARNING, "fcntl(F_GETFD/F_SETFD) failed for %s: %s\n", dev, strerror(errno));
+		return -1;
+	}
+
 	if (tcgetattr (fd, &term_attr) != 0)
 	{
 		closetty(fd, lockfile);
@@ -207,31 +246,13 @@ EXPORT_DEF int opentty (const char* dev, char ** lockfile)
 
 	if (tcsetattr (fd, TCSAFLUSH, &term_attr) != 0)
 	{
-		ast_log (LOG_WARNING, "tcsetattr() failed for %s: %s\n", dev, strerror(errno));
+		ast_log (LOG_WARNING, "tcsetattr(TCSAFLUSH) failed for %s: %s\n", dev, strerror(errno));
 	}
 
 	return fd;
 }
 
 
-/*!
- * Get status of the datacard. It might happen that the device disappears
- * (e.g. due to a USB unplug).
- *
- * \return 1 if device seems ok, 0 if it seems not available
- */
-
-static int port_status (int fd)
-{
-	struct termios t;
-
-	if (fd < 0)
-	{
-		return -1;
-	}
-
-	return tcgetattr (fd, &t);
-}
 
 static void disconnect_datacard (struct pvt* pvt)
 {
@@ -382,7 +403,7 @@ static void* do_monitor_phone (void* data)
 
 		if (port_status (pvt->data_fd) || port_status (pvt->audio_fd))
 		{
-			ast_log (LOG_ERROR, "Lost connection to Datacard %s\n", PVT_ID(pvt));
+			ast_log (LOG_ERROR, "[%s] Lost connection to Datacard\n", PVT_ID(pvt));
 			goto e_cleanup;
 		}
 
@@ -643,7 +664,7 @@ static int discovery_restart(public_state_t * state)
 		/* Start a new monitor */
 		if (ast_pthread_create_background(&state->discovery_thread, NULL, do_discovery, state) < 0) {
 			ast_mutex_unlock(&state->discovery_lock);
-			ast_log(LOG_ERROR, "Unable to start discovery thread.\n");
+			ast_log(LOG_ERROR, "Unable to start discovery thread\n");
 			return -1;
 		}
 	}
@@ -1178,7 +1199,7 @@ static int reload_config(public_state_t * state, int recofigure, restate_time_t 
 							reload_now++;
 
 							ast_debug (1, "[%s] Loaded device\n", PVT_ID(pvt));
-							ast_log (LOG_NOTICE, "Loaded device %s\n", PVT_ID(pvt));
+							ast_log (LOG_NOTICE, "[%s] Loaded device\n", PVT_ID(pvt));
 						}
 					}
 				}
