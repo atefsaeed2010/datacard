@@ -20,6 +20,7 @@
 #include "dc_config.h"				/* pvt_config_t */
 
 #define MODULE_DESCRIPTION	"Datacard Channel Driver"
+#define MAXDATACARDDEVICES	256
 
 typedef enum {
 	DEV_STATE_STOPPED	= 0,
@@ -211,7 +212,7 @@ typedef struct public_state
 	pthread_t			discovery_thread;		/* The discovery thread handler */
 	int				unloading_flag;			/* no need mutex or other locking for protect this variable because no concurent r/w and set non-0 atomically */
 	ast_mutex_t			round_robin_mtx;
-	struct pvt			* round_robin[256];
+	struct pvt			* round_robin[MAXDATACARDDEVICES];
 	struct dc_gconfig		global_settings;
 } public_state_t;
 
