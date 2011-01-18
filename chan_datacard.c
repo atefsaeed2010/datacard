@@ -511,12 +511,11 @@ static int pvt_discovery(struct pvt * pvt)
 {
 	int not_resolved = 0;
 	if(CONF_UNIQ(pvt, data_tty)[0] == 0 && CONF_UNIQ(pvt, audio_tty)[0] == 0) {
-		pdiscovery_t pdisc;
 		char * data_tty;
 		char * audio_tty;
 
 		ast_debug (3, "[%s] Trying port discovery for IMEI %s IMSI %s\n", PVT_ID(pvt), CONF_UNIQ(pvt, imei), CONF_UNIQ(pvt, imsi));
-		not_resolved = ! pdiscovery_lookup(&pdisc, CONF_UNIQ(pvt, imei), CONF_UNIQ(pvt, imsi), &data_tty, &audio_tty);
+		not_resolved = ! pdiscovery_lookup(PVT_ID(pvt), CONF_UNIQ(pvt, imei), CONF_UNIQ(pvt, imsi), &data_tty, &audio_tty);
 		if(!not_resolved) {
 			ast_copy_string (PVT_STATE(pvt, data_tty),  data_tty,  sizeof (PVT_STATE(pvt, data_tty)));
 			ast_copy_string (PVT_STATE(pvt, audio_tty), audio_tty, sizeof (PVT_STATE(pvt, audio_tty)));
