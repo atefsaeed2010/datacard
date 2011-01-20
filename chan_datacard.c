@@ -57,7 +57,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev: " PACKAGE_REVISION " $")
 #include "at_queue.h"			/* struct at_queue_task_cmd at_queue_head_cmd() */
 #include "at_command.h"			/* at_cmd2str() */
 #include "mutils.h"			/* ITEMS_OF() */
-#include "helpers.h"			/* find_device */
 #include "at_read.h"
 #include "cli.h"
 #include "app.h"
@@ -252,8 +251,7 @@ EXPORT_DEF int opentty (const char* dev, char ** lockfile)
 	return fd;
 }
 
-
-
+#/* phone monitor thread pvt cleanup */
 static void disconnect_datacard (struct pvt* pvt)
 {
 	struct cpvt * cpvt, * next;
@@ -574,7 +572,6 @@ static void pvt_start(struct pvt * pvt)
 	}
 }
 
-
 #/* */
 static void pvt_free(struct pvt * pvt)
 {
@@ -719,7 +716,6 @@ EXPORT_DEF void pvt_on_remove_last_channel(struct pvt* pvt)
 
 #define SET_BIT(dw_array,bitno)		do { (dw_array)[(bitno) >> 5] |= 1 << ((bitno) & 31) ; } while(0)
 #define TEST_BIT(dw_array,bitno)	((dw_array)[(bitno) >> 5] & 1 << ((bitno) & 31))
-
 #/* */
 EXPORT_DEF int pvt_get_pseudo_call_idx(const struct pvt * pvt)
 {
@@ -818,6 +814,304 @@ EXPORT_DEF int ready4voice_call(const struct pvt* pvt, const struct cpvt * curre
 		return 0;
 
 	return is_dial_possible2(pvt, opts, current_cpvt);
+}
+
+
+#/* */
+static int can_dial(struct pvt* pvt, int opts, const struct ast_channel * requestor)
+{
+	/* not allow hold requester channel :) */
+	/* FIXME: requestor may be just proxy/masquerade for real channel */
+	//	use ast_bridged_channel(chan) ?
+	//	use requestor->tech->get_base_channel() ?
+
+	if((opts & CALL_FLAG_HOLD_OTHER) == CALL_FLAG_HOLD_OTHER && channels_loop(pvt, requestor))
+		return 0;
+	return ready4voice_call(pvt, NULL, opts);
+}
+
+#/* return locked pvt or NULL */
+EXPORT_DEF struct pvt * find_device(const char * name)
+{
+	struct pvt * pvt;
+
+	AST_RWLIST_RDLOCK (&gpublic->devices);
+	AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
+	{
+		ast_mutex_lock (&pvt->lock);
+		if (!strcmp (PVT_ID(pvt), name))
+		{
+			break;
+		}
+		ast_mutex_unlock (&pvt->lock);
+	}
+	AST_RWLIST_UNLOCK (&gpublic->devices);
+
+	return pvt;
+}
+
+#/* return locked pvt or NULL */
+EXPORT_DEF struct pvt * find_device_ext (const char * name, const char ** reason)
+{
+	char * res = "";
+	struct pvt * pvt = find_device(name);
+
+	if(pvt)
+	{
+		if(!pvt_enabled(pvt))
+		{
+			ast_mutex_unlock (&pvt->lock);
+			res = "device disabled";
+			pvt = NULL;
+		}
+	}
+	else
+		res = "no such device";
+	if(reason)
+		*reason = res;
+	return pvt;
+}
+
+#/* like find_device but for resource spec; return locked! pvt or NULL */
+EXPORT_DEF struct pvt * find_device_by_resource(const char * resource, int opts, const struct ast_channel * requestor, int * exists)
+{
+	int group;
+	size_t i;
+	size_t j;
+	size_t c;
+	size_t last_used;
+	struct pvt * pvt;
+	struct pvt * found = NULL;
+
+	*exists = 0;
+	/* Find requested device and make sure it's connected and initialized. */
+	AST_RWLIST_RDLOCK (&gpublic->devices);
+
+	if (((resource[0] == 'g') || (resource[0] == 'G')) && ((resource[1] >= '0') && (resource[1] <= '9')))
+	{
+		errno = 0;
+		group = (int) strtol (&resource[1], (char**) NULL, 10);
+		if (errno != EINVAL)
+		{
+			AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
+			{
+				ast_mutex_lock (&pvt->lock);
+
+				if (CONF_SHARED(pvt, group) == group)
+				{
+					*exists = 1;
+					if(can_dial(pvt, opts, requestor))
+					{
+						found = pvt;
+						break;
+					}
+				}
+				ast_mutex_unlock (&pvt->lock);
+			}
+		}
+	}
+	else if (((resource[0] == 'r') || (resource[0] == 'R')) && ((resource[1] >= '0') && (resource[1] <= '9')))
+	{
+		errno = 0;
+		group = (int) strtol (&resource[1], (char**) NULL, 10);
+		if (errno != EINVAL)
+		{
+			ast_mutex_lock (&gpublic->round_robin_mtx);
+
+			/* Generate a list of all availible devices */
+			j = ITEMS_OF (gpublic->round_robin);
+			c = 0; last_used = 0;
+			AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
+			{
+				ast_mutex_lock (&pvt->lock);
+				if (CONF_SHARED(pvt, group) == group)
+				{
+					gpublic->round_robin[c] = pvt;
+					if (pvt->group_last_used == 1)
+					{
+						pvt->group_last_used = 0;
+						last_used = c;
+					}
+
+					c++;
+
+					if (c == j)
+					{
+						ast_mutex_unlock (&pvt->lock);
+						break;
+					}
+				}
+				ast_mutex_unlock (&pvt->lock);
+			}
+
+			/* Search for a availible device starting at the last used device */
+			for (i = 0, j = last_used + 1; i < c; i++, j++)
+			{
+				if (j == c)
+				{
+					j = 0;
+				}
+
+				pvt = gpublic->round_robin[j];
+				*exists = 1;
+
+				ast_mutex_lock (&pvt->lock);
+				if (can_dial(pvt, opts, requestor))
+				{
+					pvt->group_last_used = 1;
+					found = pvt;
+					break;
+				}
+				ast_mutex_unlock (&pvt->lock);
+			}
+
+			ast_mutex_unlock (&gpublic->round_robin_mtx);
+		}
+	}
+	else if (((resource[0] == 'p') || (resource[0] == 'P')) && resource[1] == ':')
+	{
+		ast_mutex_lock (&gpublic->round_robin_mtx);
+
+		/* Generate a list of all availible devices */
+		j = ITEMS_OF (gpublic->round_robin);
+		c = 0; last_used = 0;
+		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
+		{
+			ast_mutex_lock (&pvt->lock);
+			if (!strcmp (pvt->provider_name, &resource[2]))
+			{
+				gpublic->round_robin[c] = pvt;
+				if (pvt->prov_last_used == 1)
+				{
+					pvt->prov_last_used = 0;
+					last_used = c;
+				}
+
+				c++;
+
+				if (c == j)
+				{
+					ast_mutex_unlock (&pvt->lock);
+					break;
+				}
+			}
+			ast_mutex_unlock (&pvt->lock);
+		}
+
+		/* Search for a availible device starting at the last used device */
+		for (i = 0, j = last_used + 1; i < c; i++, j++)
+		{
+			if (j == c)
+			{
+				j = 0;
+			}
+
+			pvt = gpublic->round_robin[j];
+			*exists = 1;
+
+			ast_mutex_lock (&pvt->lock);
+			if (can_dial(pvt, opts, requestor))
+			{
+				pvt->prov_last_used = 1;
+				found = pvt;
+				break;
+			}
+			ast_mutex_unlock (&pvt->lock);
+		}
+
+		ast_mutex_unlock (&gpublic->round_robin_mtx);
+	}
+	else if (((resource[0] == 's') || (resource[0] == 'S')) && resource[1] == ':')
+	{
+		ast_mutex_lock (&gpublic->round_robin_mtx);
+
+		/* Generate a list of all availible devices */
+		j = ITEMS_OF (gpublic->round_robin);
+		c = 0; last_used = 0;
+		i = strlen (&resource[2]);
+		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
+		{
+			ast_mutex_lock (&pvt->lock);
+			if (!strncmp (pvt->imsi, &resource[2], i))
+			{
+				gpublic->round_robin[c] = pvt;
+				if (pvt->sim_last_used == 1)
+				{
+					pvt->sim_last_used = 0;
+					last_used = c;
+				}
+
+				c++;
+
+				if (c == j)
+				{
+					ast_mutex_unlock (&pvt->lock);
+					break;
+				}
+			}
+			ast_mutex_unlock (&pvt->lock);
+		}
+
+		/* Search for a availible device starting at the last used device */
+		for (i = 0, j = last_used + 1; i < c; i++, j++)
+		{
+			if (j == c)
+			{
+				j = 0;
+			}
+
+			pvt = gpublic->round_robin[j];
+			*exists = 1;
+
+			ast_mutex_lock (&pvt->lock);
+			if (can_dial(pvt, opts, requestor))
+			{
+				pvt->sim_last_used = 1;
+				found = pvt;
+				break;
+			}
+			ast_mutex_unlock (&pvt->lock);
+		}
+
+		ast_mutex_unlock (&gpublic->round_robin_mtx);
+	}
+	else if (((resource[0] == 'i') || (resource[0] == 'I')) && resource[1] == ':')
+	{
+		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
+		{
+			ast_mutex_lock (&pvt->lock);
+			if (!strcmp(pvt->imei, &resource[2]))
+			{
+				*exists = 1;
+				if(can_dial(pvt, opts, requestor))
+				{
+					found = pvt;
+					break;
+				}
+			}
+			ast_mutex_unlock (&pvt->lock);
+		}
+	}
+	else
+	{
+		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
+		{
+			ast_mutex_lock (&pvt->lock);
+			if (!strcmp (PVT_ID(pvt), resource))
+			{
+				*exists = 1;
+				if(can_dial(pvt, opts, requestor))
+				{
+					found = pvt;
+					break;
+				}
+			}
+			ast_mutex_unlock (&pvt->lock);
+		}
+	}
+
+	AST_RWLIST_UNLOCK (&gpublic->devices);
+	return found;
 }
 
 #/* */
@@ -1173,11 +1467,10 @@ static int reload_config(public_state_t * state, int recofigure, restate_time_t 
 					}
 					else
 					{
-						ast_mutex_lock(&pvt->lock);
 						pvt->must_remove = 0;
 						reload_now += pvt_reconfigure(pvt, &settings, when);
-						ast_mutex_unlock(&pvt->lock);
 					}
+					ast_mutex_unlock(&pvt->lock);
 				}
 				else
 				{

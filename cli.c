@@ -19,7 +19,7 @@
 
 #include "cli.h"
 #include "chan_datacard.h"			/* devices */
-#include "helpers.h"				/* find_device() ITEMS_OF() send_ccwa_set() send_reset() send_sms() send_ussd() */
+#include "helpers.h"				/* ITEMS_OF() send_ccwa_set() send_reset() send_sms() send_ussd() */
 
 static char* complete_device (const char* word, int state)
 {
@@ -124,8 +124,6 @@ static char* cli_show_device_settings (struct ast_cli_entry* e, int cmd, struct 
 	pvt = find_device (a->argv[4]);
 	if (pvt)
 	{
-		ast_mutex_lock (&pvt->lock);
-
 		ast_cli (a->fd, "------------- Settings ------------\n");
 		ast_cli (a->fd, "  Device                  : %s\n", PVT_ID(pvt));
 		ast_cli (a->fd, "  Audio                   : %s\n", CONF_UNIQ(pvt, audio_tty));
@@ -193,8 +191,6 @@ static char* cli_show_device_state (struct ast_cli_entry* e, int cmd, struct ast
 	{
 		statebuf = pvt_str_state_ex(pvt);
 
-		ast_mutex_lock (&pvt->lock);
-
 		ast_cli (a->fd, "-------------- Status -------------\n");
 		ast_cli (a->fd, "  Device                  : %s\n", PVT_ID(pvt));
 		ast_cli (a->fd, "  State                   : %s\n", ast_str_buffer(statebuf));
@@ -244,16 +240,16 @@ static char* cli_show_device_state (struct ast_cli_entry* e, int cmd, struct ast
 	return CLI_SUCCESS;
 }
 
-static char* cli_show_device_statictics (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
+static char* cli_show_device_statistics (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
 	struct pvt* pvt;
 
 	switch (cmd)
 	{
 		case CLI_INIT:
-			e->command =	"datacard show device statictics";
-			e->usage   =	"Usage: datacard show device statictics <device>\n"
-					"       Shows the statictics of Datacard device.\n";
+			e->command =	"datacard show device statistics";
+			e->usage   =	"Usage: datacard show device statistics <device>\n"
+					"       Shows the statistics of Datacard device.\n";
 			return NULL;
 
 		case CLI_GENERATE:
@@ -272,9 +268,7 @@ static char* cli_show_device_statictics (struct ast_cli_entry* e, int cmd, struc
 	pvt = find_device (a->argv[4]);
 	if (pvt)
 	{
-		ast_mutex_lock (&pvt->lock);
-
-		ast_cli (a->fd, "-------------- Statictics -------------\n");
+		ast_cli (a->fd, "-------------- Statistics -------------\n");
 		ast_cli (a->fd, "  Device                      : %s\n", PVT_ID(pvt));
 		ast_cli (a->fd, "  Queue tasks                 : %u\n", PVT_STAT(pvt, at_tasks));
 		ast_cli (a->fd, "  Queue commands              : %u\n", PVT_STAT(pvt, at_cmds));
@@ -724,7 +718,7 @@ static struct ast_cli_entry cli[] = {
 	AST_CLI_DEFINE (cli_show_devices,	"Show Datacard devices state"),
 	AST_CLI_DEFINE (cli_show_device_settings,"Show Datacard device settings"),
 	AST_CLI_DEFINE (cli_show_device_state,	 "Show Datacard device state"),
-	AST_CLI_DEFINE (cli_show_device_statictics,"Show Datacard device statictics"),
+	AST_CLI_DEFINE (cli_show_device_statistics,"Show Datacard device statistics"),
 	AST_CLI_DEFINE (cli_show_version,	"Show module version"),
 	AST_CLI_DEFINE (cli_cmd,		"Send commands to port for debugging"),
 	AST_CLI_DEFINE (cli_ussd,		"Send USSD commands to the datacard"),

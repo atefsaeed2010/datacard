@@ -40,49 +40,6 @@ EXPORT_DEF int is_valid_phone_number(const char* number)
 	return is_valid_ussd_string(number);
 }
 
-#/* */
-EXPORT_DEF struct pvt* find_device (const char* name)
-{
-	struct pvt*	pvt = 0;
-
-	AST_RWLIST_RDLOCK (&gpublic->devices);
-	AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
-	{
-		if (!strcmp (PVT_ID(pvt), name))
-		{
-			break;
-		}
-	}
-	AST_RWLIST_UNLOCK (&gpublic->devices);
-
-	return pvt;
-}
-
-#/* */
-EXPORT_DEF struct pvt* find_device_ext (const char* name, const char ** reason)
-{
-	struct pvt * pvt = find_device(name);
-	char * res = "";
-	if(pvt)
-	{
-		int enabled;
-
-		ast_mutex_lock (&pvt->lock);
-		enabled = pvt_enabled(pvt);
-		ast_mutex_unlock (&pvt->lock);
-
-		if(!enabled)
-		{
-			res = "device disabled";
-			pvt = NULL;
-		}
-	}
-	else
-		res = "no such device";
-	if(reason)
-		*reason = res;
-	return pvt;
-}
 
 #/* */
 EXPORT_DEF int get_at_clir_value (struct pvt* pvt, int clir)
@@ -134,13 +91,12 @@ static const char* send2(const char* dev_name, int * status, int online, const c
 
 	if(status)
 		*status = 0;
-	pvt = find_device_ext (dev_name, &msg);
-	if (pvt)
+	pvt = find_device_ext(dev_name, &msg);
+	if(pvt)
 	{
-		ast_mutex_lock (&pvt->lock);
-		if (pvt->connected && (!online || (pvt->initialized && pvt->gsm_registered)))
+		if(pvt->connected && (!online || (pvt->initialized && pvt->gsm_registered)))
 		{
-			if ((*func) (&pvt->sys_chan, arg1, arg2, arg3, arg4))
+			if((*func) (&pvt->sys_chan, arg1, arg2, arg3, arg4))
 			{
 				msg = emsg;
 				ast_log (LOG_ERROR, "[%s] %s\n", PVT_ID(pvt), emsg);
@@ -215,12 +171,10 @@ EXPORT_DEF const char* send_at_command(const char* dev_name, const char* command
 EXPORT_DEF const char* schedule_restart_event(dev_state_t event, restate_time_t when, const char* dev_name, int * status)
 {
 	const char * msg;
-	struct pvt * pvt = find_device (dev_name);
+	struct pvt * pvt = find_device(dev_name);
 
 	if (pvt)
 	{
-		ast_mutex_lock (&pvt->lock);
-
 		pvt->desired_state = event;
 		pvt->restart_time = when;
 

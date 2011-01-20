@@ -250,9 +250,9 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 				pvt_try_restate(pvt);
 
 				/* TODO: move to +CMGS: handler */
-				ast_verb (3, "[%s] Successfully sent sms message\n", PVT_ID(pvt));
-				ast_log (LOG_NOTICE, "[%s] Successfully sent sms message\n", PVT_ID(pvt));
-				ast_debug (1, "[%s] Successfully sent sms message\n", PVT_ID(pvt));
+				ast_verb (3, "[%s] Successfully sent SMS message\n", PVT_ID(pvt));
+				ast_log (LOG_NOTICE, "[%s] Successfully sent SMS message\n", PVT_ID(pvt));
+				ast_debug (1, "[%s] Successfully sent SMS message\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_DTMF:
@@ -260,7 +260,8 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 				break;
 
 			case CMD_AT_CUSD:
-				ast_log (LOG_NOTICE, "[%s] Successfully sent sms USSD\n", PVT_ID(pvt));
+				ast_verb (3, "[%s] Successfully sent USSD \n", PVT_ID(pvt));
+				ast_log (LOG_NOTICE, "[%s] Successfully sent USSD\n", PVT_ID(pvt));
 				ast_debug (1, "[%s] CUSD code sent successfully\n", PVT_ID(pvt));
 				break;
 
