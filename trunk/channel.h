@@ -26,6 +26,7 @@ EXPORT_DECL int queue_control_channel (struct cpvt * cpvt, enum ast_control_fram
 EXPORT_DECL int queue_hangup (struct ast_channel* channel, int hangupcause);
 EXPORT_DECL void start_local_channel (struct pvt* pvt, const char* exten, const char* number, channel_var_t * vars);
 EXPORT_DECL void change_channel_state(struct cpvt * cpvt, unsigned newstate, int cause);
+EXPORT_DECL int channels_loop(struct pvt * pvt, const struct ast_channel * requestor);
 
 
 #endif /* CHAN_DATACARD_CHANNEL_H_INCLUDED */

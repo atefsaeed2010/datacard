@@ -82,47 +82,40 @@ static int parse_dial_string(char * dialstr, const char** number, int * opts)
 }
 
 
-#if ASTERISK_VERSION_NUM >= 10800
 #/* */
-static int can_dial(struct pvt* pvt, int opts, const struct ast_channel* requestor)
+EXPORT_DEF int channels_loop(struct pvt * pvt, const struct ast_channel * requestor)
 {
 	/* not allow hold requester channel :) */
 	/* FIXME: requestor may be just proxy/masquerade for real channel */
 	//	use ast_bridged_channel(chan) ?
 	//	use requestor->tech->get_base_channel() ?
-	if((opts & CALL_FLAG_HOLD_OTHER) == CALL_FLAG_HOLD_OTHER)
-		if(requestor && requestor->tech == &channel_tech && requestor->tech_pvt && ((struct cpvt*)requestor->tech_pvt)->pvt == pvt)
-			return 0;
-	return ready4voice_call(pvt, NULL, opts);
+	if(requestor && requestor->tech == &channel_tech && requestor->tech_pvt && ((struct cpvt*)requestor->tech_pvt)->pvt == pvt)
+		return 1;
+	return 0;
 }
 
-#define CAN_DIAL_PVT(pvt, opts)		can_dial(pvt, opts, requestor)
+#if ASTERISK_VERSION_NUM >= 10800
 //   TODO: simplify by move common code to functions
-static struct ast_channel* channel_request (attribute_unused const char* type, format_t format, attribute_unused const struct ast_channel* requestor, void* data, int* cause)
+static struct ast_channel * channel_request (attribute_unused const char * type, format_t format, const struct ast_channel * requestor, void * data, int * cause)
 
 #else /* #if ASTERISK_VERSION_NUM >= 10800 */
 /* TODO: add check when request 'holdother' what requestor is not on same device for 1.6 */
-#define CAN_DIAL_PVT(pvt, opts)		ready4voice_call(pvt, NULL, opts)
 
-static struct ast_channel* channel_request (attribute_unused const char* type, int format, void* data, int* cause)
+static struct ast_channel * channel_request (attribute_unused const char * type, int format, void * data, int * cause)
 
 #endif /* #if ASTERISK_VERSION_NUM >= 10800 */
 {
 #if ASTERISK_VERSION_NUM >= 10800
-	format_t		oldformat;
+	format_t oldformat;
 #else
-	int			oldformat;
+	int oldformat;
 #endif
-	char*			dest_dev;
-	const char*		dest_num;
-	struct ast_channel*	channel = NULL;
-	struct pvt*		pvt = NULL;
-	int			group;
-	size_t			i;
-	size_t			j;
-	size_t			c;
-	size_t			last_used;
-	int			opts = CALL_FLAG_NONE;
+	char * dest_dev;
+	const char * dest_num;
+	struct ast_channel * channel;
+	struct pvt * pvt;
+	int opts = CALL_FLAG_NONE;
+	int exists;
 
 	if (!data)
 	{
@@ -150,236 +143,26 @@ static struct ast_channel* channel_request (attribute_unused const char* type, i
 	if(*cause)
 		return NULL;
 
-	/* Find requested device and make sure it's connected and initialized. */
-
-	AST_RWLIST_RDLOCK (&gpublic->devices);
-
-	if (((dest_dev[0] == 'g') || (dest_dev[0] == 'G')) && ((dest_dev[1] >= '0') && (dest_dev[1] <= '9')))
+#if ASTERISK_VERSION_NUM >= 10800
+	pvt = find_device_by_resource(dest_dev, opts, requestor, &exists);
+#else
+	pvt = find_device_by_resource(dest_dev, opts, NULL, &exists);
+#endif
+	if(pvt)
 	{
-		errno = 0;
-		group = (int) strtol (&dest_dev[1], (char**) NULL, 10);
-		if (errno != EINVAL)
+		channel = new_channel (pvt, AST_STATE_DOWN, NULL, pvt_get_pseudo_call_idx(pvt), CALL_DIR_OUTGOING, CALL_STATE_INIT, NULL);
+		ast_mutex_unlock (&pvt->lock);
+		if(!channel)
 		{
-			AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
-			{
-				ast_mutex_lock (&pvt->lock);
+			ast_log (LOG_WARNING, "Unable to allocate channel structure\n");
+			*cause = AST_CAUSE_REQUESTED_CHAN_UNAVAIL;
 
-				if (CONF_SHARED(pvt, group) == group && CAN_DIAL_PVT(pvt, opts))
-				{
-					break;
-				}
-				ast_mutex_unlock (&pvt->lock);
-			}
-		}
-	}
-	else if (((dest_dev[0] == 'r') || (dest_dev[0] == 'R')) && ((dest_dev[1] >= '0') && (dest_dev[1] <= '9')))
-	{
-		errno = 0;
-		group = (int) strtol (&dest_dev[1], (char**) NULL, 10);
-		if (errno != EINVAL)
-		{
-			ast_mutex_lock (&gpublic->round_robin_mtx);
-
-			/* Generate a list of all availible devices */
-			j = ITEMS_OF (gpublic->round_robin);
-			c = 0; last_used = 0;
-			AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
-			{
-				ast_mutex_lock (&pvt->lock);
-				if (CONF_SHARED(pvt, group) == group)
-				{
-					gpublic->round_robin[c] = pvt;
-					if (pvt->group_last_used == 1)
-					{
-						pvt->group_last_used = 0;
-						last_used = c;
-					}
-
-					c++;
-
-					if (c == j)
-					{
-						ast_mutex_unlock (&pvt->lock);
-						break;
-					}
-				}
-				ast_mutex_unlock (&pvt->lock);
-			}
-
-			/* Search for a availible device starting at the last used device */
-			for (i = 0, j = last_used + 1; i < c; i++, j++)
-			{
-				if (j == c)
-				{
-					j = 0;
-				}
-
-				pvt = gpublic->round_robin[j];
-
-				ast_mutex_lock (&pvt->lock);
-				if (CAN_DIAL_PVT(pvt, opts))
-				{
-					pvt->group_last_used = 1;
-					break;
-				}
-				ast_mutex_unlock (&pvt->lock);
-			}
-
-			ast_mutex_unlock (&gpublic->round_robin_mtx);
-		}
-	}
-	else if (((dest_dev[0] == 'p') || (dest_dev[0] == 'P')) && dest_dev[1] == ':')
-	{
-		ast_mutex_lock (&gpublic->round_robin_mtx);
-
-		/* Generate a list of all availible devices */
-		j = ITEMS_OF (gpublic->round_robin);
-		c = 0; last_used = 0;
-		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
-		{
-			ast_mutex_lock (&pvt->lock);
-			if (!strcmp (pvt->provider_name, &dest_dev[2]))
-			{
-				gpublic->round_robin[c] = pvt;
-				if (pvt->prov_last_used == 1)
-				{
-					pvt->prov_last_used = 0;
-					last_used = c;
-				}
-
-				c++;
-
-				if (c == j)
-				{
-					ast_mutex_unlock (&pvt->lock);
-					break;
-				}
-			}
-			ast_mutex_unlock (&pvt->lock);
-		}
-
-		/* Search for a availible device starting at the last used device */
-		for (i = 0, j = last_used + 1; i < c; i++, j++)
-		{
-			if (j == c)
-			{
-				j = 0;
-			}
-
-			pvt = gpublic->round_robin[j];
-
-			ast_mutex_lock (&pvt->lock);
-			if (CAN_DIAL_PVT(pvt, opts))
-			{
-				pvt->prov_last_used = 1;
-				break;
-			}
-			ast_mutex_unlock (&pvt->lock);
-		}
-
-		ast_mutex_unlock (&gpublic->round_robin_mtx);
-	}
-	else if (((dest_dev[0] == 's') || (dest_dev[0] == 'S')) && dest_dev[1] == ':')
-	{
-		ast_mutex_lock (&gpublic->round_robin_mtx);
-
-		/* Generate a list of all availible devices */
-		j = ITEMS_OF (gpublic->round_robin);
-		c = 0; last_used = 0;
-		i = strlen (&dest_dev[2]);
-		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
-		{
-			ast_mutex_lock (&pvt->lock);
-			if (!strncmp (pvt->imsi, &dest_dev[2], i))
-			{
-				gpublic->round_robin[c] = pvt;
-				if (pvt->sim_last_used == 1)
-				{
-					pvt->sim_last_used = 0;
-					last_used = c;
-				}
-
-				c++;
-
-				if (c == j)
-				{
-					ast_mutex_unlock (&pvt->lock);
-					break;
-				}
-			}
-			ast_mutex_unlock (&pvt->lock);
-		}
-
-		/* Search for a availible device starting at the last used device */
-		for (i = 0, j = last_used + 1; i < c; i++, j++)
-		{
-			if (j == c)
-			{
-				j = 0;
-			}
-
-			pvt = gpublic->round_robin[j];
-
-			ast_mutex_lock (&pvt->lock);
-			if (CAN_DIAL_PVT(pvt, opts))
-			{
-				pvt->sim_last_used = 1;
-				break;
-			}
-			ast_mutex_unlock (&pvt->lock);
-		}
-
-		ast_mutex_unlock (&gpublic->round_robin_mtx);
-	}
-	else if (((dest_dev[0] == 'i') || (dest_dev[0] == 'I')) && dest_dev[1] == ':')
-	{
-		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
-		{
-			ast_mutex_lock (&pvt->lock);
-			if (!strcmp(pvt->imei, &dest_dev[2]))
-			{
-				break;
-			}
-			ast_mutex_unlock (&pvt->lock);
 		}
 	}
 	else
 	{
-		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
-		{
-			ast_mutex_lock (&pvt->lock);
-			if (!strcmp (PVT_ID(pvt), dest_dev))
-			{
-				break;
-			}
-			ast_mutex_unlock (&pvt->lock);
-		}
-	}
-
-	AST_RWLIST_UNLOCK (&gpublic->devices);
-	if (!pvt || !CAN_DIAL_PVT(pvt, opts))
-	{
-		if (pvt)
-		{
-			ast_mutex_unlock (&pvt->lock);
-		}
-
-		ast_log (LOG_WARNING, "Request to call on device '%s' which can not make call at this moment\n", dest_dev);
+		ast_log (LOG_WARNING, "[%s] Request to call on device %s\n", dest_dev, exists ? "which can not make call at this moment" : "not exists");
 		*cause = AST_CAUSE_REQUESTED_CHAN_UNAVAIL;
-
-		return NULL;
-	}
-
-	channel = new_channel (pvt, AST_STATE_DOWN, NULL, pvt_get_pseudo_call_idx(pvt), CALL_DIR_OUTGOING, CALL_STATE_INIT, NULL);
-
-	ast_mutex_unlock (&pvt->lock);
-
-	if (!channel)
-	{
-		ast_log (LOG_WARNING, "Unable to allocate channel structure\n");
-		*cause = AST_CAUSE_REQUESTED_CHAN_UNAVAIL;
-
-		return NULL;
 	}
 
 	return channel;
@@ -1134,7 +917,6 @@ static int channel_devicestate (void* data)
 	pvt = find_device_ext (device, NULL);
 	if (pvt)
 	{
-		ast_mutex_lock (&pvt->lock);
 		if (pvt->connected)
 		{
 			if (is_dial_possible(pvt, CALL_FLAG_NONE))

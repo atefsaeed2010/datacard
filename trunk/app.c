@@ -28,13 +28,14 @@ struct ast_channel;
 
 static int app_status_exec (struct ast_channel* channel, const char* data)
 {
-	struct pvt* pvt;
-	char*	parse;
-	int	stat;
-	char	status[2];
+	struct pvt * pvt;
+	char * parse;
+	int stat;
+	char status[2];
+	int exists = 0;
 
 	AST_DECLARE_APP_ARGS (args,
-		AST_APP_ARG (device);
+		AST_APP_ARG (resource);
 		AST_APP_ARG (variable);
 	);
 
@@ -47,25 +48,23 @@ static int app_status_exec (struct ast_channel* channel, const char* data)
 
 	AST_STANDARD_APP_ARGS (args, parse);
 
-	if (ast_strlen_zero (args.device) || ast_strlen_zero (args.variable))
+	if (ast_strlen_zero (args.resource) || ast_strlen_zero (args.variable))
 	{
 		return -1;
 	}
 
-	pvt = find_device_ext(args.device, NULL);
+	/* TODO: including options number */
+	pvt = find_device_by_resource(args.resource, 0, NULL, &exists);
 	if(pvt)
 	{
-		ast_mutex_lock(&pvt->lock);
-
-		if (pvt->connected)
-			stat = 2;
-		if (!PVT_NO_CHANS(pvt))
-			stat = 3;
-
+		/* ready for outgoing call */
 		ast_mutex_unlock (&pvt->lock);
+		stat = 2;
 	}
 	else
-		stat = 1;
+	{
+		stat = exists ? 3 : 1;
+	}
 
 	snprintf (status, sizeof (status), "%d", stat);
 	pbx_builtin_setvar_helper (channel, args.variable, status);
@@ -128,9 +127,9 @@ static const struct datacard_application
 	{
 		"DatacardStatus", 
 		app_status_exec,
-		"DatacardStatus(Device,Variable)", 
-		"DatacardStatus(Device,Variable)\n"
-		"  Device   - Id of device from datacard.conf\n"
+		"DatacardStatus(Resource,Variable)",
+		"DatacardStatus(Resource,Variable)\n"
+		"  Resource - Resource string as for Dial()\n"
 		"  Variable - Variable to store status in will be 1-3.\n"
 		"             In order, Disconnected, Connected & Free, Connected & Busy.\n"
 	},

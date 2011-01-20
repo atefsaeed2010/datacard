@@ -8,8 +8,6 @@
 #include "dc_config.h"			/* call_waiting_t */
 #include "chan_datacard.h"		/* restate_time_t */
 
-EXPORT_DECL struct pvt* find_device (const char* name);
-EXPORT_DECL struct pvt* find_device_ext (const char* name, const char ** reason);
 EXPORT_DECL int get_at_clir_value (struct pvt* pvt, int clir);
 
 /* return status string of sending, status arg is optional */
