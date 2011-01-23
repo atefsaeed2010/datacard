@@ -125,7 +125,7 @@ static const struct datacard_application
 } dca[] = 
 {
 	{
-		"DatacardStatus", 
+		"DatacardStatus",
 		app_status_exec,
 		"DatacardStatus(Resource,Variable)",
 		"DatacardStatus(Resource,Variable)\n"
@@ -134,8 +134,8 @@ static const struct datacard_application
 		"             In order, Disconnected, Connected & Free, Connected & Busy.\n"
 	},
 	{
-		"DatacardSendSMS", 
-		app_send_sms_exec, 
+		"DatacardSendSMS",
+		app_send_sms_exec,
 		"DatacardSendSMS(Device,Dest,Message,Validity,Report)", 
 		"DatacardSendSMS(Device,Dest,Message,Validity,Report)\n"
 		"  Device   - Id of device from datacard.conf\n"

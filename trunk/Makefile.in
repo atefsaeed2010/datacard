@@ -84,7 +84,7 @@ dist: $(SOURCES) $(HEADERS) $(EXTRA_DIST) $(BUILD_TOOLS)
 	@cp -a $(SOURCES) $(HEADERS) $(EXTRA_DIST) $(BUILD_TOOLS) $(DISTNAME)
 	@cp -a $(test_SOURCES) $(DISTNAME)/test
 	@cp -a $(tools_SOURCES) $(tools_HEADERS) $(DISTNAME)/tools
-	tar czf $(DISTNAME).tgz $(DISTNAME) --exclude .svn
+	tar czf $(DISTNAME).tgz $(DISTNAME) --exclude .svn -h
 	@$(RM) $(DISTNAME)
 
 ${srcdir}/configure: configure.in
