@@ -322,6 +322,7 @@ static char* cli_show_device_statistics (struct ast_cli_entry* e, int cmd, struc
 		ast_cli (a->fd, "  Seconds of incoming calls   : %u\n", PVT_STAT(pvt, calls_duration[CALL_DIR_INCOMING]));
 		ast_cli (a->fd, "  ACD for incoming calls      : %d\n", getACD(PVT_STAT(pvt, calls_answered[CALL_DIR_INCOMING]), PVT_STAT(pvt, calls_duration[CALL_DIR_INCOMING])));
 		ast_cli (a->fd, "  ACD for outgoing calls      : %d\n", getACD(PVT_STAT(pvt, calls_answered[CALL_DIR_OUTGOING]), PVT_STAT(pvt, calls_duration[CALL_DIR_OUTGOING])));
+/*
 		ast_cli (a->fd, "  ACD                         : %d\n",
 			getACD(
 				PVT_STAT(pvt, calls_answered[CALL_DIR_OUTGOING]) 
@@ -331,8 +332,10 @@ static char* cli_show_device_statistics (struct ast_cli_entry* e, int cmd, struc
 				+ PVT_STAT(pvt, calls_duration[CALL_DIR_INCOMING])
 				)
 			);
+*/
 		ast_cli (a->fd, "  ASR for incoming calls      : %d\n", getASR(PVT_STAT(pvt, in_calls) + PVT_STAT(pvt, cw_calls), PVT_STAT(pvt, calls_answered[CALL_DIR_INCOMING])) );
-		ast_cli (a->fd, "  ASR for outgoing calls      : %d\n", getASR(PVT_STAT(pvt, out_calls), PVT_STAT(pvt, calls_answered[CALL_DIR_OUTGOING])));
+		ast_cli (a->fd, "  ASR for outgoing calls      : %d\n\n", getASR(PVT_STAT(pvt, out_calls), PVT_STAT(pvt, calls_answered[CALL_DIR_OUTGOING])));
+/*
 		ast_cli (a->fd, "  ASR                         : %d\n\n",
 			getASR(
 				PVT_STAT(pvt, out_calls)
@@ -343,7 +346,7 @@ static char* cli_show_device_statistics (struct ast_cli_entry* e, int cmd, struc
 				+ PVT_STAT(pvt, calls_answered[CALL_DIR_INCOMING])
 				)
 			);
-
+*/
 		ast_mutex_unlock (&pvt->lock);
 	}
 	else

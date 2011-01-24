@@ -340,7 +340,7 @@ static void disconnect_datacard (struct pvt* pvt)
 	ast_debug (1, "[%s] Datacard disconnected\n", PVT_ID(pvt));
 
 #ifdef BUILD_MANAGER
-	manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Disconnect\r\nDevice: %s\r\n", PVT_ID(pvt));
+	manager_event_device_status(PVT_ID(pvt), "Disconnect");
 #endif
 }
 
@@ -560,7 +560,7 @@ static void pvt_start(struct pvt * pvt)
 					pvt->connected = 1;
 					pvt->current_state = DEV_STATE_STARTED;
 #ifdef BUILD_MANAGER
-					manager_event (EVENT_FLAG_SYSTEM, "DatacardStatus", "Status: Connect\r\nDevice: %s\r\n", PVT_ID(pvt));
+					manager_event_device_status(PVT_ID(pvt), "Connect");
 #endif
 					ast_verb (3, "[%s] Datacard has connected, initializing...\n", PVT_ID(pvt));
 					return;
@@ -702,6 +702,10 @@ EXPORT_DEF void pvt_on_create_1st_channel(struct pvt* pvt)
 	pvt->dtmf_begin_time.tv_usec = 0;
 	pvt->dtmf_end_time.tv_sec = 0;
 	pvt->dtmf_end_time.tv_usec = 0;
+
+#ifdef BUILD_MANAGER
+	manager_event_device_status(PVT_ID(pvt), "Used");
+#endif /* BUILD_MANAGER */
 }
 
 #/* */
@@ -712,6 +716,9 @@ EXPORT_DEF void pvt_on_remove_last_channel(struct pvt* pvt)
 		ast_timer_close(pvt->a_timer);
 		pvt->a_timer = NULL;
 	}
+#ifdef BUILD_MANAGER
+	manager_event_device_status(PVT_ID(pvt), "Free");
+#endif /* BUILD_MANAGER */
 }
 
 #define SET_BIT(dw_array,bitno)		do { (dw_array)[(bitno) >> 5] |= 1 << ((bitno) & 31) ; } while(0)
