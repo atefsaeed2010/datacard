@@ -142,8 +142,8 @@ static char* cli_show_device_settings (struct ast_cli_entry* e, int cmd, struct 
 		ast_cli (a->fd, "  Auto delete SMS         : %s\n", CONF_SHARED(pvt, autodeletesms) ? "Yes" : "No");
 		ast_cli (a->fd, "  Disable SMS             : %s\n", CONF_SHARED(pvt, disablesms) ? "Yes" : "No");
 		ast_cli (a->fd, "  Reset Datacard          : %s\n", CONF_SHARED(pvt, resetdatacard) ? "Yes" : "No");
-		ast_cli (a->fd, "  Send SMS as PDU         : %s\n", CONF_SHARED(pvt, smsaspdu) ? "Yes" : "No");
-		ast_cli (a->fd, "  Call Waiting Setting    : %s\n", dc_cw_setting2str(CONF_SHARED(pvt, callwaiting)));
+		ast_cli (a->fd, "  SMS PDU                 : %s\n", CONF_SHARED(pvt, smsaspdu) ? "Yes" : "No");
+		ast_cli (a->fd, "  Call Waiting            : %s\n", dc_cw_setting2str(CONF_SHARED(pvt, callwaiting)));
 		ast_cli (a->fd, "  DTMF                    : %s\n", dc_dtmf_setting2str(CONF_SHARED(pvt, dtmf)));
 		ast_cli (a->fd, "  Minimal DTMF Gap        : %d\n", CONF_SHARED(pvt, mindtmfgap));
 		ast_cli (a->fd, "  Minimal DTMF Duration   : %d\n", CONF_SHARED(pvt, mindtmfduration));
@@ -162,7 +162,7 @@ static char* cli_show_device_settings (struct ast_cli_entry* e, int cmd, struct 
 static char* cli_show_device_state (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
 	struct pvt* pvt;
-	struct ast_str* statebuf;
+	struct ast_str * statebuf;
 	char buf[40];
 
 	switch (cmd)
@@ -207,7 +207,7 @@ static char* cli_show_device_state (struct ast_cli_entry* e, int cmd, struct ast
 		ast_cli (a->fd, "  RSSI                    : %d, %s\n", pvt->rssi, rssi2dBm(pvt->rssi, buf, sizeof(buf)));
 		ast_cli (a->fd, "  Mode                    : %s\n", sys_mode2str(pvt->linkmode));
 		ast_cli (a->fd, "  Submode                 : %s\n", sys_submode2str(pvt->linksubmode));
-		ast_cli (a->fd, "  ProviderName            : %s\n", pvt->provider_name);
+		ast_cli (a->fd, "  Provider Name           : %s\n", pvt->provider_name);
 		ast_cli (a->fd, "  Location area code      : %s\n", pvt->location_area_code);
 		ast_cli (a->fd, "  Cell ID                 : %s\n", pvt->cell_id);
 		ast_cli (a->fd, "  Subscriber Number       : %s\n", pvt->subscriber_number);
@@ -217,7 +217,7 @@ static char* cli_show_device_state (struct ast_cli_entry* e, int cmd, struct ast
 		ast_cli (a->fd, "  USSD use UCS-2 decoding : %s\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
 		ast_cli (a->fd, "  Tasks in queue          : %u\n", PVT_STATE(pvt, at_tasks));
 		ast_cli (a->fd, "  Commands in queue       : %u\n", PVT_STATE(pvt, at_cmds));
-		ast_cli (a->fd, "  Call Waiting status     : %s\n", pvt->has_call_waiting ? "Enabled" : "Disabled" );
+		ast_cli (a->fd, "  Call Waiting            : %s\n", pvt->has_call_waiting ? "Enabled" : "Disabled" );
 		ast_cli (a->fd, "  Calls/Channels          : %u\n", PVT_STATE(pvt, chansno));
 		ast_cli (a->fd, "    Active                : %u\n", PVT_STATE(pvt, chan_count[CALL_STATE_ACTIVE]));
 		ast_cli (a->fd, "    Held                  : %u\n", PVT_STATE(pvt, chan_count[CALL_STATE_ONHOLD]));
