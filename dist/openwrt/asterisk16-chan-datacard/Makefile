@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=asterisk16-chan-datacard
-PKG_REV:=284
+PKG_REV:=286
 PKG_VERSION:=1.0.r$(PKG_REV)
 PKG_RELEASE:=170
 
@@ -18,7 +18,7 @@ PKG_RELEASE:=170
 # or 
 PKG_SOURCE:=chan_datacard-$(PKG_VERSION).tgz
 PKG_SOURCE_URL=http://datacard.googlecode.com/files/
-PKG_MD5SUM:=6ac0581bff3fb2a7f78b03ec4badd41d
+PKG_MD5SUM:=6697fece15734f061834cd84182b46d1
 
 PKG_SOURCE_SUBDIR:=chan_datacard-$(PKG_VERSION)
 PKG_BUILD_DIR=$(BUILD_DIR)/$(PKG_SOURCE_SUBDIR)
