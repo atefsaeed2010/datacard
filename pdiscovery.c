@@ -348,6 +348,7 @@ static int pdiscovery_read_info(const char * devname, struct pdiscovery_ports * 
 	return fail;
 }
 
+#ifndef STANDALONE_GLOBAL_SEARCH
 #/* */
 static int pdiscovery_check_req(struct pdiscovery_ports * ports, struct pdiscovery_req * req)
 {
@@ -373,6 +374,7 @@ static int pdiscovery_check_req(struct pdiscovery_ports * ports, struct pdiscove
 
 	return match;
 }
+#endif /* STANDALONE_GLOBAL_SEARCH */
 
 #/* */
 static int pdiscovery_check_device(const char * name, int len, const char * subdir, struct pdiscovery_req * req)
