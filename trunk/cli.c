@@ -240,9 +240,36 @@ static char* cli_show_device_state (struct ast_cli_entry* e, int cmd, struct ast
 	return CLI_SUCCESS;
 }
 
+#/* */
+static int32_t getACD(uint32_t calls, uint32_t duration)
+{
+	int32_t acd;
+
+	if(calls) {
+		acd = duration / calls;
+	} else {
+		acd = -1;
+	}
+
+	return acd;
+}
+
+#/* */
+static int32_t getASR(uint32_t total, uint32_t handled)
+{
+	int32_t asr;
+	if(total) {
+		asr = handled * 100 / total;
+	} else {
+		asr = -1;
+	}
+
+	return asr;
+}
+
 static char* cli_show_device_statistics (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
-	struct pvt* pvt;
+	struct pvt * pvt;
 
 	switch (cmd)
 	{
@@ -288,10 +315,34 @@ static char* cli_show_device_statistics (struct ast_cli_entry* e, int cmd, struc
 		ast_cli (a->fd, "  Waiting calls               : %u\n", PVT_STAT(pvt, cw_calls));
 		ast_cli (a->fd, "  Handled input calls         : %u\n", PVT_STAT(pvt, in_calls_handled));
 		ast_cli (a->fd, "  Fails to PBX run            : %u\n", PVT_STAT(pvt, in_pbx_fails));
+		ast_cli (a->fd, "  Attempts to outgoing calls  : %u\n", PVT_STAT(pvt, out_calls));
 		ast_cli (a->fd, "  Answered outgoing calls     : %u\n", PVT_STAT(pvt, calls_answered[CALL_DIR_OUTGOING]));
 		ast_cli (a->fd, "  Answered incoming calls     : %u\n", PVT_STAT(pvt, calls_answered[CALL_DIR_INCOMING]));
 		ast_cli (a->fd, "  Seconds of outgoing calls   : %u\n", PVT_STAT(pvt, calls_duration[CALL_DIR_OUTGOING]));
-		ast_cli (a->fd, "  Seconds of incoming calls   : %u\n\n", PVT_STAT(pvt, calls_duration[CALL_DIR_INCOMING]));
+		ast_cli (a->fd, "  Seconds of incoming calls   : %u\n", PVT_STAT(pvt, calls_duration[CALL_DIR_INCOMING]));
+		ast_cli (a->fd, "  ACD for incoming calls      : %d\n", getACD(PVT_STAT(pvt, calls_answered[CALL_DIR_INCOMING]), PVT_STAT(pvt, calls_duration[CALL_DIR_INCOMING])));
+		ast_cli (a->fd, "  ACD for outgoing calls      : %d\n", getACD(PVT_STAT(pvt, calls_answered[CALL_DIR_OUTGOING]), PVT_STAT(pvt, calls_duration[CALL_DIR_OUTGOING])));
+		ast_cli (a->fd, "  ACD                         : %d\n",
+			getACD(
+				PVT_STAT(pvt, calls_answered[CALL_DIR_OUTGOING]) 
+				+ PVT_STAT(pvt, calls_answered[CALL_DIR_INCOMING]), 
+
+				PVT_STAT(pvt, calls_duration[CALL_DIR_OUTGOING]) 
+				+ PVT_STAT(pvt, calls_duration[CALL_DIR_INCOMING])
+				)
+			);
+		ast_cli (a->fd, "  ASR for incoming calls      : %d\n", getASR(PVT_STAT(pvt, in_calls) + PVT_STAT(pvt, cw_calls), PVT_STAT(pvt, calls_answered[CALL_DIR_INCOMING])) );
+		ast_cli (a->fd, "  ASR for outgoing calls      : %d\n", getASR(PVT_STAT(pvt, out_calls), PVT_STAT(pvt, calls_answered[CALL_DIR_OUTGOING])));
+		ast_cli (a->fd, "  ASR                         : %d\n\n",
+			getASR(
+				PVT_STAT(pvt, out_calls)
+				+ PVT_STAT(pvt, in_calls)
+				+ PVT_STAT(pvt, cw_calls),
+
+				PVT_STAT(pvt, calls_answered[CALL_DIR_OUTGOING])
+				+ PVT_STAT(pvt, calls_answered[CALL_DIR_INCOMING])
+				)
+			);
 
 		ast_mutex_unlock (&pvt->lock);
 	}
