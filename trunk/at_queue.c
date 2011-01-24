@@ -118,7 +118,7 @@ static int at_queue_add (struct cpvt * cpvt, const at_queue_cmd_t * cmds, unsign
 				AST_LIST_INSERT_TAIL (&pvt->at_queue, e, entry);
 
 			PVT_STATE(pvt, at_tasks) ++;
-			PVT_STATE(pvt, at_cmds)+= cmdsno;
+			PVT_STATE(pvt, at_cmds) += cmdsno;
 
 			PVT_STAT(pvt, at_tasks) ++;
 			PVT_STAT(pvt, at_cmds) += cmdsno;
@@ -216,7 +216,9 @@ EXPORT_DEF void at_queue_remove_cmd (struct pvt* pvt, at_res_t res)
 	if (task)
 	{
 		unsigned index = task->cindex;
+
 		task->cindex++;
+		PVT_STATE(pvt, at_cmds)--;
 		ast_debug (4, "[%s] remove command '%s' expected response '%s' real '%s' cmd %u/%u flags 0x%02x from queue\n", 
 				PVT_ID(pvt), at_cmd2str (task->cmds[index].cmd), 
 				at_res2str (task->cmds[index].res), at_res2str (res), 
@@ -224,12 +226,7 @@ EXPORT_DEF void at_queue_remove_cmd (struct pvt* pvt, at_res_t res)
 
 		if((task->cindex >= task->cmdsno) || (task->cmds[index].res != res && (task->cmds[index].flags & ATQ_CMD_FLAG_IGNORE) == 0))
 		{
-			PVT_STATE(pvt, at_cmds) -= task->cmdsno - index;
 			at_queue_remove(pvt);
-		}
-		else
-		{
-			PVT_STATE(pvt, at_cmds)--;
 		}
 	}
 }
