@@ -98,9 +98,8 @@ static int manager_send_ussd (struct mansession* s, const struct message* m)
 {
 	const char*	device	= astman_get_header (m, "Device");
 	const char*	ussd	= astman_get_header (m, "USSD");
-//	const char*	id	= astman_get_header (m, "ActionID");
+	const char*	id	= astman_get_header (m, "ActionID");
 
-//	char		idtext[256] = "";
 	char		buf[256];
 	const char*	msg;
 	int		status;
@@ -117,12 +116,7 @@ static int manager_send_ussd (struct mansession* s, const struct message* m)
 		astman_send_error (s, m, "USSD not specified");
 		return 0;
 	}
-/*
-	if (!ast_strlen_zero (id))
-	{
-		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
-	}
-*/
+
 	msg = send_ussd(device, ussd, &status, &msgid);
 	snprintf (buf, sizeof (buf), "[%s] %s", device, msg);
 	if(status)
@@ -135,6 +129,9 @@ static int manager_send_ussd (struct mansession* s, const struct message* m)
 		astman_send_error(s, m, buf);
 	}
 
+	if(!ast_strlen_zero(id))
+		astman_append (s, "ActionID: %s\r\n", id);
+
 	return 0;
 }
 
@@ -145,9 +142,8 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
 	const char*	message	= astman_get_header (m, "Message");
 	const char*	validity= astman_get_header (m, "Validity");
 	const char*	report	= astman_get_header (m, "Report");
-//	const char*	id	= astman_get_header (m, "ActionID");
+	const char*	id	= astman_get_header (m, "ActionID");
 
-//	char		idtext[256] = "";
 	char		buf[256];
 	const char*	msg;
 	int		status;
@@ -170,12 +166,6 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
 		astman_send_error (s, m, "Message not specified");
 		return 0;
 	}
-/*
-	if (!ast_strlen_zero (id))
-	{
-		snprintf (idtext, sizeof(idtext), "ActionID: %s\r\n", id);
-	}
-*/
 
 	msg = send_sms(device, number, message, validity, report, &status, &msgid);
 	snprintf (buf, sizeof (buf), "[%s] %s", device, msg);
@@ -188,6 +178,10 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
 	{
 		astman_send_error(s, m, buf);
 	}
+		astman_append (s, "SMSID: %p\r\n", msgid);
+
+	if(!ast_strlen_zero(id))
+		astman_append (s, "ActionID: %s\r\n", id);
 
 	return 0;
 }
@@ -362,9 +356,8 @@ static int manager_ccwa_set (struct mansession* s, const struct message* m)
 {
 	const char*	device	= astman_get_header (m, "Device");
 	const char*	value	= astman_get_header (m, "Value");
-//	const char*	id	= astman_get_header (m, "ActionID");
+	const char*	id	= astman_get_header (m, "ActionID");
 
-//	char		idtext[256] = "";
 	char		buf[256];
 	const char*	msg;
 	int		status;
@@ -386,16 +379,12 @@ static int manager_ccwa_set (struct mansession* s, const struct message* m)
 		return 0;
 	}
 
-/*
-	if (!ast_strlen_zero (id))
-	{
-		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
-	}
-*/
-
 	msg = send_ccwa_set(device, enable, &status);
 	snprintf (buf, sizeof (buf), "[%s] %s", device, msg);
 	(status ? astman_send_ack : astman_send_error)(s, m, buf);
+
+	if(!ast_strlen_zero(id))
+		astman_append (s, "ActionID: %s\r\n", id);
 
 	return 0;
 }
@@ -403,9 +392,8 @@ static int manager_ccwa_set (struct mansession* s, const struct message* m)
 static int manager_reset (struct mansession* s, const struct message* m)
 {
 	const char*	device	= astman_get_header (m, "Device");
-//	const char*	id	= astman_get_header (m, "ActionID");
+	const char*	id	= astman_get_header (m, "ActionID");
 
-//	char		idtext[256] = "";
 	char		buf[256];
 	const char*	msg;
 	int		status;
@@ -415,15 +403,13 @@ static int manager_reset (struct mansession* s, const struct message* m)
 		astman_send_error (s, m, "Device not specified");
 		return 0;
 	}
-/*
-	if (!ast_strlen_zero (id))
-	{
-		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
-	}
-*/
+
 	msg = send_reset(device, &status);
 	snprintf (buf, sizeof (buf), "[%s] %s", device, msg);
 	(status ? astman_send_ack : astman_send_error)(s, m, buf);
+
+	if(!ast_strlen_zero(id))
+		astman_append (s, "ActionID: %s\r\n", id);
 
 	return 0;
 }
@@ -433,15 +419,14 @@ static const char * const b_choices[] = { "now", "gracefully", "when convenient"
 static int manager_restart_action(struct mansession * s, const struct message * m, dev_state_t event)
 {
 
-	const char*	device	= astman_get_header (m, "Device");
-	const char*	when	= astman_get_header (m, "When");
-//	const char*	id	= astman_get_header (m, "ActionID");
+	const char * device = astman_get_header (m, "Device");
+	const char * when = astman_get_header (m, "When");
+	const char * id = astman_get_header (m, "ActionID");
 
-//	char		idtext[256] = "";
-	char		buf[256];
-	const char*	msg;
-	int		status;
-	unsigned	i;
+	char buf[256];
+	const char * msg;
+	int status;
+	unsigned i;
 
 	if (ast_strlen_zero (device))
 	{
@@ -456,17 +441,15 @@ static int manager_restart_action(struct mansession * s, const struct message * 
 			msg = schedule_restart_event(event, i, device, &status);
 			snprintf (buf, sizeof (buf), "[%s] %s", device, msg);
 			(status ? astman_send_ack : astman_send_error)(s, m, buf);
+			if(!ast_strlen_zero(id))
+				astman_append (s, "ActionID: %s\r\n", id);
 			return 0;
 		}
 	}
-/*
-	if (!ast_strlen_zero (id))
-	{
-		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
-	}
-*/
 
 	astman_send_error (s, m, "Invalid value of When");
+	if(!ast_strlen_zero(id))
+		astman_append (s, "ActionID: %s\r\n", id);
 	return 0;
 }
 
@@ -497,11 +480,10 @@ static int manager_remove(struct mansession * s, const struct message * m)
 #/* */
 static int manager_reload(struct mansession * s, const struct message * m)
 {
-	const char*	when	= astman_get_header (m, "When");
-//	const char*	id	= astman_get_header (m, "ActionID");
+	const char * when = astman_get_header (m, "When");
+	const char * id = astman_get_header (m, "ActionID");
 
-//	char		idtext[256] = "";
-	unsigned	i;
+	unsigned i;
 
 	for(i = 0; i < ITEMS_OF(b_choices); i++)
 	{
@@ -509,17 +491,15 @@ static int manager_reload(struct mansession * s, const struct message * m)
 		{
 			pvt_reload(i);
 			astman_send_ack(s, m, "reload scheduled");
+			if(!ast_strlen_zero(id))
+				astman_append (s, "ActionID: %s\r\n", id);
 			return 0;
 		}
 	}
-/*
-	if (!ast_strlen_zero (id))
-	{
-		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
-	}
-*/
 
 	astman_send_error (s, m, "Invalid value of When");
+	if(!ast_strlen_zero(id))
+		astman_append (s, "ActionID: %s\r\n", id);
 	return 0;
 }
 
