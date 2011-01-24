@@ -91,17 +91,18 @@ static at_queue_cmd_t* at_queue_head_cmd_nc (const struct pvt * pvt)
  * \param cmds -- the commands that was sent to generate the response
  * \param cmdsno -- number of commands
  * \param prio -- priority 0 mean put at tail
- * \return 0 on success
+ * \return task on success, NULL on error
  */
 #/* */
-static int at_queue_add (struct cpvt * cpvt, const at_queue_cmd_t * cmds, unsigned cmdsno, int prio)
+static at_queue_task_t * at_queue_add (struct cpvt * cpvt, const at_queue_cmd_t * cmds, unsigned cmdsno, int prio)
 {
+	at_queue_task_t * e = NULL;
 	if(cmdsno > 0)
 	{
-		at_queue_task_t * e = ast_malloc (sizeof(*e) + cmdsno * sizeof(*cmds));
-		if (e)
+		e = ast_malloc (sizeof(*e) + cmdsno * sizeof(*cmds));
+		if(e)
 		{
-			pvt_t* pvt = cpvt->pvt;
+			pvt_t * pvt = cpvt->pvt;
 			at_queue_task_t * first;
 
 			e->entry.next = 0;
@@ -127,10 +128,8 @@ static int at_queue_add (struct cpvt * cpvt, const at_queue_cmd_t * cmds, unsign
 					PVT_ID(pvt), e->cmdsno, at_cmd2str (e->cmds[0].cmd), 
 					at_res2str (e->cmds[0].res), prio ? "after head" : "at tail");
 		}
-		else
-			return -1;
 	}
-	return 0;
+	return e;
 }
 
 
@@ -289,16 +288,16 @@ EXPORT_DEF int at_queue_run (struct pvt * pvt)
 #/* */
 EXPORT_DEF int at_queue_insert_const (struct cpvt * cpvt, const at_queue_cmd_t * cmds, unsigned cmdsno, int athead)
 {
-	return at_queue_add(cpvt, cmds, cmdsno, athead) || at_queue_run(cpvt->pvt);
+	return at_queue_add(cpvt, cmds, cmdsno, athead) == NULL || at_queue_run(cpvt->pvt);
 }
 
 #/* */
-EXPORT_DEF int at_queue_insert(struct cpvt * cpvt, at_queue_cmd_t * cmds, unsigned cmdsno, int athead)
+EXPORT_DEF int at_queue_insert_task (struct cpvt * cpvt, at_queue_cmd_t * cmds, unsigned cmdsno, int athead, at_queue_task_t ** task)
 {
 	unsigned idx;
-	int fail = at_queue_add(cpvt, cmds, cmdsno, athead);
+	task[0] = at_queue_add(cpvt, cmds, cmdsno, athead);
 
-	if(fail)
+	if(!task[0])
 	{
 		for(idx = 0; idx < cmdsno; idx++)
 		{
@@ -307,10 +306,19 @@ EXPORT_DEF int at_queue_insert(struct cpvt * cpvt, at_queue_cmd_t * cmds, unsign
 	}
 
 	if(at_queue_run(cpvt->pvt))
-		fail = 1;
+		task[0] = NULL;
 
-	return fail;
+	return task[0] == NULL;
 }
+
+#/* */
+EXPORT_DEF int at_queue_insert(struct cpvt * cpvt, at_queue_cmd_t * cmds, unsigned cmdsno, int athead)
+{
+	at_queue_task_t * task;
+
+	return at_queue_insert_task(cpvt, cmds, cmdsno, athead, &task);
+}
+
 
 
 #/* */
@@ -375,4 +383,3 @@ EXPORT_DEF int at_queue_timeout(const struct pvt * pvt)
 
 	return ms_timeout;
 }
-
