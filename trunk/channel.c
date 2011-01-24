@@ -27,6 +27,7 @@
 #include "at_command.h"
 #include "helpers.h"				/* get_at_clir_value()  */
 #include "at_queue.h"				/* write_all() TODO: move out */
+#include "manager.h"				/* manager_event_call_state_change() */
 
 static char silence_frame[FRAME_SIZE];
 
@@ -984,21 +985,24 @@ static int channel_indicate (struct ast_channel* channel, int condition, const v
 #/* NOTE: called from device level with locked pvt */
 EXPORT_DEF void change_channel_state(struct cpvt * cpvt, unsigned newstate, int cause)
 {
-	struct ast_channel* channel;
+	struct ast_channel * channel;
 	struct pvt* pvt;
 	call_state_t oldstate = cpvt->state;
+	short call_idx;
 
 	if(newstate != oldstate)
 	{
 		pvt = cpvt->pvt;
 		channel = cpvt->channel;
+		call_idx = cpvt->call_idx;
 
 		cpvt->state = newstate;
 		PVT_STATE(pvt, chan_count[oldstate])--;
 		PVT_STATE(pvt, chan_count[newstate])++;
 
-		ast_debug (1, "[%s] call idx %d mpty %d, change state from '%s' to '%s' has%s channel\n", PVT_ID(pvt), cpvt->call_idx, CPVT_TEST_FLAG(cpvt, CALL_FLAG_MULTIPARTY) ? 1 : 0, call_state2str(oldstate), call_state2str(newstate), channel ? "" : "'t");
+		ast_debug (1, "[%s] call idx %d mpty %d, change state from '%s' to '%s' has%s channel\n", PVT_ID(pvt), call_idx, CPVT_TEST_FLAG(cpvt, CALL_FLAG_MULTIPARTY) ? 1 : 0, call_state2str(oldstate), call_state2str(newstate), channel ? "" : "'t");
 
+		
 		/* update bits of devstate cache */
 		switch(newstate)
 		{
@@ -1029,68 +1033,70 @@ EXPORT_DEF void change_channel_state(struct cpvt * cpvt, unsigned newstate, int 
 		{
 			/* channel already dead */
 			if(newstate == CALL_STATE_RELEASED)
-			{
 				cpvt_free(cpvt);
-			}
-			return;
 		}
-
-		/* for live channel */
-		switch(newstate)
+		else
 		{
-			case CALL_STATE_DIALING:
-				/* from ^ORIG:idx,y */
-				activate_call(cpvt);
-				queue_control_channel (cpvt, AST_CONTROL_PROGRESS);
-				ast_setstate (channel, AST_STATE_DIALING);
-				break;
+			/* for live channel */
+			switch(newstate)
+			{
+				case CALL_STATE_DIALING:
+					/* from ^ORIG:idx,y */
+					activate_call(cpvt);
+					queue_control_channel (cpvt, AST_CONTROL_PROGRESS);
+					ast_setstate (channel, AST_STATE_DIALING);
+					break;
 
-			case CALL_STATE_ALERTING:
-				activate_call(cpvt);
-				queue_control_channel (cpvt, AST_CONTROL_RINGING);
-				ast_setstate (channel, AST_STATE_RINGING);
-				break;
+				case CALL_STATE_ALERTING:
+					activate_call(cpvt);
+					queue_control_channel (cpvt, AST_CONTROL_RINGING);
+					ast_setstate (channel, AST_STATE_RINGING);
+					break;
 
-			case CALL_STATE_ACTIVE:
-				activate_call(cpvt);
-				if (oldstate == CALL_STATE_ONHOLD)
-				{
-					ast_debug (1, "[%s] Unhold call idx %d\n", PVT_ID(pvt), cpvt->call_idx);
-					queue_control_channel (cpvt, AST_CONTROL_UNHOLD);
-				}
-				else if (cpvt->dir == CALL_DIR_OUTGOING)
-				{
-					ast_debug (1, "[%s] Remote end answered on call idx %d\n", PVT_ID(pvt), cpvt->call_idx);
-					queue_control_channel (cpvt, AST_CONTROL_ANSWER);
-				}
-				else /* if (cpvt->answered) */
-				{
-					ast_debug (1, "[%s] Call idx %d answer\n", PVT_ID(pvt), cpvt->call_idx);
-					ast_setstate (channel, AST_STATE_UP);
-				}
-				break;
+				case CALL_STATE_ACTIVE:
+					activate_call(cpvt);
+					if (oldstate == CALL_STATE_ONHOLD)
+					{
+						ast_debug (1, "[%s] Unhold call idx %d\n", PVT_ID(pvt), call_idx);
+						queue_control_channel (cpvt, AST_CONTROL_UNHOLD);
+					}
+					else if (cpvt->dir == CALL_DIR_OUTGOING)
+					{
+						ast_debug (1, "[%s] Remote end answered on call idx %d\n", PVT_ID(pvt), call_idx);
+						queue_control_channel (cpvt, AST_CONTROL_ANSWER);
+					}
+					else /* if (cpvt->answered) */
+					{
+						ast_debug (1, "[%s] Call idx %d answer\n", PVT_ID(pvt), call_idx);
+						ast_setstate (channel, AST_STATE_UP);
+					}
+					break;
 
-			case CALL_STATE_ONHOLD:
-				disactivate_call(cpvt);
-				ast_debug (1, "[%s] Hold call idx %d\n", PVT_ID(pvt), cpvt->call_idx);
-				queue_control_channel (cpvt, AST_CONTROL_HOLD);
-				break;
+				case CALL_STATE_ONHOLD:
+					disactivate_call(cpvt);
+					ast_debug (1, "[%s] Hold call idx %d\n", PVT_ID(pvt), call_idx);
+					queue_control_channel (cpvt, AST_CONTROL_HOLD);
+					break;
 
-			case CALL_STATE_RELEASED:
-				disactivate_call(cpvt);
-				/* from +CEND, restart or disconnect */
+				case CALL_STATE_RELEASED:
+					disactivate_call(cpvt);
+					/* from +CEND, restart or disconnect */
 
 
-				/* drop channel -> cpvt reference */
-				channel->tech_pvt = NULL;
-				cpvt_free(cpvt);
-				if (queue_hangup (channel, cause))
-				{
-					ast_log (LOG_ERROR, "[%s] Error queueing hangup...\n", PVT_ID(pvt));
-				}
+					/* drop channel -> cpvt reference */
+					channel->tech_pvt = NULL;
+					cpvt_free(cpvt);
+					if (queue_hangup (channel, cause))
+					{
+						ast_log (LOG_ERROR, "[%s] Error queueing hangup...\n", PVT_ID(pvt));
+					}
 
-				break;
+					break;
+			}
 		}
+#ifdef BUILD_MANAGER
+		manager_event_call_state_change(PVT_ID(pvt), call_idx, call_state2str(newstate));
+#endif /* BUILD_MANAGER */
 	}
 }
 

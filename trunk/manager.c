@@ -27,7 +27,7 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 {
 	const char*	id = astman_get_header (m, "ActionID");
 	char		idtext[256] = "";
-	struct pvt*		pvt;
+	struct pvt*	pvt;
 	size_t		count = 0;
 
 	if (!ast_strlen_zero (id))
@@ -185,7 +185,7 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
  * \param message a null terminated buffer containing the message
  */
 
-EXPORT_DEF void manager_event_new_ussd (struct pvt* pvt, char* message)
+EXPORT_DEF void manager_event_new_ussd (const char * devname, char* message)
 {
 	struct ast_str*	buf;
 	char*		s = message;
@@ -207,7 +207,7 @@ EXPORT_DEF void manager_event_new_ussd (struct pvt* pvt, char* message)
 		"Device: %s\r\n"
 		"LineCount: %zu\r\n"
 		"%s\r\n",
-		PVT_ID(pvt), linecount, ast_str_buffer (buf)
+		devname, linecount, ast_str_buffer (buf)
 	);
 
 	ast_free (buf);
@@ -221,15 +221,55 @@ EXPORT_DEF void manager_event_new_ussd (struct pvt* pvt, char* message)
  * \param message a null terminated buffer containing the message
  */
 
-EXPORT_DEF void manager_event_new_ussd_base64 (struct pvt* pvt, char* message)
+EXPORT_DEF void manager_event_new_ussd_base64 (const char * devname, char* message)
 {
         manager_event (EVENT_FLAG_CALL, "DatacardNewUSSDBase64",
                 "Device: %s\r\n"
                 "Message: %s\r\n",
-                PVT_ID(pvt), message
+                devname, message
         );
 }
 
+#/* */
+EXPORT_DEF void manager_event_cend(const char * devname, int call_index, int duration, int end_status, int cc_cause)
+{
+	manager_event( EVENT_FLAG_CALL, "DatacardCEND",
+		"Device: %s\r\n"
+		"CallIdx: %d\r\n"
+		"Duration: %d\r\n"
+		"EndStatus: %d\r\n"
+		"CCCause: %d\r\n",
+		devname,
+		call_index,
+		duration,
+		end_status,
+		cc_cause
+		);
+}
+
+#/* */
+EXPORT_DEF void manager_event_call_state_change(const char * devname, int call_index, const char * newstate)
+{
+	manager_event(EVENT_FLAG_CALL, "DatacardCallStateChange",
+		"Device: %s\r\n"
+		"CallIdx: %d\r\n"
+		"NewState: %s\r\n",
+		devname,
+		call_index,
+		newstate
+		);
+}
+
+#/* */
+EXPORT_DEF void manager_event_device_status(const char * devname, const char * newstate)
+{
+	manager_event(EVENT_FLAG_CALL, "DatacardStatus",
+		"Device: %s\r\n"
+		"Status: %s\r\n",
+		devname,
+		newstate
+		);
+}
 
 
 /*!
@@ -241,7 +281,7 @@ EXPORT_DEF void manager_event_new_ussd_base64 (struct pvt* pvt, char* message)
  * \param message a null terminated buffer containing the message
  */
 
-EXPORT_DEF void manager_event_new_sms (struct pvt* pvt, char* number, char* message)
+EXPORT_DEF void manager_event_new_sms (const char * devname, char* number, char* message)
 {
 	struct ast_str* buf;
 	size_t	linecount = 0;
@@ -264,7 +304,7 @@ EXPORT_DEF void manager_event_new_sms (struct pvt* pvt, char* number, char* mess
 		"From: %s\r\n"
 		"LineCount: %zu\r\n"
 		"%s\r\n",
-		PVT_ID(pvt), number, linecount, ast_str_buffer (buf)
+		devname, number, linecount, ast_str_buffer (buf)
 	);
 	ast_free (buf);
 }
@@ -276,13 +316,13 @@ EXPORT_DEF void manager_event_new_sms (struct pvt* pvt, char* number, char* mess
  * \param message_base64 a null terminated buffer containing the base64 encoded message
  */
 
-EXPORT_DEF void manager_event_new_sms_base64 (struct pvt* pvt, char* number, char* message_base64)
+EXPORT_DEF void manager_event_new_sms_base64 (const char * devname, char * number, char * message_base64)
 {
 	manager_event (EVENT_FLAG_CALL, "DatacardNewSMSBase64",
 		"Device: %s\r\n"
 		"From: %s\r\n"
 		"Message: %s\r\n",
-		PVT_ID(pvt), number, message_base64
+		devname, number, message_base64
 	);
 }
 
@@ -358,7 +398,7 @@ static int manager_reset (struct mansession* s, const struct message* m)
 
 static const char * const b_choices[] = { "now", "gracefully", "when convenient" };
 #/* */
-static int manager_restart_event(struct mansession * s, const struct message * m, dev_state_t event)
+static int manager_restart_action(struct mansession * s, const struct message * m, dev_state_t event)
 {
 
 	const char*	device	= astman_get_header (m, "Device");
@@ -401,25 +441,25 @@ static int manager_restart_event(struct mansession * s, const struct message * m
 #/* */
 static int manager_restart(struct mansession * s, const struct message * m)
 {
-	return manager_restart_event(s, m, DEV_STATE_RESTARTED);
+	return manager_restart_action(s, m, DEV_STATE_RESTARTED);
 }
 
 #/* */
 static int manager_stop(struct mansession * s, const struct message * m)
 {
-	return manager_restart_event(s, m, DEV_STATE_STOPPED);
+	return manager_restart_action(s, m, DEV_STATE_STOPPED);
 }
 
 #/* */
 static int manager_start(struct mansession * s, const struct message * m)
 {
-	return manager_restart_event(s, m, DEV_STATE_STARTED);
+	return manager_restart_action(s, m, DEV_STATE_STARTED);
 }
 
 #/* */
 static int manager_remove(struct mansession * s, const struct message * m)
 {
-	return manager_restart_event(s, m, DEV_STATE_REMOVED);
+	return manager_restart_action(s, m, DEV_STATE_REMOVED);
 }
 
 #/* */

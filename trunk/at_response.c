@@ -201,6 +201,9 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 					pvt->timeout = DATA_READ_TIMEOUT;
 					pvt->initialized = 1;
 					ast_verb (3, "[%s] Datacard initialized and ready\n", PVT_ID(pvt));
+#ifdef BUILD_MANAGER
+					manager_event_device_status(PVT_ID(pvt), "Initialize");
+#endif
 				}
 				break;
 
@@ -233,6 +236,9 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 					pvt->timeout = DATA_READ_TIMEOUT;
 					pvt->initialized = 1;
 					ast_verb (3, "[%s] Datacard initialized and ready\n", PVT_ID(pvt));
+#ifdef BUILD_MANAGER
+					manager_event_device_status(PVT_ID(pvt), "Initialize");
+#endif /* BUILD_MANAGER */
 				}
 				break;
 			case CMD_AT_CHUP:
@@ -710,7 +716,7 @@ static int at_response_conf (struct pvt* pvt, const char* str)
  * \retval -1 error
  */
 
-static int at_response_cend (struct pvt* pvt, const char* str)
+static int at_response_cend (struct pvt * pvt, const char* str)
 {
 	int call_index = 0;
 	int duration   = 0;
@@ -736,9 +742,12 @@ static int at_response_cend (struct pvt* pvt, const char* str)
 	cpvt = pvt_find_cpvt(pvt, call_index);
 	if (cpvt)
 	{
-		PVT_STAT(pvt, calls_duration[cpvt->dir]) += duration;
 		CPVT_RESET_FLAGS(cpvt, CALL_FLAG_NEED_HANGUP);
+		PVT_STAT(pvt, calls_duration[cpvt->dir]) += duration;
 		change_channel_state(cpvt, CALL_STATE_RELEASED, cc_cause);
+#ifdef BUILD_MANAGER
+		manager_event_cend(PVT_ID(pvt), call_index, duration, end_status, cc_cause);
+#endif /* BUILD_MANAGER */
 	}
 	else
 	{
@@ -1234,8 +1243,8 @@ static int at_response_cmgr (struct pvt* pvt, const char* str, size_t len)
 		ast_base64encode (text_base64, (unsigned char*)msg, msg_len, sizeof(text_base64));
 
 #ifdef BUILD_MANAGER
-		manager_event_new_sms (pvt, number, msg);
-		manager_event_new_sms_base64 (pvt, number, text_base64);
+		manager_event_new_sms(PVT_ID(pvt), number, msg);
+		manager_event_new_sms_base64(PVT_ID(pvt), number, text_base64);
 #endif
 		{
 			channel_var_t vars[] = 
@@ -1355,8 +1364,8 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 
 #ifdef BUILD_MANAGER
 	// TODO: pass type
-	manager_event_new_ussd (pvt, cusd);
-	manager_event_new_ussd_base64 (pvt, text_base64);
+	manager_event_new_ussd(PVT_ID(pvt), cusd);
+	manager_event_new_ussd_base64(PVT_ID(pvt), text_base64);
 #endif
 
 	{
@@ -1517,10 +1526,16 @@ static int at_response_creg (struct pvt* pvt, char* str, size_t len)
 		if(!pvt->gsm_registered)
 			at_enque_set_ccwa(&pvt->sys_chan, 0, 0, CONF_SHARED(pvt, callwaiting));
 		pvt->gsm_registered = 1;
+#ifdef BUILD_MANAGER
+		manager_event_device_status(PVT_ID(pvt), "Register");
+#endif /* BUILD_MANAGER */
 	}
 	else
 	{
 		pvt->gsm_registered = 0;
+#ifdef BUILD_MANAGER
+		manager_event_device_status(PVT_ID(pvt), "Unregister");
+#endif /* BUILD_MANAGER */
 	}
 
 	if (lac)
