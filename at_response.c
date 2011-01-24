@@ -255,10 +255,12 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 				pvt->outgoing_sms = 0;
 				pvt_try_restate(pvt);
 
+#ifdef BUILD_MANAGER
+				manager_event_sent(PVT_ID(pvt), "SMS", task, "Sent");
+#endif /* BUILD_MANAGER */
 				/* TODO: move to +CMGS: handler */
-				ast_verb (3, "[%s] Successfully sent SMS message\n", PVT_ID(pvt));
-				ast_log (LOG_NOTICE, "[%s] Successfully sent SMS message\n", PVT_ID(pvt));
-				ast_debug (1, "[%s] Successfully sent SMS message\n", PVT_ID(pvt));
+				ast_verb (3, "[%s] Successfully sent SMS message %p\n", PVT_ID(pvt), task);
+				ast_log (LOG_NOTICE, "[%s] Successfully sent SMS message %p\n", PVT_ID(pvt), task);
 				break;
 
 			case CMD_AT_DTMF:
@@ -266,9 +268,11 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 				break;
 
 			case CMD_AT_CUSD:
-				ast_verb (3, "[%s] Successfully sent USSD \n", PVT_ID(pvt));
-				ast_log (LOG_NOTICE, "[%s] Successfully sent USSD\n", PVT_ID(pvt));
-				ast_debug (1, "[%s] CUSD code sent successfully\n", PVT_ID(pvt));
+#ifdef BUILD_MANAGER
+				manager_event_sent(PVT_ID(pvt), "USSD", task, "Sent");
+#endif /* BUILD_MANAGER */
+				ast_verb (3, "[%s] Successfully sent USSD %p\n", PVT_ID(pvt), task);
+				ast_log (LOG_NOTICE, "[%s] Successfully sent USSD %p\n", PVT_ID(pvt), task);
 				break;
 
 			case CMD_AT_COPS:
@@ -497,8 +501,12 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 			case CMD_AT_SMSTEXT:
 				pvt->outgoing_sms = 0;
 				pvt_try_restate(pvt);
-				ast_verb (3, "[%s] Error sending SMS message\n", PVT_ID(pvt));
-				ast_log (LOG_ERROR, "[%s] Error sending SMS message\n", PVT_ID(pvt));
+
+#ifdef BUILD_MANAGER
+				manager_event_sent(PVT_ID(pvt), "SMS", task, "NotSent");
+#endif /* BUILD_MANAGER */
+				ast_verb (3, "[%s] Error sending SMS message %p\n", PVT_ID(pvt), task);
+				ast_log (LOG_ERROR, "[%s] Error sending SMS message %p\n", PVT_ID(pvt), task);
 				break;
 
 			case CMD_AT_DTMF:
@@ -515,7 +523,11 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 				break;
 
 			case CMD_AT_CUSD:
-				ast_log (LOG_ERROR, "[%s] Could not send USSD code\n", PVT_ID(pvt));
+#ifdef BUILD_MANAGER
+				manager_event_sent(PVT_ID(pvt), "USSD", task, "NotSent");
+#endif /* BUILD_MANAGER */
+				ast_verb (3, "[%s] Error sending USSD %p\n", PVT_ID(pvt), task);
+				ast_log (LOG_ERROR, "[%s] Error sending USSD %p\n", PVT_ID(pvt), task);
 				break;
 
 			default:

@@ -250,7 +250,7 @@ EXPORT_DEF int at_enque_cops (struct cpvt* cpvt)
  * \param msg -- utf-8 encoded message
  */
 
-EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const char* msg, unsigned validity_minutes, int report_req)
+EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const char* msg, unsigned validity_minutes, int report_req, void ** id)
 {
 	int sca_len;
 	ssize_t res;
@@ -357,7 +357,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
 		return -ENOMEM;
 	}
 
-	return at_queue_insert(cpvt, at_cmd, ITEMS_OF(at_cmd), 0);
+	return at_queue_insert_task(cpvt, at_cmd, ITEMS_OF(at_cmd), 0, (struct at_queue_task **)id);
 }
 
 /*!
@@ -366,7 +366,7 @@ EXPORT_DEF int at_enque_sms (struct cpvt* cpvt, const char* destination, const c
  * \param code the CUSD code to send
  */
 
-EXPORT_DEF int at_enque_cusd (struct cpvt* cpvt, const char* code)
+EXPORT_DEF int at_enque_ussd (struct cpvt * cpvt, const char * code, attribute_unused const char * u1, attribute_unused unsigned u2, attribute_unused int u3, void ** id)
 {
 	static const char cmd[] = "AT+CUSD=1,\"";
 	static const char cmd_end[] = "\",15\r";
@@ -402,7 +402,7 @@ EXPORT_DEF int at_enque_cusd (struct cpvt* cpvt, const char* code)
 	if(!at_cmd.data)
 		return -1;
 
-	return at_queue_insert(cpvt, &at_cmd, 1, 0);
+	return at_queue_insert_task(cpvt, &at_cmd, 1, 0, (struct at_queue_task **)id);
 }
 
 

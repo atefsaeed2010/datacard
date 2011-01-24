@@ -77,6 +77,7 @@ static int app_send_sms_exec (attribute_unused struct ast_channel* channel, cons
 	char*	parse;
 	const char* msg;
 	int status;
+	void * msgid;
 
 	AST_DECLARE_APP_ARGS (args,
 		AST_APP_ARG (device);
@@ -106,10 +107,10 @@ static int app_send_sms_exec (attribute_unused struct ast_channel* channel, cons
 		ast_log (LOG_ERROR, "NULL destination for message -- SMS will not be sent\n");
 		return -1;
 	}
-	
-	msg = send_sms(args.device, args.number, args.message, args.validity, args.report, &status);
+
+	msg = send_sms(args.device, args.number, args.message, args.validity, args.report, &status, &msgid);
 	if(!status)
-		ast_log (LOG_ERROR, "[%s] %s\n", args.device, msg);
+		ast_log (LOG_ERROR, "[%s] %s with id %p\n", args.device, msg, msgid);
 	return !status;
 }
 

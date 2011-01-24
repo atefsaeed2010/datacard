@@ -417,6 +417,8 @@ static char* cli_cmd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 static char* cli_ussd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
 	const char * msg;
+	int status;
+	void * msgid;
 
 	switch (cmd)
 	{
@@ -441,8 +443,11 @@ static char* cli_ussd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 		return CLI_SHOWUSAGE;
 	}
 
-	msg = send_ussd(a->argv[2], a->argv[3], NULL);
-	ast_cli (a->fd, "[%s] %s\n", a->argv[2], msg);
+	msg = send_ussd(a->argv[2], a->argv[3], &status, &msgid);
+	if(status)
+		ast_cli (a->fd, "[%s] %s with id %p\n", a->argv[2], msg, msgid);
+	else
+		ast_cli (a->fd, "[%s] %s\n", a->argv[2], msg);
 
 	return CLI_SUCCESS;
 }
@@ -450,8 +455,10 @@ static char* cli_ussd (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 static char* cli_sms (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 {
 	const char * msg;
-	struct ast_str*	buf;
-	int	i;
+	struct ast_str * buf;
+	int i;
+	int status;
+	void * msgid;
 
 	switch (cmd)
 	{
@@ -488,9 +495,13 @@ static char* cli_sms (struct ast_cli_entry* e, int cmd, struct ast_cli_args* a)
 		}
 	}
 
-	msg = send_sms(a->argv[2], a->argv[3], ast_str_buffer(buf), 0, 0, NULL);
+	msg = send_sms(a->argv[2], a->argv[3], ast_str_buffer(buf), 0, 0, &status, &msgid);
 	ast_free (buf);
-	ast_cli(a->fd, "[%s] %s\n", a->argv[2], msg);
+
+	if(status)
+		ast_cli(a->fd, "[%s] %s with id %p\n", a->argv[2], msg, msgid);
+	else
+		ast_cli(a->fd, "[%s] %s\n", a->argv[2], msg);
 
 	return CLI_SUCCESS;
 }

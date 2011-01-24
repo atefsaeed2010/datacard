@@ -26,14 +26,8 @@
 static int manager_show_devices (struct mansession* s, const struct message* m)
 {
 	const char*	id = astman_get_header (m, "ActionID");
-	char		idtext[256] = "";
 	struct pvt*	pvt;
 	size_t		count = 0;
-
-	if (!ast_strlen_zero (id))
-	{
-		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
-	}
 
 	astman_send_listack (s, m, "Device status list will follow", "start");
 
@@ -41,7 +35,9 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 	AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
 	{
 		ast_mutex_lock (&pvt->lock);
-		astman_append (s, "Event: DatacardDeviceEntry\r\n%s", idtext);
+		astman_append (s, "Event: DatacardDeviceEntry\r\n");
+		if(!ast_strlen_zero (id))
+			astman_append (s, "ActionID: %s\r\n", id);
 		astman_append (s, "Device: %s\r\n", PVT_ID(pvt));
 		astman_append (s, "Group: %d\r\n", CONF_SHARED(pvt, group));
 		astman_append (s, "GSM Registration Status: %s\r\n", GSM_regstate2str(pvt->gsm_reg_status));
@@ -85,12 +81,14 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 	}
 	AST_RWLIST_UNLOCK (&gpublic->devices);
 
-	astman_append (s,
-		"Event: DatacardShowDevicesComplete\r\n%s"
+	astman_append (s, "Event: DatacardShowDevicesComplete\r\n");
+	if(!ast_strlen_zero (id))
+		astman_append (s, "ActionID: %s\r\n", id);
+	astman_append (s, 
 		"EventList: Complete\r\n"
 		"ListItems: %zu\r\n"
 		"\r\n",
-		idtext, count
+		count
 	);
 
 	return 0;
@@ -106,6 +104,7 @@ static int manager_send_ussd (struct mansession* s, const struct message* m)
 	char		buf[256];
 	const char*	msg;
 	int		status;
+	void * msgid;
 
 	if (ast_strlen_zero (device))
 	{
@@ -124,10 +123,17 @@ static int manager_send_ussd (struct mansession* s, const struct message* m)
 		snprintf (idtext, sizeof (idtext), "ActionID: %s\r\n", id);
 	}
 */
-	msg = send_ussd(device, ussd, &status);
+	msg = send_ussd(device, ussd, &status, &msgid);
 	snprintf (buf, sizeof (buf), "[%s] %s", device, msg);
-	(status ? astman_send_ack : astman_send_error)(s, m, buf);
-
+	if(status)
+	{
+		astman_send_ack(s, m, buf);
+		astman_append (s, "USSDID: %p\r\n", msgid);
+	}
+	else
+	{
+		astman_send_error(s, m, buf);
+	}
 
 	return 0;
 }
@@ -145,6 +151,7 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
 	char		buf[256];
 	const char*	msg;
 	int		status;
+	void * msgid;
 	
 	if (ast_strlen_zero (device))
 	{
@@ -170,11 +177,36 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
 	}
 */
 
-	msg = send_sms(device, number, message, validity, report, &status);
+	msg = send_sms(device, number, message, validity, report, &status, &msgid);
 	snprintf (buf, sizeof (buf), "[%s] %s", device, msg);
-	(status ? astman_send_ack : astman_send_error)(s, m, buf);
+	if(status)
+	{
+		astman_send_ack(s, m, buf);
+		astman_append (s, "SMSID: %p\r\n", msgid);
+	}
+	else
+	{
+		astman_send_error(s, m, buf);
+	}
 
 	return 0;
+}
+
+#/* */
+EXPORT_DEF void manager_event_sent(const char * devname, const char * type, const void * id, const char * result)
+{
+	char buf[40];
+	snprintf(buf, sizeof(buf), "Datacard%sStatus", type);
+
+	manager_event (EVENT_FLAG_CALL, buf,
+		"Device: %s\r\n"
+		"%sID: %p\r\n"
+		"Status: %s\r\n",
+		devname,
+		type,
+		id,
+		result
+	);
 }
 
 /*!
