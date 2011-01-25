@@ -113,7 +113,7 @@ static struct ast_channel * channel_request (attribute_unused const char * type,
 #endif
 	char * dest_dev;
 	const char * dest_num;
-	struct ast_channel * channel;
+	struct ast_channel * channel = NULL;
 	struct pvt * pvt;
 	int opts = CALL_FLAG_NONE;
 	int exists;
