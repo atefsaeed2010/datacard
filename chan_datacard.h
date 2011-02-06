@@ -218,6 +218,7 @@ typedef struct public_state
 
 EXPORT_DECL public_state_t * gpublic;
 
+EXPORT_DECL void clean_read_data(const char * devname, int fd);
 EXPORT_DECL int pvt_get_pseudo_call_idx(const struct pvt * pvt);
 EXPORT_DECL int ready4voice_call(const struct pvt* pvt, const struct cpvt * current_cpvt, int opts);
 EXPORT_DECL int is_dial_possible(const struct pvt * pvt, int opts);

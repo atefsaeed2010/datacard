@@ -18,7 +18,7 @@
 #include "at_read.h"			/* at_wait() at_read() at_read_result_iov() at_read_result_classification() */
 #include "chan_datacard.h"		/* opentty() closetty() */
 
-#define PDISCOVERY_TIMEOUT		2000
+#define PDISCOVERY_TIMEOUT		500
 
 enum INTERFACE_TYPE {
 	INTERFACE_TYPE_DATA	= 0,
@@ -36,6 +36,7 @@ struct pdiscovery_device {
 struct pdiscovery_ports {
 	char		* ports[INTERFACE_TYPE_NUMBERS];
 };
+
 struct pdiscovery_req {
 	const char	* name;
 	const char	* imei;
@@ -253,7 +254,7 @@ static void pdiscovery_handle_cimi(const char * devname, char * str, char ** ims
 }
 
 #/* return non-zero on done with command */
-static int pdiscovery_handle_response(const char * devname, const struct iovec iov[2], int iovcnt, char * info[2])
+static int pdiscovery_handle_response(struct pdiscovery_req * req, const struct iovec iov[2], int iovcnt, char * info[2])
 {
 	int done = 0;
 	char * str;
@@ -272,50 +273,62 @@ static int pdiscovery_handle_response(const char * devname, const struct iovec i
 		}
 		str[len] = 0;
 
-		ast_debug(4, "[%s discovery] < %s\n", devname, str);
+		ast_debug(4, "[%s discovery] < %s\n", req->name, str);
 		done = strstr(str, "OK") != NULL || strstr(str, "ERROR") != NULL;
-		str = pdiscovery_handle_ati(devname, str, &info[0]);
-		pdiscovery_handle_cimi(devname, str, &info[1]);
+		if(req->imei && req->imei[0])
+			str = pdiscovery_handle_ati(req->name, str, &info[0]);
+		if(req->imsi && req->imsi[0])
+			pdiscovery_handle_cimi(req->name, str, &info[1]);
 	}
 	return done;
 }
 
 #/* return zero on sucess */
-static int pdiscovery_do_cmd(const char * devname, int fd, const char * name, const char * cmd, unsigned length, char * info[2])
+static int pdiscovery_do_cmd(struct pdiscovery_req * req, int fd, const char * name, const char * cmd, unsigned length, char * info[2])
 {
 	int timeout;
 	char buf[2*1024];
 	struct ringbuffer rb;
 	struct iovec iov[2];
 	int iovcnt;
+	size_t wrote;
 
-	ast_debug(3, "[%s discovery] use %s for IMEI/IMSI discovery\n", devname, name);
-	size_t wrote = write_all(fd, cmd, length);
+	ast_debug(3, "[%s discovery] use %s for IMEI/IMSI discovery\n", req->name, name);
+
+	clean_read_data(req->name, fd);
+	wrote = write_all(fd, cmd, length);
 	if(wrote == length) {
 		timeout = PDISCOVERY_TIMEOUT;
-		rb_init (&rb, buf, sizeof (buf));
+		rb_init(&rb, buf, sizeof (buf));
 		while(timeout > 0 && at_wait(fd, &timeout) != 0) {
 			iovcnt = at_read (fd, name, &rb);
-			if(iovcnt >= 0) {
+			if(iovcnt > 0) {
 				iovcnt = rb_read_all_iov(&rb, iov);
-				if(pdiscovery_handle_response(devname, iov, iovcnt, info))
+				if(pdiscovery_handle_response(req, iov, iovcnt, info))
 					return 0;
 			} else {
-				ast_log (LOG_ERROR, "[%s discovery] read from %s failed: %s\n", devname, name, strerror(errno));
-				break;
+				ast_log (LOG_ERROR, "[%s discovery] read from %s failed: %s\n", req->name, name, strerror(errno));
+				return -1;
 			}
 		}
-		ast_log (LOG_ERROR, "[%s discovery] failed to get valid response from %s in %d msec\n", devname, name, PDISCOVERY_TIMEOUT);
+		ast_log (LOG_ERROR, "[%s discovery] failed to get valid response from %s in %d msec\n", req->name, name, PDISCOVERY_TIMEOUT);
 	} else {
-		ast_log (LOG_ERROR, "[%s discovery] write to %s failed: %s\n", devname, name, strerror(errno));
+		ast_log (LOG_ERROR, "[%s discovery] write to %s failed: %s\n", req->name, name, strerror(errno));
 	}
 	return -1;
 }
 
 #/* return zero on success */
-static int pdiscovery_read_info(const char * devname, struct pdiscovery_ports * ports, char * info[2])
+static int pdiscovery_read_info(struct pdiscovery_req * req, struct pdiscovery_ports * ports, char * info[2])
 {
-	static const char cmd[] = "ATI; +CIMI\r";
+	static const struct {
+		const char	* cmd;
+		unsigned	length;
+	} cmds[] = {
+		{ "AT+CIMI\r", 8 },
+		{ "ATI\r", 4 },
+		{ "ATI; +CIMI\r" , 11 },
+	};
 
 	int fail = -1;
 	char * dlock, * clock;
@@ -323,25 +336,26 @@ static int pdiscovery_read_info(const char * devname, struct pdiscovery_ports * 
 	const char * cport = ports->ports[INTERFACE_TYPE_COM];
 	const char * dport = ports->ports[INTERFACE_TYPE_DATA];
 
+	unsigned cmd = (((req->imei != NULL && req->imei[0]) << 1) | (req->imsi != NULL && req->imsi[0])) - 1;
 	if(cport && strcmp(cport, dport) != 0) {
 		int pid = lock_try(dport, &dlock);
 		if(pid == 0) {
 			fd = opentty(cport, &clock);
 			if(fd >= 0) {
 				/* clean queue first ? */
-				fail = pdiscovery_do_cmd(devname, fd, cport, cmd, STRLEN(cmd), info);
+				fail = pdiscovery_do_cmd(req, fd, cport, cmds[cmd].cmd, cmds[cmd].length, info);
 				closetty(fd, &clock);
 			}
 			closetty(-1, &dlock);
 		} else {
-			ast_debug(4, "[%s discovery] %s already used by process %d\n", devname, dport, pid);
+			ast_debug(4, "[%s discovery] %s already used by process %d\n", req->name, dport, pid);
 //			ast_log (LOG_WARNING, "[%s discovery] %s already used by process %d\n", devname, dport, pid);
 		}
 	} else {
 		fd = opentty(dport, &dlock);
 		if(fd >= 0) {
 			/* clean queue first ? */
-			fail = pdiscovery_do_cmd(devname, fd, dport, cmd, STRLEN(cmd), info);
+			fail = pdiscovery_do_cmd(req, fd, dport, cmds[cmd].cmd, cmds[cmd].length, info);
 			closetty(fd, &dlock);
 		}
 	}
@@ -355,7 +369,7 @@ static int pdiscovery_check_req(struct pdiscovery_ports * ports, struct pdiscove
 	char * info[2] = { 0, 0 };
 
 	int match = 0;
-	if(pdiscovery_read_info(req->name, ports, info) == 0) {
+	if(pdiscovery_read_info(req, ports, info) == 0) {
 
 		match = ((req->imei == NULL || req->imei[0] == 0) || (info[0] && strcmp(req->imei, info[0]) == 0))
 			&&
@@ -425,7 +439,7 @@ static int pdiscovery_req(const char * name, int len, struct pdiscovery_req * re
 	if(dir) {
 		while((dentry = readdir(dir)) != NULL) {
 			if(strcmp(dentry->d_name, ".") != 0 && strcmp(dentry->d_name, "..") != 0 && strstr(dentry->d_name, "usb") != dentry->d_name) {
-				ast_debug(4, "[d%s discovery] checking %s/%s\n", req->name, name, dentry->d_name);
+				ast_debug(4, "[%s discovery] checking %s/%s\n", req->name, name, dentry->d_name);
 				found = pdiscovery_check_device(name, len, dentry->d_name, req);
 				if(found)
 					break;
@@ -443,7 +457,13 @@ EXPORT_DEF int pdiscovery_lookup(const char * devname, const char * imei, const 
 /*	static const char sys_bus_usb_drivers_usb[] = "/sys/bus/usb/drivers/usb"; */
 	static const char sys_bus_usb_devices[] = "/sys/bus/usb/devices";
 
-	struct pdiscovery_req req = { devname, imei, imsi, dport, aport };
+	struct pdiscovery_req req = {
+		devname, 
+		imei, 
+		imsi, 
+		dport, 
+		aport 
+		};
 
 	return pdiscovery_req(sys_bus_usb_devices, strlen(sys_bus_usb_devices), &req);
 }

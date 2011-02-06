@@ -344,6 +344,29 @@ static void disconnect_datacard (struct pvt* pvt)
 #endif
 }
 
+
+/* anybody wrote some to device before me, and not read results, clean pending results here */
+#/* */
+EXPORT_DEF void clean_read_data(const char * devname, int fd)
+{
+	char buf[2*1024];
+	struct ringbuffer rb;
+	int iovcnt;
+	int t;
+	
+	rb_init (&rb, buf, sizeof (buf));
+	for (t = 0; at_wait(fd, &t); t = 0)
+	{
+		iovcnt = at_read (fd, devname, &rb);
+		ast_debug (4, "[%s] drop %u bytes of pending data before initialization\n", devname, (unsigned)rb_used(&rb));
+		/* drop readed */
+		rb_init (&rb, buf, sizeof (buf));
+		if (iovcnt == 0)
+			break;
+	}
+}
+
+
 /*!
  * \brief Check if the module is unloading.
  * \retval 0 not unloading
@@ -356,7 +379,7 @@ static void* do_monitor_phone (void* data)
 	at_res_t	at_res;
 	const struct at_queue_cmd * ecmd;
 	int		t;
-	char		buf[2*1024];
+	char buf[2*1024];
 	struct ringbuffer rb;
 	struct iovec	iov[2];
 	int		iovcnt;
@@ -364,8 +387,8 @@ static void* do_monitor_phone (void* data)
 	int 		fd;
 	int		read_result = 0;
 
-	rb_init (&rb, buf, sizeof (buf));
 	pvt->timeout = DATA_READ_TIMEOUT;
+	rb_init (&rb, buf, sizeof (buf));
 
 	ast_mutex_lock (&pvt->lock);
 
@@ -373,22 +396,12 @@ static void* do_monitor_phone (void* data)
 	fd = pvt->data_fd;
 	ast_copy_string(dev, PVT_ID(pvt), sizeof(dev));
 
-	/* anybody wrote some to device before me, and not read results, clean pending results here */
-
-	for (t = 0; at_wait (fd, &t); t = 0)
-	{
-		iovcnt = at_read (fd, dev, &rb);
-		ast_debug (4, "[%s] drop %u bytes of pending data before initialization\n", PVT_ID(pvt), (unsigned)rb_used(&rb));
-		/* drop readed */
-		rb_init (&rb, buf, sizeof (buf));
-		if (iovcnt == 0)
-			break;
-	}
-
+	clean_read_data(dev, fd);
+	
 	/* schedule datacard initilization  */
 	if (at_enque_initialization (&pvt->sys_chan, CMD_AT))
 	{
-		ast_log (LOG_ERROR, "[%s] Error adding initialization commands to queue\n", PVT_ID(pvt));
+		ast_log (LOG_ERROR, "[%s] Error adding initialization commands to queue\n", dev);
 		goto e_cleanup;
 	}
 
@@ -401,13 +414,13 @@ static void* do_monitor_phone (void* data)
 
 		if (port_status (pvt->data_fd) || port_status (pvt->audio_fd))
 		{
-			ast_log (LOG_ERROR, "[%s] Lost connection to Datacard\n", PVT_ID(pvt));
+			ast_log (LOG_ERROR, "[%s] Lost connection to Datacard\n", dev);
 			goto e_cleanup;
 		}
 
 		if(pvt->terminate_monitor)
 		{
-			ast_log (LOG_NOTICE, "[%s] stop by %s request\n", PVT_ID(pvt), dev_state2str(pvt->desired_state));
+			ast_log (LOG_NOTICE, "[%s] stop by %s request\n", dev, dev_state2str(pvt->desired_state));
 			goto e_restart;
 		}
 
@@ -423,8 +436,8 @@ static void* do_monitor_phone (void* data)
 			ecmd = at_queue_head_cmd (pvt);
 			if(ecmd)
 			{
-				ast_log (LOG_ERROR, "[%s] timedout while waiting '%s' in response to '%s'\n", PVT_ID(pvt), at_res2str (ecmd->res), at_cmd2str (ecmd->cmd));
-				ast_debug (1, "[%s] timedout while waiting '%s' in response to '%s'\n", PVT_ID(pvt), at_res2str (ecmd->res), at_cmd2str (ecmd->cmd));
+				ast_log (LOG_ERROR, "[%s] timedout while waiting '%s' in response to '%s'\n", dev, at_res2str (ecmd->res), at_cmd2str (ecmd->cmd));
+				ast_debug (1, "[%s] timedout while waiting '%s' in response to '%s'\n", dev, at_res2str (ecmd->res), at_cmd2str (ecmd->cmd));
 				goto e_cleanup;
 			}
 			at_enque_ping(&pvt->sys_chan);
@@ -458,7 +471,7 @@ static void* do_monitor_phone (void* data)
 e_cleanup:
 	if (!pvt->initialized)
 	{
-		ast_verb (3, "[%s] Error initializing Datacard\n", PVT_ID(pvt));
+		ast_verb (3, "[%s] Error initializing Datacard\n", dev);
 	}
 	/* it real, unsolicited disconnect */
 	pvt->terminate_monitor = 0;
@@ -512,7 +525,13 @@ static int pvt_discovery(struct pvt * pvt)
 		char * data_tty;
 		char * audio_tty;
 
-		ast_debug (3, "[%s] Trying port discovery for IMEI %s IMSI %s\n", PVT_ID(pvt), CONF_UNIQ(pvt, imei), CONF_UNIQ(pvt, imsi));
+		ast_debug(3, "[%s] Trying port discovery for%s%s%s%s\n", 
+			PVT_ID(pvt), 
+			CONF_UNIQ(pvt, imei)[0] == 0 ? "" : " IMEI ", 
+			CONF_UNIQ(pvt, imei), 
+			CONF_UNIQ(pvt, imsi)[0] == 0 ? "" : " IMSI ", 
+			CONF_UNIQ(pvt, imsi)
+			);
 		not_resolved = ! pdiscovery_lookup(PVT_ID(pvt), CONF_UNIQ(pvt, imei), CONF_UNIQ(pvt, imsi), &data_tty, &audio_tty);
 		if(!not_resolved) {
 			ast_copy_string (PVT_STATE(pvt, data_tty),  data_tty,  sizeof (PVT_STATE(pvt, data_tty)));
@@ -520,10 +539,12 @@ static int pvt_discovery(struct pvt * pvt)
 
 			ast_free(audio_tty);
 			ast_free(data_tty);
-			ast_verb (3, "[%s] IMEI %s IMSI %s found on data_tty %s audio_tty %s\n", 
+			ast_verb (3, "[%s]%s%s%s%s found on data_tty=%s audio_tty=%s\n", 
 				PVT_ID(pvt), 
+				CONF_UNIQ(pvt, imei)[0] == 0 ? "" : " IMEI ", 
 				CONF_UNIQ(pvt, imei), 
-				CONF_UNIQ(pvt, imsi), 
+				CONF_UNIQ(pvt, imsi)[0] == 0 ? "" : " IMSI ", 
+				CONF_UNIQ(pvt, imsi),
 				PVT_STATE(pvt, data_tty), 
 				PVT_STATE(pvt, audio_tty)
 				);
@@ -600,6 +621,7 @@ static void * do_discovery(void * arg)
 
 	while(state->unloading_flag == 0)
 	{
+		/* TODO: unlock when IMEI/IMSI discovery */
 		AST_RWLIST_RDLOCK (&state->devices);
 		AST_RWLIST_TRAVERSE_SAFE_BEGIN (&state->devices, pvt, entry)
 		{
@@ -628,7 +650,6 @@ static void * do_discovery(void * arg)
 			ast_mutex_unlock (&pvt->lock);
 		}
 		AST_RWLIST_TRAVERSE_SAFE_END;
-
 		AST_RWLIST_UNLOCK (&state->devices);
 
 		/* Go to sleep (only if we are not unloading) */
