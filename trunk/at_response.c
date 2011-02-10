@@ -852,7 +852,7 @@ static int start_pbx(struct pvt* pvt, const char * number, int call_idx, call_st
 	struct cpvt* cpvt;
 
 	/* TODO: pass also Subscriber number or other DID info for exten  */
-	struct ast_channel* channel = new_channel (pvt, AST_STATE_RING, number, call_idx, CALL_DIR_INCOMING, state, pvt->has_subscriber_number ? pvt->subscriber_number : CONF_SHARED(pvt, exten));
+	struct ast_channel * channel = new_channel (pvt, AST_STATE_RING, number, call_idx, CALL_DIR_INCOMING, state, pvt->has_subscriber_number ? pvt->subscriber_number : CONF_SHARED(pvt, exten));
 
 	if (!channel)
 	{
@@ -1592,7 +1592,7 @@ static int at_response_cgmm (struct pvt* pvt, const char* str)
 {
 	ast_copy_string (pvt->model, str, sizeof (pvt->model));
 
-	if (!strcmp (pvt->model, "E1550") || !strcmp (pvt->model, "E1750") || !strcmp (pvt->model, "E160X") || !strcmp (pvt->model, "E150") || ! !strcmp (pvt->model, "E173"))
+	if (!strcmp (pvt->model, "E1550") || !strcmp (pvt->model, "E1750") || !strcmp (pvt->model, "E160X") || !strcmp (pvt->model, "E150") || !strcmp (pvt->model, "E173"))
 	{
 		pvt->cusd_use_7bit_encoding = 1;
 		pvt->cusd_use_ucs2_decoding = 0;
