@@ -1592,7 +1592,7 @@ static int at_response_cgmm (struct pvt* pvt, const char* str)
 {
 	ast_copy_string (pvt->model, str, sizeof (pvt->model));
 
-	if (!strcmp (pvt->model, "E1550") || !strcmp (pvt->model, "E1750") || !strcmp (pvt->model, "E160X") || !strcmp (pvt->model, "E150"))
+	if (!strcmp (pvt->model, "E1550") || !strcmp (pvt->model, "E1750") || !strcmp (pvt->model, "E160X") || !strcmp (pvt->model, "E150") || ! !strcmp (pvt->model, "E173"))
 	{
 		pvt->cusd_use_7bit_encoding = 1;
 		pvt->cusd_use_ucs2_decoding = 0;
