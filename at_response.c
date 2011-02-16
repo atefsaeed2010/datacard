@@ -852,7 +852,7 @@ static int start_pbx(struct pvt* pvt, const char * number, int call_idx, call_st
 	struct cpvt* cpvt;
 
 	/* TODO: pass also Subscriber number or other DID info for exten  */
-	struct ast_channel * channel = new_channel (pvt, AST_STATE_RING, number, call_idx, CALL_DIR_INCOMING, state, pvt->has_subscriber_number ? pvt->subscriber_number : CONF_SHARED(pvt, exten));
+	struct ast_channel * channel = new_channel (pvt, AST_STATE_RING, number, call_idx, CALL_DIR_INCOMING, state, pvt->has_subscriber_number ? pvt->subscriber_number : CONF_SHARED(pvt, exten), NULL);
 
 	if (!channel)
 	{
