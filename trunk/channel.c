@@ -110,6 +110,7 @@ static struct ast_channel * channel_request (attribute_unused const char * type,
 	format_t oldformat;
 #else
 	int oldformat;
+	const struct ast_channel * requestor = NULL;
 #endif
 	char * dest_dev;
 	const char * dest_num;
@@ -151,7 +152,7 @@ static struct ast_channel * channel_request (attribute_unused const char * type,
 #endif
 	if(pvt)
 	{
-		channel = new_channel (pvt, AST_STATE_DOWN, NULL, pvt_get_pseudo_call_idx(pvt), CALL_DIR_OUTGOING, CALL_STATE_INIT, NULL);
+		channel = new_channel (pvt, AST_STATE_DOWN, NULL, pvt_get_pseudo_call_idx(pvt), CALL_DIR_OUTGOING, CALL_STATE_INIT, NULL, requestor);
 		ast_mutex_unlock (&pvt->lock);
 		if(!channel)
 		{
@@ -1121,7 +1122,7 @@ static void set_channel_vars(struct pvt* pvt, struct ast_channel* channel)
 }
 
 #/* NOTE: called from device and current levels with locked pvt */
-EXPORT_DEF struct ast_channel* new_channel (struct pvt* pvt, int ast_state, const char* cid_num, int call_idx, unsigned dir, call_state_t state, const char* dnid)
+EXPORT_DEF struct ast_channel* new_channel (struct pvt* pvt, int ast_state, const char* cid_num, int call_idx, unsigned dir, call_state_t state, const char * dnid, attribute_unused const struct ast_channel * requestor)
 {
 	struct ast_channel* channel;
 	struct cpvt * cpvt;
@@ -1130,7 +1131,7 @@ EXPORT_DEF struct ast_channel* new_channel (struct pvt* pvt, int ast_state, cons
 	if (cpvt)
 	{
 #if ASTERISK_VERSION_NUM >= 10800
-		channel = ast_channel_alloc (1, ast_state, cid_num, PVT_ID(pvt), NULL, dnid, CONF_SHARED(pvt, context), 0, 0, "Datacard/%s-%02u%08lx", PVT_ID(pvt), call_idx, pvt->channel_instanse);
+		channel = ast_channel_alloc (1, ast_state, cid_num, PVT_ID(pvt), NULL, dnid, CONF_SHARED(pvt, context), requestor ? requestor->linkedid : NULL, 0, "Datacard/%s-%02u%08lx", PVT_ID(pvt), call_idx, pvt->channel_instanse);
 #else
 		channel = ast_channel_alloc (1, ast_state, cid_num, PVT_ID(pvt), NULL, dnid, CONF_SHARED(pvt, context), 0, "Datacard/%s-%02u%08lx", PVT_ID(pvt), call_idx, pvt->channel_instanse);
 #endif
