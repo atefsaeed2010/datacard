@@ -1085,7 +1085,8 @@ static int at_response_ccwa(struct pvt* pvt, char* str)
 //		if (sscanf (str, "+CCWA: \"%*[+0-9*#ABCabc]\",%*d,%d", &class) == 1)
 		if (at_parse_ccwa(str, &class) == 0)
 		{
-			if (CONF_SHARED(pvt, callwaiting) != CALL_WAITING_DISALLOWED && class == CCWA_CLASS_VOICE)
+//			if (CONF_SHARED(pvt, callwaiting) != CALL_WAITING_DISALLOWED && class == CCWA_CLASS_VOICE)
+			if (class == CCWA_CLASS_VOICE)
 			{
 				pvt->rings++;
 				pvt->cwaiting = 1;
