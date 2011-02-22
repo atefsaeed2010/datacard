@@ -44,10 +44,10 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 				astman_append (s, "ActionID: %s\r\n", id);
 			astman_append (s, "Device: %s\r\n", PVT_ID(pvt));
 /* settings */
-			astman_append (s, "Audio: %s\r\n", CONF_UNIQ(pvt, audio_tty));
-			astman_append (s, "Data: %s\r\n", CONF_UNIQ(pvt, data_tty));
-			astman_append (s, "IMEI: %s\r\n", CONF_UNIQ(pvt, imei));
-			astman_append (s, "IMSI: %s\r\n", CONF_UNIQ(pvt, imsi));
+			astman_append (s, "Audio Setting: %s\r\n", CONF_UNIQ(pvt, audio_tty));
+			astman_append (s, "Data Setting: %s\r\n", CONF_UNIQ(pvt, data_tty));
+			astman_append (s, "IMEI Setting: %s\r\n", CONF_UNIQ(pvt, imei));
+			astman_append (s, "IMSI Setting: %s\r\n", CONF_UNIQ(pvt, imsi));
 			astman_append (s, "Channel Language: %s\r\n", CONF_SHARED(pvt, language));
 			astman_append (s, "Context: %s\r\n", CONF_SHARED(pvt, context));
 			astman_append (s, "Exten: %s\r\n", CONF_SHARED(pvt, exten));
@@ -68,15 +68,15 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 			astman_append (s, "Minimal DTMF Interval: %d\r\n", CONF_SHARED(pvt, mindtmfinterval));
 /* state */
 			astman_append (s, "State: %s\r\n", pvt_str_state(pvt));
-			astman_append (s, "Audio: %s\r\n", PVT_STATE(pvt, audio_tty));
-			astman_append (s, "Data: %s\r\n", PVT_STATE(pvt, data_tty));
+			astman_append (s, "Audio State: %s\r\n", PVT_STATE(pvt, audio_tty));
+			astman_append (s, "Data State: %s\r\n", PVT_STATE(pvt, data_tty));
 			astman_append (s, "Voice: %s\r\n", (pvt->has_voice) ? "Yes" : "No");
 			astman_append (s, "SMS: %s\r\n", (pvt->has_sms) ? "Yes" : "No");
 			astman_append (s, "Manufacturer: %s\r\n", pvt->manufacturer);
 			astman_append (s, "Model: %s\r\n", pvt->model);
 			astman_append (s, "Firmware: %s\r\n", pvt->firmware);
-			astman_append (s, "IMEI: %s\r\n", pvt->imei);
-			astman_append (s, "IMSI: %s\r\n", pvt->imsi);
+			astman_append (s, "IMEI State: %s\r\n", pvt->imei);
+			astman_append (s, "IMSI State: %s\r\n", pvt->imsi);
 			astman_append (s, "GSM Registration Status: %s\r\n", GSM_regstate2str(pvt->gsm_reg_status));
 			astman_append (s, "RSSI: %d, %s\r\n", pvt->rssi, rssi2dBm(pvt->rssi, buf, sizeof(buf)));
 			astman_append (s, "Mode: %s\r\n", sys_mode2str(pvt->linkmode));
@@ -101,6 +101,7 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 			astman_append (s, "Waiting: %u\r\n", PVT_STATE(pvt, chan_count[CALL_STATE_WAITING]));
 			astman_append (s, "Releasing: %u\r\n", PVT_STATE(pvt, chan_count[CALL_STATE_RELEASED]));
 			astman_append (s, "Initializing: %u\r\n", PVT_STATE(pvt, chan_count[CALL_STATE_INIT]));
+/* TODO: stats */
 
 			astman_append (s, "\r\n");
 			count++;
