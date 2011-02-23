@@ -96,24 +96,6 @@ static int lock_build(const char * devname, char * buf, unsigned length)
 	if(realpath(devname, resolved_path) != NULL)
 		devname = resolved_path;
 
-/*
-	while(1)
-	{
-		len = readlink(devname, symlink, sizeof(symlink) - 1);
-		if(len <= 0)
-			break;
-		symlink[len] = 0;
-		if(symlink[0] == '/')
-			devname = symlink;
-		else
-		{
-			// TODO
-			memmove()
-			memcpy(symlink, devname);
-		}
-	}
-*/
-
 	basename = strrchr(devname, '/');
 	if(basename)
 		basename++;

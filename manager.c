@@ -250,7 +250,9 @@ EXPORT_DEF void manager_event_new_ussd (const char * devname, char* message)
 	manager_event (EVENT_FLAG_CALL, "DatacardNewUSSD",
 		"Device: %s\r\n"
 		"LineCount: %zu\r\n"
-		"%s\r\n",
+/* FIXME: empty lines inserted */
+//		"%s\r\n",
+		"%s",
 		devname, linecount, ast_str_buffer (buf)
 	);
 
