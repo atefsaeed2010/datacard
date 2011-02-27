@@ -1185,7 +1185,7 @@ static int at_response_cmti (struct pvt* pvt, const char* str)
  * \retval -1 error
  */
 
-static int at_response_cmgr (struct pvt* pvt, const char* str, size_t len)
+static int at_response_cmgr (struct pvt* pvt, const char * str, size_t len)
 {
 	char		oa[512] = "";
 	char*		msg = NULL;
@@ -1203,6 +1203,8 @@ static int at_response_cmgr (struct pvt* pvt, const char* str, size_t len)
 
 	const struct at_queue_cmd * ecmd = at_queue_head_cmd (pvt);
 
+	manager_event_new_cmgr(PVT_ID(pvt), str);
+	
 	if (ecmd)
 	{
 	    if (ecmd->res == RES_CMGR || ecmd->cmd == CMD_USER)
@@ -1264,6 +1266,7 @@ static int at_response_cmgr (struct pvt* pvt, const char* str, size_t len)
 			{
 				{ "SMS", msg } ,
 				{ "SMS_BASE64", text_base64 },
+				{ "CMGR", (char *)str },
 				{ NULL, NULL },
 			};
 			start_local_channel (pvt, "sms", number, vars);

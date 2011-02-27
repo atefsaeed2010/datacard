@@ -18,6 +18,7 @@ EXPORT_DECL void manager_event_cend(const char * devname, int call_index, int du
 EXPORT_DECL void manager_event_call_state_change(const char * devname, int call_index, const char * newstate);
 EXPORT_DECL void manager_event_device_status(const char * devname, const char * newstatus);
 EXPORT_DECL void manager_event_sent(const char * devname, const char * type, const void * id, const char * result);
+EXPORT_DECL void manager_event_new_cmgr(const char * devname, const char * pdu_or_data);
 
 #endif /* CHAN_DATACARD_MANAGER_H_INCLUDED */
 #endif /* BUILD_MANAGER */
