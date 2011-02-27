@@ -277,6 +277,18 @@ EXPORT_DEF void manager_event_new_ussd_base64 (const char * devname, char* messa
 }
 
 #/* */
+EXPORT_DEF void manager_event_new_cmgr(const char * devname, const char * pdu_or_data)
+{
+	manager_event (EVENT_FLAG_CALL, "DatacardNewCMGR",
+		"Device: %s\r\n"
+		"PDU: %s\r\n",
+		devname, 
+		pdu_or_data
+	);
+	
+}
+
+#/* */
 EXPORT_DEF void manager_event_cend(const char * devname, int call_index, int duration, int end_status, int cc_cause)
 {
 	manager_event( EVENT_FLAG_CALL, "DatacardCEND",
