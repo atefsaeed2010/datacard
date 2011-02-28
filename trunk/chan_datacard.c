@@ -1225,6 +1225,7 @@ EXPORT_DEF const char* GSM_regstate2str(int gsm_reg_status)
 		"Registered, home network",
 		"Not registered, but searching",
 		"Registration denied",
+		"Unknown",
 		"Registered, roaming",
 		};
 	return enum2str_def(gsm_reg_status, gsm_states, ITEMS_OF (gsm_states), "Unknown");
