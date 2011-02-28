@@ -171,10 +171,12 @@ EXPORT_DEF int at_parse_creg (char* str, unsigned len, int* gsm_reg, int* gsm_re
 				break;
 
 			case 3:
-				p2 = &str[i];
-				state++;
+				if (str[i] != ' ')
+				{
+					p2 = &str[i];
+					state++;
+				}
 				/* fall through */
-
 			case 4:
 				if (str[i] == ',')
 				{
