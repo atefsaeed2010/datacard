@@ -2,7 +2,7 @@ dnl init
 dnl AC_REVISION($Revision: 1.30 $)
 AC_PREREQ([2.60])
 AC_INIT([chan_datacard],[1.0],[http://code.google.com/p/datacard/issues/list],[chan_datacard],[http://code.google.com/p/datacard])
-PACKAGE_REVISION="302"
+PACKAGE_REVISION="304"
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_SRCDIR([chan_datacard.c])
 AC_CANONICAL_SYSTEM
