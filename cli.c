@@ -147,7 +147,8 @@ static char* cli_show_device_settings (struct ast_cli_entry* e, int cmd, struct 
 		ast_cli (a->fd, "  DTMF                    : %s\n", dc_dtmf_setting2str(CONF_SHARED(pvt, dtmf)));
 		ast_cli (a->fd, "  Minimal DTMF Gap        : %d\n", CONF_SHARED(pvt, mindtmfgap));
 		ast_cli (a->fd, "  Minimal DTMF Duration   : %d\n", CONF_SHARED(pvt, mindtmfduration));
-		ast_cli (a->fd, "  Minimal DTMF Interval   : %d\n\n", CONF_SHARED(pvt, mindtmfinterval));
+		ast_cli (a->fd, "  Minimal DTMF Interval   : %d\n", CONF_SHARED(pvt, mindtmfinterval));
+		ast_cli (a->fd, "  Initial device state    : %s\n\n", dev_state2str(CONF_SHARED(pvt, initstate)));
 
 		ast_mutex_unlock (&pvt->lock);
 	}
@@ -218,6 +219,9 @@ static char* cli_show_device_state (struct ast_cli_entry* e, int cmd, struct ast
 		ast_cli (a->fd, "  Tasks in queue          : %u\n", PVT_STATE(pvt, at_tasks));
 		ast_cli (a->fd, "  Commands in queue       : %u\n", PVT_STATE(pvt, at_cmds));
 		ast_cli (a->fd, "  Call Waiting            : %s\n", pvt->has_call_waiting ? "Enabled" : "Disabled" );
+		ast_cli (a->fd, "  Current device state    : %s\n", dev_state2str(pvt->current_state) );
+		ast_cli (a->fd, "  Desired device state    : %s\n", dev_state2str(pvt->desired_state) );
+		
 		ast_cli (a->fd, "  Calls/Channels          : %u\n", PVT_STATE(pvt, chansno));
 		ast_cli (a->fd, "    Active                : %u\n", PVT_STATE(pvt, chan_count[CALL_STATE_ACTIVE]));
 		ast_cli (a->fd, "    Held                  : %u\n", PVT_STATE(pvt, chan_count[CALL_STATE_ONHOLD]));

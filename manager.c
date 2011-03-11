@@ -92,6 +92,8 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 			astman_append (s, "Tasks in queue: %u\r\n", PVT_STATE(pvt, at_tasks));
 			astman_append (s, "Commands in queue: %u\r\n", PVT_STATE(pvt, at_cmds));
 			astman_append (s, "Call Waiting: %s\r\n", pvt->has_call_waiting ? "Enabled" : "Disabled");
+			astman_append (s, "Current device state: %s\r\n", dev_state2str(pvt->current_state));
+			astman_append (s, "Desired device state: %s\r\n", dev_state2str(pvt->desired_state));
 			astman_append (s, "Calls/Channels: %u\r\n", PVT_STATE(pvt, chansno));
 			astman_append (s, "Active: %u\r\n", PVT_STATE(pvt, chan_count[CALL_STATE_ACTIVE]));
 			astman_append (s, "Held: %u\r\n", PVT_STATE(pvt, chan_count[CALL_STATE_ONHOLD]));
