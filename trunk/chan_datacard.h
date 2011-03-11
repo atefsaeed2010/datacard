@@ -22,17 +22,9 @@
 #define MODULE_DESCRIPTION	"Datacard Channel Driver"
 #define MAXDATACARDDEVICES	256
 
-typedef enum {
-	DEV_STATE_STOPPED	= 0,
-	DEV_STATE_RESTARTED,
-	DEV_STATE_REMOVED,
-	DEV_STATE_STARTED,
-} dev_state_t;
-
 INLINE_DECL const char * dev_state2str(dev_state_t state)
 {
-	static const char * const states[] = { "stop", "restart", "remove", "start" };
-	return enum2str(state, states, ITEMS_OF(states));
+	return enum2str(state, dev_state_strs, ITEMS_OF(dev_state_strs));
 }
 
 INLINE_DECL const char * dev_state2str_msg(dev_state_t state)

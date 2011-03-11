@@ -16,6 +16,14 @@
 #define DEVPATHLEN		256
 
 typedef enum {
+	DEV_STATE_STOPPED	= 0,
+	DEV_STATE_RESTARTED,
+	DEV_STATE_REMOVED,
+	DEV_STATE_STARTED,
+} dev_state_t;
+EXPORT_DECL const char * const dev_state_strs[4];
+
+typedef enum {
 	CALL_WAITING_DISALLOWED = 0,
 	CALL_WAITING_ALLOWED,
 	CALL_WAITING_AUTO
@@ -67,7 +75,8 @@ typedef struct dc_sconfig
 	unsigned int		resetdatacard:1;		/*! 1 */
 	unsigned int		disablesms:1;			/*! 0 */
 	unsigned int		smsaspdu:1;			/*! 0 */
-	unsigned int		disable:1;			/*! 0 */
+	dev_state_t		initstate;			/*! DEV_STATE_STARTED */
+//	unsigned int		disable:1;			/*! 0 */
 
 	call_waiting_t		callwaiting;			/*!< enable/disable/auto call waiting CALL_WAITING_AUTO */
 	dc_dtmf_setting_t	dtmf;				/*!< off/inband/relax incoming DTMF detection, default DC_DTMF_SETTING_RELAX */

@@ -65,6 +65,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev: " PACKAGE_REVISION " $")
 #include "dc_config.h"			/* dc_uconfig_fill() dc_gconfig_fill() dc_sconfig_fill()  */
 #include "pdiscovery.h"			/* pdiscovery_lookup()  */
 
+EXPORT_DEF const char * const dev_state_strs[4] = { "stop", "restart", "remove", "start" };
 EXPORT_DEF public_state_t * gpublic;
 
 /*!
@@ -1345,7 +1346,7 @@ static struct pvt * pvt_create(const pvt_config_t * settings)
 		ast_copy_string (pvt->subscriber_number, "Unknown", sizeof (pvt->subscriber_number));
 		pvt->has_subscriber_number = 0;
 
-		pvt->desired_state = DEV_STATE_STARTED;
+		pvt->desired_state = SCONFIG(settings, initstate);
 
 		pvt_dsp_setup(pvt, settings);
 
@@ -1386,15 +1387,21 @@ static int pvt_reconfigure(struct pvt * pvt, const pvt_config_t * settings, rest
 {
 	int rv = 0;
 
-	if(SCONFIG(settings, disable))
+	if(SCONFIG(settings, initstate) == DEV_STATE_REMOVED)
 	{
 		/* handle later, in one place */
 		pvt->must_remove = 1;
 	}
 	else
 	{
-		/* check what changes require restaring */
-		if(
+		/* check what changes require starting or stopping */
+		if(SCONFIG(settings, initstate) != CONF_SHARED(pvt, smsaspdu)) {
+			pvt->desired_state = SCONFIG(settings, initstate);
+			rv = pvt_time4restate(pvt);
+			pvt->restart_time = rv ? RESTATE_TIME_NOW : when;
+		}
+		/* check what config changes require restaring */
+		else if(
 		   strcmp(UCONFIG(settings, audio_tty), CONF_UNIQ(pvt, audio_tty))
 			||
 		   strcmp(UCONFIG(settings, data_tty), CONF_UNIQ(pvt, data_tty))
@@ -1486,7 +1493,7 @@ static int reload_config(public_state_t * state, int recofigure, restate_time_t 
 				else
 				{
 					/* new device */
-					if(SCONFIG(&settings, disable))
+					if(SCONFIG(&settings, initstate) == DEV_STATE_REMOVED)
 					{
 						ast_log (LOG_NOTICE, "Skipping device %s as disabled\n", cat);
 					}
