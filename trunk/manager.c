@@ -44,57 +44,57 @@ static int manager_show_devices (struct mansession* s, const struct message* m)
 				astman_append (s, "ActionID: %s\r\n", id);
 			astman_append (s, "Device: %s\r\n", PVT_ID(pvt));
 /* settings */
-			astman_append (s, "Audio Setting: %s\r\n", CONF_UNIQ(pvt, audio_tty));
-			astman_append (s, "Data Setting: %s\r\n", CONF_UNIQ(pvt, data_tty));
-			astman_append (s, "IMEI Setting: %s\r\n", CONF_UNIQ(pvt, imei));
-			astman_append (s, "IMSI Setting: %s\r\n", CONF_UNIQ(pvt, imsi));
-			astman_append (s, "Channel Language: %s\r\n", CONF_SHARED(pvt, language));
+			astman_append (s, "AudioSetting: %s\r\n", CONF_UNIQ(pvt, audio_tty));
+			astman_append (s, "DataSetting: %s\r\n", CONF_UNIQ(pvt, data_tty));
+			astman_append (s, "IMEISetting: %s\r\n", CONF_UNIQ(pvt, imei));
+			astman_append (s, "IMSISetting: %s\r\n", CONF_UNIQ(pvt, imsi));
+			astman_append (s, "ChannelLanguage: %s\r\n", CONF_SHARED(pvt, language));
 			astman_append (s, "Context: %s\r\n", CONF_SHARED(pvt, context));
 			astman_append (s, "Exten: %s\r\n", CONF_SHARED(pvt, exten));
 			astman_append (s, "Group: %d\r\n", CONF_SHARED(pvt, group));
-			astman_append (s, "RX gain: %d\r\n", CONF_SHARED(pvt, rxgain));
-			astman_append (s, "TX gain: %d\r\n", CONF_SHARED(pvt, txgain));
+			astman_append (s, "RXGain: %d\r\n", CONF_SHARED(pvt, rxgain));
+			astman_append (s, "TXGain: %d\r\n", CONF_SHARED(pvt, txgain));
 			astman_append (s, "U2DIAG: %d\r\n", CONF_SHARED(pvt, u2diag));
-			astman_append (s, "Use CallingPres: %s\r\n", CONF_SHARED(pvt, usecallingpres) ? "Yes" : "No");
-			astman_append (s, "Default CallingPres: %s\r\n", CONF_SHARED(pvt, callingpres) < 0 ? "<Not set>" : ast_describe_caller_presentation (CONF_SHARED(pvt, callingpres)));
-			astman_append (s, "Auto delete SMS: %s\r\n", CONF_SHARED(pvt, autodeletesms) ? "Yes" : "No");
-			astman_append (s, "Disable SMS: %s\r\n", CONF_SHARED(pvt, disablesms) ? "Yes" : "No");
-			astman_append (s, "Reset Datacard: %s\r\n", CONF_SHARED(pvt, resetdatacard) ? "Yes" : "No");
-			astman_append (s, "SMS PDU: %s\r\n", CONF_SHARED(pvt, smsaspdu) ? "Yes" : "No");
-			astman_append (s, "Call Waiting: %s\r\n", dc_cw_setting2str(CONF_SHARED(pvt, callwaiting)));
+			astman_append (s, "UseCallingPres: %s\r\n", CONF_SHARED(pvt, usecallingpres) ? "Yes" : "No");
+			astman_append (s, "DefaultCallingPres: %s\r\n", CONF_SHARED(pvt, callingpres) < 0 ? "<Not set>" : ast_describe_caller_presentation (CONF_SHARED(pvt, callingpres)));
+			astman_append (s, "AutoDeleteSMS: %s\r\n", CONF_SHARED(pvt, autodeletesms) ? "Yes" : "No");
+			astman_append (s, "DisableSMS: %s\r\n", CONF_SHARED(pvt, disablesms) ? "Yes" : "No");
+			astman_append (s, "ResetDatacard: %s\r\n", CONF_SHARED(pvt, resetdatacard) ? "Yes" : "No");
+			astman_append (s, "SMSPDU: %s\r\n", CONF_SHARED(pvt, smsaspdu) ? "Yes" : "No");
+			astman_append (s, "CallWaitingSetting: %s\r\n", dc_cw_setting2str(CONF_SHARED(pvt, callwaiting)));
 			astman_append (s, "DTMF: %s\r\n", dc_dtmf_setting2str(CONF_SHARED(pvt, dtmf)));
-			astman_append (s, "Minimal DTMF Gap: %d\r\n", CONF_SHARED(pvt, mindtmfgap));
-			astman_append (s, "Minimal DTMF Duration: %d\r\n", CONF_SHARED(pvt, mindtmfduration));
-			astman_append (s, "Minimal DTMF Interval: %d\r\n", CONF_SHARED(pvt, mindtmfinterval));
+			astman_append (s, "MinimalDTMFGap: %d\r\n", CONF_SHARED(pvt, mindtmfgap));
+			astman_append (s, "MinimalDTMFDuration: %d\r\n", CONF_SHARED(pvt, mindtmfduration));
+			astman_append (s, "MinimalDTMFInterval: %d\r\n", CONF_SHARED(pvt, mindtmfinterval));
 /* state */
 			astman_append (s, "State: %s\r\n", pvt_str_state(pvt));
-			astman_append (s, "Audio State: %s\r\n", PVT_STATE(pvt, audio_tty));
-			astman_append (s, "Data State: %s\r\n", PVT_STATE(pvt, data_tty));
+			astman_append (s, "AudioState: %s\r\n", PVT_STATE(pvt, audio_tty));
+			astman_append (s, "DataState: %s\r\n", PVT_STATE(pvt, data_tty));
 			astman_append (s, "Voice: %s\r\n", (pvt->has_voice) ? "Yes" : "No");
 			astman_append (s, "SMS: %s\r\n", (pvt->has_sms) ? "Yes" : "No");
 			astman_append (s, "Manufacturer: %s\r\n", pvt->manufacturer);
 			astman_append (s, "Model: %s\r\n", pvt->model);
 			astman_append (s, "Firmware: %s\r\n", pvt->firmware);
-			astman_append (s, "IMEI State: %s\r\n", pvt->imei);
-			astman_append (s, "IMSI State: %s\r\n", pvt->imsi);
-			astman_append (s, "GSM Registration Status: %s\r\n", GSM_regstate2str(pvt->gsm_reg_status));
+			astman_append (s, "IMEIState: %s\r\n", pvt->imei);
+			astman_append (s, "IMSIState: %s\r\n", pvt->imsi);
+			astman_append (s, "GSMRegistrationStatus: %s\r\n", GSM_regstate2str(pvt->gsm_reg_status));
 			astman_append (s, "RSSI: %d, %s\r\n", pvt->rssi, rssi2dBm(pvt->rssi, buf, sizeof(buf)));
 			astman_append (s, "Mode: %s\r\n", sys_mode2str(pvt->linkmode));
 			astman_append (s, "Submode: %s\r\n", sys_submode2str(pvt->linksubmode));
-			astman_append (s, "Provider Name: %s\r\n", pvt->provider_name);
-			astman_append (s, "Location area code: %s\r\n", pvt->location_area_code);
-			astman_append (s, "Cell ID: %s\r\n", pvt->cell_id);
-			astman_append (s, "Subscriber Number: %s\r\n", pvt->subscriber_number);
-			astman_append (s, "SMS Service Center: %s\r\n", pvt->sms_scenter);
-			astman_append (s, "Use UCS-2 encoding: %s\r\n", pvt->use_ucs2_encoding ? "Yes" : "No");
-			astman_append (s, "USSD use 7 bit encoding: %s\r\n", pvt->cusd_use_7bit_encoding ? "Yes" : "No");
-			astman_append (s, "USSD use UCS-2 decoding: %s\r\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
-			astman_append (s, "Tasks in queue: %u\r\n", PVT_STATE(pvt, at_tasks));
-			astman_append (s, "Commands in queue: %u\r\n", PVT_STATE(pvt, at_cmds));
-			astman_append (s, "Call Waiting: %s\r\n", pvt->has_call_waiting ? "Enabled" : "Disabled");
-			astman_append (s, "Current device state: %s\r\n", dev_state2str(pvt->current_state));
-			astman_append (s, "Desired device state: %s\r\n", dev_state2str(pvt->desired_state));
-			astman_append (s, "Calls/Channels: %u\r\n", PVT_STATE(pvt, chansno));
+			astman_append (s, "ProviderName: %s\r\n", pvt->provider_name);
+			astman_append (s, "LocationAreaCode: %s\r\n", pvt->location_area_code);
+			astman_append (s, "CellID: %s\r\n", pvt->cell_id);
+			astman_append (s, "SubscriberNumber: %s\r\n", pvt->subscriber_number);
+			astman_append (s, "SMSServiceCenter: %s\r\n", pvt->sms_scenter);
+			astman_append (s, "UseUCS2Encoding: %s\r\n", pvt->use_ucs2_encoding ? "Yes" : "No");
+			astman_append (s, "USSDUse7BitEncoding: %s\r\n", pvt->cusd_use_7bit_encoding ? "Yes" : "No");
+			astman_append (s, "USSDUseUCS2Decoding: %s\r\n", pvt->cusd_use_ucs2_decoding ? "Yes" : "No");
+			astman_append (s, "TasksInQueue: %u\r\n", PVT_STATE(pvt, at_tasks));
+			astman_append (s, "CommandsInQueue: %u\r\n", PVT_STATE(pvt, at_cmds));
+			astman_append (s, "CallWaitingState: %s\r\n", pvt->has_call_waiting ? "Enabled" : "Disabled");
+			astman_append (s, "CurrentDeviceState: %s\r\n", dev_state2str(pvt->current_state));
+			astman_append (s, "DesiredDeviceState: %s\r\n", dev_state2str(pvt->desired_state));
+			astman_append (s, "CallsChannels: %u\r\n", PVT_STATE(pvt, chansno));
 			astman_append (s, "Active: %u\r\n", PVT_STATE(pvt, chan_count[CALL_STATE_ACTIVE]));
 			astman_append (s, "Held: %u\r\n", PVT_STATE(pvt, chan_count[CALL_STATE_ONHOLD]));
 			astman_append (s, "Dialing: %u\r\n", PVT_STATE(pvt, chan_count[CALL_STATE_DIALING]));
@@ -148,7 +148,7 @@ static int manager_send_ussd (struct mansession* s, const struct message* m)
 	}
 
 	msg = send_ussd(device, ussd, &status, &msgid);
-	snprintf (buf, sizeof (buf), "[%s] %s\r\nUSSDID: %p", device, msg, msgid);
+	snprintf (buf, sizeof (buf), "[%s] %s\r\nID: %p", device, msg, msgid);
 	if(status)
 	{
 		astman_send_ack(s, m, buf);
@@ -193,7 +193,7 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
 	}
 
 	msg = send_sms(device, number, message, validity, report, &status, &msgid);
-	snprintf (buf, sizeof (buf), "[%s] %s\r\nSMSID: %p", device, msg, msgid);
+	snprintf (buf, sizeof (buf), "[%s] %s\r\nID: %p", device, msg, msgid);
 	if(status)
 	{
 		astman_send_ack(s, m, buf);
@@ -214,10 +214,9 @@ EXPORT_DEF void manager_event_sent(const char * devname, const char * type, cons
 
 	manager_event (EVENT_FLAG_CALL, buf,
 		"Device: %s\r\n"
-		"%sID: %p\r\n"
+		"ID: %p\r\n"
 		"Status: %s\r\n",
 		devname,
-		type,
 		id,
 		result
 	);
@@ -283,11 +282,10 @@ EXPORT_DEF void manager_event_new_cmgr(const char * devname, const char * pdu_or
 {
 	manager_event (EVENT_FLAG_CALL, "DatacardNewCMGR",
 		"Device: %s\r\n"
-		"PDU: %s\r\n",
+		"Message: %s\r\n",
 		devname, 
 		pdu_or_data
 	);
-	
 }
 
 #/* */
