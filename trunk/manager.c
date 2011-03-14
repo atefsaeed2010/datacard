@@ -148,7 +148,7 @@ static int manager_send_ussd (struct mansession* s, const struct message* m)
 	}
 
 	msg = send_ussd(device, ussd, &status, &msgid);
-	snprintf (buf, sizeof (buf), "[%s] %s\r\nID: %p", device, msg, msgid);
+	snprintf(buf, sizeof (buf), "[%s] %s\r\nID: %p", device, msg, msgid);
 	if(status)
 	{
 		astman_send_ack(s, m, buf);
@@ -207,7 +207,7 @@ static int manager_send_sms (struct mansession* s, const struct message* m)
 }
 
 #/* */
-EXPORT_DEF void manager_event_sent(const char * devname, const char * type, const void * id, const char * result)
+EXPORT_DEF void manager_event_sent_notify(const char * devname, const char * type, const void * id, const char * result)
 {
 	char buf[40];
 	snprintf(buf, sizeof(buf), "Datacard%sStatus", type);
@@ -260,31 +260,15 @@ EXPORT_DEF void manager_event_new_ussd (const char * devname, char* message)
 	ast_free (buf);
 }
 
-/*!
- * \brief Send a DatacardNewUSSD event to the manager
- * This function splits the message in multiple lines, so multi-line
- * USSD messages can be send over the manager API.
- * \param pvt a pvt structure
- * \param message a null terminated buffer containing the message
- */
-
-EXPORT_DEF void manager_event_new_ussd_base64 (const char * devname, char* message)
-{
-        manager_event (EVENT_FLAG_CALL, "DatacardNewUSSDBase64",
-                "Device: %s\r\n"
-                "Message: %s\r\n",
-                devname, message
-        );
-}
 
 #/* */
-EXPORT_DEF void manager_event_new_cmgr(const char * devname, const char * pdu_or_data)
+EXPORT_DEF void manager_event_message(const char * event, const char * devname, const char * message)
 {
-	manager_event (EVENT_FLAG_CALL, "DatacardNewCMGR",
+	manager_event (EVENT_FLAG_CALL, event,
 		"Device: %s\r\n"
 		"Message: %s\r\n",
 		devname, 
-		pdu_or_data
+		message
 	);
 }
 
