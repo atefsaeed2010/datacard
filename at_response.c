@@ -256,7 +256,7 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 				pvt_try_restate(pvt);
 
 #ifdef BUILD_MANAGER
-				manager_event_sent(PVT_ID(pvt), "SMS", task, "Sent");
+				manager_event_sent_notify(PVT_ID(pvt), "SMS", task, "Sent");
 #endif /* BUILD_MANAGER */
 				/* TODO: move to +CMGS: handler */
 				ast_verb (3, "[%s] Successfully sent SMS message %p\n", PVT_ID(pvt), task);
@@ -269,7 +269,7 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 
 			case CMD_AT_CUSD:
 #ifdef BUILD_MANAGER
-				manager_event_sent(PVT_ID(pvt), "USSD", task, "Sent");
+				manager_event_sent_notify(PVT_ID(pvt), "USSD", task, "Sent");
 #endif /* BUILD_MANAGER */
 				ast_verb (3, "[%s] Successfully sent USSD %p\n", PVT_ID(pvt), task);
 				ast_log (LOG_NOTICE, "[%s] Successfully sent USSD %p\n", PVT_ID(pvt), task);
@@ -503,7 +503,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 				pvt_try_restate(pvt);
 
 #ifdef BUILD_MANAGER
-				manager_event_sent(PVT_ID(pvt), "SMS", task, "NotSent");
+				manager_event_sent_notify(PVT_ID(pvt), "SMS", task, "NotSent");
 #endif /* BUILD_MANAGER */
 				ast_verb (3, "[%s] Error sending SMS message %p\n", PVT_ID(pvt), task);
 				ast_log (LOG_ERROR, "[%s] Error sending SMS message %p\n", PVT_ID(pvt), task);
@@ -524,7 +524,7 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 
 			case CMD_AT_CUSD:
 #ifdef BUILD_MANAGER
-				manager_event_sent(PVT_ID(pvt), "USSD", task, "NotSent");
+				manager_event_sent_notify(PVT_ID(pvt), "USSD", task, "NotSent");
 #endif /* BUILD_MANAGER */
 				ast_verb (3, "[%s] Error sending USSD %p\n", PVT_ID(pvt), task);
 				ast_log (LOG_ERROR, "[%s] Error sending USSD %p\n", PVT_ID(pvt), task);
@@ -1203,7 +1203,7 @@ static int at_response_cmgr (struct pvt* pvt, const char * str, size_t len)
 
 	const struct at_queue_cmd * ecmd = at_queue_head_cmd (pvt);
 
-	manager_event_new_cmgr(PVT_ID(pvt), str);
+	manager_event_message("DatacardNewCMGR", PVT_ID(pvt), str);
 	
 	if (ecmd)
 	{
@@ -1322,7 +1322,7 @@ static int at_response_sms_prompt (struct pvt* pvt)
  * \retval -1 error
  */
 
-static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
+static int at_response_cusd (struct pvt * pvt, char * str, size_t len)
 {
 	static const char * const types[] = {
 		"USSD Notify",
@@ -1342,6 +1342,8 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 	str_encoding_t	ussd_encoding;
 	char		typebuf[2];
 	const char*	typestr;
+
+	manager_event_message("DatacardNewCUSD", PVT_ID(pvt), str);
 
 	if (at_parse_cusd (str, &type, &cusd, &dcs))
 	{
@@ -1381,7 +1383,7 @@ static int at_response_cusd (struct pvt* pvt, char* str, size_t len)
 #ifdef BUILD_MANAGER
 	// TODO: pass type
 	manager_event_new_ussd(PVT_ID(pvt), cusd);
-	manager_event_new_ussd_base64(PVT_ID(pvt), text_base64);
+	manager_event_message("DatacardNewUSSDBase64", PVT_ID(pvt), text_base64);
 #endif
 
 	{
