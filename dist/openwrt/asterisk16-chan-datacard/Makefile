@@ -8,9 +8,9 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=asterisk16-chan-datacard
-PKG_REV:=306
+PKG_REV:=310
 PKG_VERSION:=1.0.r$(PKG_REV)
-PKG_RELEASE:=193
+PKG_RELEASE:=198
 
 #PKG_SOURCE_URL:=http://datacard.googlecode.com/svn/trunk/
 #PKG_SOURCE_VERSION:=$(PKG_RELEASE)
@@ -18,7 +18,7 @@ PKG_RELEASE:=193
 # or 
 PKG_SOURCE:=chan_datacard-$(PKG_VERSION).tgz
 PKG_SOURCE_URL=http://datacard.googlecode.com/files/
-PKG_MD5SUM:=644409940187f9c9981280c2c78d0c47
+PKG_MD5SUM:=8cff8433f8f3ff67bd1f19d0384671f1
 
 PKG_SOURCE_SUBDIR:=chan_datacard-$(PKG_VERSION)
 PKG_BUILD_DIR=$(BUILD_DIR)/$(PKG_SOURCE_SUBDIR)
@@ -33,7 +33,7 @@ define Package/asterisk16-chan-datacard
 	CATEGORY:=Network
 	URL:=http://www.asterisk.org/
 	MAINTAINER:=Hans Zandbelt <hans.zandbelt@gmail.com>
-	DEPENDS:= +asterisk16 +libiconv
+	DEPENDS:= +asterisk16 +libiconv-full
 	TITLE:=Huawei UMTS 3G datacards support
 endef
 
@@ -44,7 +44,7 @@ endef
 MAKE_ARGS:= \
 	CC="$(TARGET_CC)" \
 	LD="$(TARGET_CC)" \
-	CFLAGS="$(TARGET_CFLAGS) -DLOW_MEMORY $(TARGET_CPPFLAGS) -I$(STAGING_DIR)/usr/lib/libiconv/include -I$(BUILD_DIR)/$(WITH_ASTERISK)/include -DHAVE_CONFIG_H -I." \
+	CFLAGS="$(TARGET_CFLAGS) -DLOW_MEMORY $(TARGET_CPPFLAGS) -I$(STAGING_DIR)/usr/lib/libiconv-full/include -I$(BUILD_DIR)/$(WITH_ASTERISK)/include -DHAVE_CONFIG_H -I." \
 	LDFLAGS="$(TARGET_LDFLAGS)" \
 	DESTDIR="$(PKG_INSTALL_DIR)/usr/lib/asterisk/modules"
 
