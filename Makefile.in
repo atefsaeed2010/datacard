@@ -26,7 +26,8 @@ HEADERS = app.h at_command.h at_parse.h at_queue.h at_read.h at_response.h \
 tools_HEADERS = tools/tty.h
 
 EXTRA_DIST = BUGS COPYRIGHT.txt LICENSE.txt README.txt TODO.txt INSTALL \
-	Makefile.in asteriskforum config.h.in configure.in stamp-h.in etc
+	Makefile.in asteriskforum config.h.in configure.in stamp-h.in etc \
+	dist
 
 BUILD_TOOLS = configure config.sub install-sh config.guess
 
