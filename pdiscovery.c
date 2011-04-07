@@ -18,6 +18,7 @@
 #include "at_read.h"			/* at_wait() at_read() at_read_result_iov() at_read_result_classification() */
 #include "chan_datacard.h"		/* opentty() closetty() */
 
+/* timeout for port readering milliseconds */
 #define PDISCOVERY_TIMEOUT		500
 
 enum INTERFACE_TYPE {
@@ -37,6 +38,11 @@ struct pdiscovery_ports {
 	char		* ports[INTERFACE_TYPE_NUMBERS];
 };
 
+struct pdiscovery_info {
+	char		* imei;
+	char		* imsi;
+};
+
 struct pdiscovery_req {
 	const char	* name;
 	const char	* imei;
@@ -44,6 +50,21 @@ struct pdiscovery_req {
 	char		** dport;
 	char 		** aport;
 };
+
+
+struct cache_item {
+	AST_LIST_ENTRY (cache_item)    entry;
+	char	* port;
+	char	* imei;
+	char	* imsi;
+	int	status;
+	struct timeval validtill;
+};
+
+struct discovery_cache {
+	AST_LIST_HEAD_NOLOCK (, cache_item)  items;
+};
+
 
 
 #define BUILD_NAME(d1, d2, d1len, d2len, out)		\
@@ -60,6 +81,133 @@ static const struct pdiscovery_device device_ids[] = {
 	{ 0x12d1, 0x1001, { 2, 1, 0 } },
 	{ 0x12d1, 0x140c, { 3, 2, 0 } },
 };
+
+static struct discovery_cache cache;
+
+
+#/* */
+static void cache_item_destroy(struct cache_item * item)
+{
+	if(item) {
+		if(item->imsi)
+			ast_free(item->imsi);
+		if(item->imei)
+			ast_free(item->imei);
+		if(item->port)
+			ast_free(item->port);
+		ast_free(item);
+	}
+}
+
+#/* */
+static void cache_item_update(struct cache_item * item, const char * imei, const char * imsi, int status)
+{
+	if(item->imsi)
+		ast_free(item->imsi);
+	if(item->imei)
+		ast_free(item->imei);
+
+	if(imei)
+		item->imei = ast_strdup(imei);
+	if(imsi)
+		item->imsi = ast_strdup(imsi);
+
+	item->status = status;
+
+	item->validtill = ast_tvnow();
+	item->validtill.tv_sec += CONF_GLOBAL(discovery_interval);
+}
+
+#/* */
+static struct cache_item * cache_item_create(const char * port, const char * imei, const char * imsi, int status)
+{
+	struct cache_item * item = ast_calloc(1, sizeof(*item));
+	if(item) {
+		item->port = ast_strdup(port);
+		if(item->port) {
+			cache_item_update(item, imei, imsi, status);
+		} else {
+			cache_item_destroy(item);
+			item = 0;
+		}
+	}
+	
+	return item;
+}
+
+
+#/* */
+static struct cache_item * cache_search(struct discovery_cache * cache, const char * port)
+{
+	struct cache_item * item;
+	
+	struct timeval now = ast_tvnow();
+	
+	AST_LIST_TRAVERSE_SAFE_BEGIN(&cache->items, item, entry) {
+		if(strcmp(item->port, port) == 0) {
+			if(ast_tvcmp(now, item->validtill) < 0) {
+				return item;
+			} else {
+				// remove item
+				AST_LIST_REMOVE_CURRENT(entry);
+				cache_item_destroy(item);
+				break;
+			}
+		}
+	}
+	AST_LIST_TRAVERSE_SAFE_END;
+	
+	return NULL;
+}
+
+
+#/* */
+static int cache_lookup(struct discovery_cache * cache, const char * port, struct pdiscovery_req * req, struct pdiscovery_info * info, int * status)
+{
+	int found = 0;
+	struct cache_item * item = cache_search(cache, port);
+	if(item) {
+		info->imei = item->imei ? ast_strdup(item->imei) : 0;
+		info->imsi = item->imsi ? ast_strdup(item->imsi) : 0;
+		found = (!req->imei || !req->imei[0] || item->imei) && (!req->imsi || !req->imsi[0] || item->imsi);
+		if(found) {
+			*status = item->status;
+		}
+	}
+	return found;
+}
+
+
+static void cache_update(struct discovery_cache * cache, const char * port, const struct pdiscovery_info * info, int status)
+{
+	struct cache_item * item = cache_search(cache, port);
+	if(item) {
+		cache_item_update(item, info->imei, info->imsi, status);
+	} else {
+		item = cache_item_create(port, info->imei, info->imsi, status);
+		AST_LIST_INSERT_TAIL(&cache->items, item, entry);
+	}
+}
+
+
+#/* */
+static void cache_init(struct discovery_cache * cache)
+{
+	/* TODO: place lock init when locking becomes required */
+	
+	AST_LIST_HEAD_INIT_NOLOCK(&cache->items);
+}
+
+#/* */
+static void cache_fini(struct discovery_cache * cache)
+{
+	struct cache_item * item;
+	AST_LIST_TRAVERSE_SAFE_BEGIN(&cache->items, item, entry) {
+		AST_LIST_REMOVE_CURRENT(entry);
+		cache_item_destroy(item);
+	}
+	AST_LIST_TRAVERSE_SAFE_END;	
+}
 
 #/* */
 static int pdiscovery_get_id(const char * name, int len, const char * filename, unsigned * integer)
@@ -254,7 +402,7 @@ static void pdiscovery_handle_cimi(const char * devname, char * str, char ** ims
 }
 
 #/* return non-zero on done with command */
-static int pdiscovery_handle_response(struct pdiscovery_req * req, const struct iovec iov[2], int iovcnt, char * info[2])
+static int pdiscovery_handle_response(struct pdiscovery_req * req, const struct iovec iov[2], int iovcnt, struct pdiscovery_info * info)
 {
 	int done = 0;
 	char * str;
@@ -275,16 +423,16 @@ static int pdiscovery_handle_response(struct pdiscovery_req * req, const struct 
 
 		ast_debug(4, "[%s discovery] < %s\n", req->name, str);
 		done = strstr(str, "OK") != NULL || strstr(str, "ERROR") != NULL;
-		if(req->imei && req->imei[0])
-			str = pdiscovery_handle_ati(req->name, str, &info[0]);
-		if(req->imsi && req->imsi[0])
-			pdiscovery_handle_cimi(req->name, str, &info[1]);
+		if(req->imei && req->imei[0] && !info->imei)
+			str = pdiscovery_handle_ati(req->name, str, &info->imei);
+		if(req->imsi && req->imsi[0] && !info->imsi)
+			pdiscovery_handle_cimi(req->name, str, &info->imsi);
 	}
 	return done;
 }
 
 #/* return zero on sucess */
-static int pdiscovery_do_cmd(struct pdiscovery_req * req, int fd, const char * name, const char * cmd, unsigned length, char * info[2])
+static int pdiscovery_do_cmd(struct pdiscovery_req * req, int fd, const char * name, const char * cmd, unsigned length, struct pdiscovery_info * info)
 {
 	int timeout;
 	char buf[2*1024];
@@ -293,7 +441,7 @@ static int pdiscovery_do_cmd(struct pdiscovery_req * req, int fd, const char * n
 	int iovcnt;
 	size_t wrote;
 
-	ast_debug(3, "[%s discovery] use %s for IMEI/IMSI discovery\n", req->name, name);
+	ast_debug(4, "[%s discovery] use %s for IMEI/IMSI discovery\n", req->name, name);
 
 	clean_read_data(req->name, fd);
 	wrote = write_all(fd, cmd, length);
@@ -301,7 +449,7 @@ static int pdiscovery_do_cmd(struct pdiscovery_req * req, int fd, const char * n
 		timeout = PDISCOVERY_TIMEOUT;
 		rb_init(&rb, buf, sizeof (buf));
 		while(timeout > 0 && at_wait(fd, &timeout) != 0) {
-			iovcnt = at_read (fd, name, &rb);
+			iovcnt = at_read(fd, name, &rb);
 			if(iovcnt > 0) {
 				iovcnt = rb_read_all_iov(&rb, iov);
 				if(pdiscovery_handle_response(req, iov, iovcnt, info))
@@ -318,46 +466,77 @@ static int pdiscovery_do_cmd(struct pdiscovery_req * req, int fd, const char * n
 	return -1;
 }
 
-#/* return zero on success */
-static int pdiscovery_read_info(struct pdiscovery_req * req, struct pdiscovery_ports * ports, char * info[2])
+
+#/* return non-zero on fail */
+static int pdiscovery_get_info(const char * port, struct pdiscovery_req * req, struct pdiscovery_info * info)
 {
 	static const struct {
 		const char	* cmd;
 		unsigned	length;
 	} cmds[] = {
-		{ "AT+CIMI\r", 8 },
-		{ "ATI\r", 4 },
-		{ "ATI; +CIMI\r" , 11 },
+		{ "AT+CIMI\r", 8 },		/* IMSI */
+		{ "ATI\r", 4 },			/* IMEI */
+		{ "ATI; +CIMI\r" , 11 },	/* IMSI + IMEI */
+	};
+
+	static const int want_map[2][2] = {
+		{ 2, 0 },	// want_imei = 0
+		{ 1, 2 }	// want_imei = 1
 	};
 
 	int fail = -1;
-	char * dlock, * clock;
-	int fd;
+	char * lock_file;
+
+	int fd = opentty(port, &lock_file);
+	if(fd >= 0) {
+		unsigned want_imei = req->imei && req->imei[0] && ! info->imei;
+		unsigned want_imsi = req->imsi && req->imsi[0] && ! info->imsi;
+		unsigned cmd = want_map[want_imei][want_imsi];
+		
+		/* clean queue first ? */
+		fail = pdiscovery_do_cmd(req, fd, port, cmds[cmd].cmd, cmds[cmd].length, info);
+		closetty(fd, &lock_file);
+	}
+	
+	return fail;
+}
+
+#/* return non-zero on fail */
+static int pdiscovery_get_info_cached(const char * port, struct pdiscovery_req * req, struct pdiscovery_info * info)
+{
+	int fail;
+	int found = cache_lookup(&cache, port, req, info, &fail);
+	if(!found) {
+		fail = pdiscovery_get_info(port, req, info);
+		cache_update(&cache, port, info, fail);
+	} else {
+		ast_debug(4, "[%s discovery] %s use cached IMEI %s IMSI %s\n", req->name, port, S_OR(info->imei, ""), S_OR(info->imsi, ""));
+	}
+		
+	return fail;
+}
+
+#/* return zero on success */
+static int pdiscovery_read_info(struct pdiscovery_req * req, struct pdiscovery_ports * ports, struct pdiscovery_info * info)
+{
+
+	char * dlock;
+	int fail = -1;
 	const char * cport = ports->ports[INTERFACE_TYPE_COM];
 	const char * dport = ports->ports[INTERFACE_TYPE_DATA];
 
-	unsigned cmd = (((req->imei != NULL && req->imei[0]) << 1) | (req->imsi != NULL && req->imsi[0])) - 1;
+
 	if(cport && strcmp(cport, dport) != 0) {
 		int pid = lock_try(dport, &dlock);
 		if(pid == 0) {
-			fd = opentty(cport, &clock);
-			if(fd >= 0) {
-				/* clean queue first ? */
-				fail = pdiscovery_do_cmd(req, fd, cport, cmds[cmd].cmd, cmds[cmd].length, info);
-				closetty(fd, &clock);
-			}
+			fail = pdiscovery_get_info_cached(cport, req, info);
 			closetty(-1, &dlock);
 		} else {
-			ast_debug(4, "[%s discovery] %s already used by process %d\n", req->name, dport, pid);
+			ast_debug(4, "[%s discovery] %s already used by process %d, skipped\n", req->name, dport, pid);
 //			ast_log (LOG_WARNING, "[%s discovery] %s already used by process %d\n", devname, dport, pid);
 		}
 	} else {
-		fd = opentty(dport, &dlock);
-		if(fd >= 0) {
-			/* clean queue first ? */
-			fail = pdiscovery_do_cmd(req, fd, dport, cmds[cmd].cmd, cmds[cmd].length, info);
-			closetty(fd, &dlock);
-		}
+		fail = pdiscovery_get_info_cached(dport, req, info);
 	}
 	return fail;
 }
@@ -366,14 +545,14 @@ static int pdiscovery_read_info(struct pdiscovery_req * req, struct pdiscovery_p
 #/* */
 static int pdiscovery_check_req(struct pdiscovery_ports * ports, struct pdiscovery_req * req)
 {
-	char * info[2] = { 0, 0 };
+	struct pdiscovery_info info = { 0, 0 };
 
 	int match = 0;
-	if(pdiscovery_read_info(req, ports, info) == 0) {
+	if(pdiscovery_read_info(req, ports, &info) == 0) {
 
-		match = ((req->imei == NULL || req->imei[0] == 0) || (info[0] && strcmp(req->imei, info[0]) == 0))
+		match = ((req->imei == NULL || req->imei[0] == 0) || (info.imei && strcmp(req->imei, info.imei) == 0))
 			&&
-			    ((req->imsi == NULL || req->imsi[0] == 0) || (info[1] && strcmp(req->imsi, info[1]) == 0));
+			    ((req->imsi == NULL || req->imsi[0] == 0) || (info.imsi && strcmp(req->imsi, info.imsi) == 0));
 		if(match) {
 			*req->dport = ports->ports[INTERFACE_TYPE_DATA];
 			*req->aport = ports->ports[INTERFACE_TYPE_VOICE];
@@ -381,11 +560,16 @@ static int pdiscovery_check_req(struct pdiscovery_ports * ports, struct pdiscove
 		ast_debug(4, "[%s discovery] %smatched rIMEI=%s fIMEI=%s rIMSI=%s fIMSI=%s\n",
 			req->name,
 			match ? "" : "un" , 
-			req->imei , S_OR(info[0], ""),
-			req->imsi,  S_OR(info[1], "")
+			req->imei , S_OR(info.imei, ""),
+			req->imsi,  S_OR(info.imsi, "")
 			);
 	}
 
+	if(info.imei)
+		ast_free(info.imei);
+	if(info.imsi)
+		ast_free(info.imsi);
+	
 	return match;
 }
 #endif /* STANDALONE_GLOBAL_SEARCH */
@@ -451,6 +635,7 @@ static int pdiscovery_req(const char * name, int len, struct pdiscovery_req * re
 }
 
 
+
 #/* */
 EXPORT_DEF int pdiscovery_lookup(const char * devname, const char * imei, const char * imsi, char ** dport, char ** aport)
 {
@@ -468,23 +653,14 @@ EXPORT_DEF int pdiscovery_lookup(const char * devname, const char * imei, const 
 	return pdiscovery_req(sys_bus_usb_devices, strlen(sys_bus_usb_devices), &req);
 }
 
-#if 0
 #/* */
-EXPORT_DEF int pdiscovery_lock(pdiscovery_t * pdisc, const char * dport)
+EXPORT_DEF void pdiscovery_init()
 {
-	return 0;
+	cache_init(&cache);
 }
 
 #/* */
-EXPORT_DEF int pdiscovery_unlock(pdiscovery_t * pdisc, const char * dport)
+EXPORT_DEF void pdiscovery_fini()
 {
-	return 0;
+	cache_fini(&cache);
 }
-
-#/* */
-EXPORT_DEF int pdiscovery_purge(pdiscovery_t * pdisc)
-{
-
-	return 0;
-}
-#endif

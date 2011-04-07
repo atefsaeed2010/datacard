@@ -44,7 +44,7 @@ bad:
 EXPORT_DEF struct cpvt * cpvt_alloc(struct pvt * pvt, int call_idx, unsigned dir, call_state_t state)
 {
 	int filedes[2];
-	struct cpvt* cpvt = NULL;
+	struct cpvt * cpvt = NULL;
 
 	if(init_pipe(filedes) == 0)
 	{
