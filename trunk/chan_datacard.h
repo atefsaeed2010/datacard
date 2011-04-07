@@ -231,9 +231,20 @@ EXPORT_DECL void pvt_try_restate(struct pvt * pvt);
 EXPORT_DECL int opentty (const char* dev, char ** lockfile);
 EXPORT_DECL void closetty(int fd, char ** lockfname);
 EXPORT_DECL int lock_try(const char * devname, char ** lockname);
-EXPORT_DECL struct pvt* find_device (const char* name);
-EXPORT_DECL struct pvt* find_device_ext (const char* name, const char ** reason);
-EXPORT_DECL struct pvt * find_device_by_resource(const char * resource, int opts, const struct ast_channel * requestor, int * exists);
+EXPORT_DECL struct pvt * find_device_ex(struct public_state * state, const char * name);
+
+INLINE_DECL struct pvt * find_device (const char* name)
+{
+	return find_device_ex(gpublic, name);
+}
+
+EXPORT_DECL struct pvt * find_device_ext(const char* name, const char ** reason);
+EXPORT_DECL struct pvt * find_device_by_resource_ex(struct public_state * state, const char * resource, int opts, const struct ast_channel * requestor, int * exists);
+
+INLINE_DECL struct pvt * find_device_by_resource(const char * resource, int opts, const struct ast_channel * requestor, int * exists)
+{
+	return find_device_by_resource_ex(gpublic, resource, opts, requestor, exists);
+}
 
 EXPORT_DECL struct ast_module * self_module();
 
