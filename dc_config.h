@@ -11,6 +11,7 @@
 #include "mutils.h"
 
 #define CONFIG_FILE		"datacard.conf"
+#define DEVNAMELEN		31
 #define IMEI_SIZE		15
 #define IMSI_SIZE		15
 #define DEVPATHLEN		256
@@ -103,7 +104,7 @@ typedef struct dc_gconfig
 typedef struct dc_uconfig
 {
 	/* unique settings */
-	char			id[31];				/*!< id from datacard.conf */
+	char			id[DEVNAMELEN];			/*!< id from datacard.conf */
 	char			audio_tty[DEVPATHLEN];		/*!< tty for audio connection */
 	char			data_tty[DEVPATHLEN];		/*!< tty for AT commands */
 	char			imei[IMEI_SIZE+1];		/*!< search device by imei */

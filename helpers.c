@@ -15,7 +15,6 @@
 #include <signal.h>				/* SIGURG */
 
 #include <asterisk.h>
-#include <asterisk/lock.h>			/* AST_RWLIST_RDLOCK AST_RWLIST_TRAVERSE AST_RWLIST_UNLOCK */
 #include <asterisk/callerid.h>			/*  AST_PRES_* */
 
 #include "helpers.h"

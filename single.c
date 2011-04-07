@@ -20,3 +20,5 @@
 #include "ringbuffer.c"
 #include "dc_config.c"
 #include "pdu.c"
+#include "mixbuffer.c"
+#include "pdiscovery.c"

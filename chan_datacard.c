@@ -63,10 +63,14 @@ ASTERISK_FILE_VERSION(__FILE__, "$Rev: " PACKAGE_REVISION " $")
 #include "manager.h"
 #include "channel.h"			/* channel_queue_hangup() */
 #include "dc_config.h"			/* dc_uconfig_fill() dc_gconfig_fill() dc_sconfig_fill()  */
-#include "pdiscovery.h"			/* pdiscovery_lookup()  */
+#include "pdiscovery.h"			/* pdiscovery_lookup() pdiscovery_init() pdiscovery_fini() */
 
 EXPORT_DEF const char * const dev_state_strs[4] = { "stop", "restart", "remove", "start" };
 EXPORT_DEF public_state_t * gpublic;
+
+
+static int public_state_init(struct public_state * state);
+
 
 /*!
  * Get status of the datacard. It might happen that the device disappears
@@ -500,23 +504,35 @@ static void pvt_stop(struct pvt * pvt)
 //	pvt->current_state = DEV_STATE_STOPPED;
 }
 
-#/* */
+#/* called with pvt lock hold */
 static int pvt_discovery(struct pvt * pvt)
 {
-	int not_resolved = 0;
+	char devname[DEVNAMELEN];
+	char imei[IMEI_SIZE+1];
+	char imsi[IMSI_SIZE+1];
+	
+	int resolved = 1;
 	if(CONF_UNIQ(pvt, data_tty)[0] == 0 && CONF_UNIQ(pvt, audio_tty)[0] == 0) {
 		char * data_tty;
 		char * audio_tty;
 
-		ast_debug(3, "[%s] Trying port discovery for%s%s%s%s\n", 
+		ast_copy_string(devname, PVT_ID(pvt), sizeof(devname));
+		ast_copy_string(imei, CONF_UNIQ(pvt, imei), sizeof(imei));
+		ast_copy_string(imsi, CONF_UNIQ(pvt, imsi), sizeof(imsi));
+
+		ast_debug(3, "[%s] Trying ports discovery for%s%s%s%s\n", 
 			PVT_ID(pvt), 
-			CONF_UNIQ(pvt, imei)[0] == 0 ? "" : " IMEI ", 
-			CONF_UNIQ(pvt, imei), 
-			CONF_UNIQ(pvt, imsi)[0] == 0 ? "" : " IMSI ", 
-			CONF_UNIQ(pvt, imsi)
+			imei[0] == 0 ? "" : " IMEI ", 
+			imei, 
+			imsi[0] == 0 ? "" : " IMSI ", 
+			imsi
 			);
-		not_resolved = ! pdiscovery_lookup(PVT_ID(pvt), CONF_UNIQ(pvt, imei), CONF_UNIQ(pvt, imsi), &data_tty, &audio_tty);
-		if(!not_resolved) {
+		ast_mutex_unlock (&pvt->lock);
+//sleep(10);
+		resolved = pdiscovery_lookup(devname, imei, imsi, &data_tty, &audio_tty);
+		ast_mutex_lock (&pvt->lock);
+		
+		if(resolved) {
 			ast_copy_string (PVT_STATE(pvt, data_tty),  data_tty,  sizeof (PVT_STATE(pvt, data_tty)));
 			ast_copy_string (PVT_STATE(pvt, audio_tty), audio_tty, sizeof (PVT_STATE(pvt, audio_tty)));
 
@@ -524,19 +540,27 @@ static int pvt_discovery(struct pvt * pvt)
 			ast_free(data_tty);
 			ast_verb (3, "[%s]%s%s%s%s found on data_tty=%s audio_tty=%s\n", 
 				PVT_ID(pvt), 
-				CONF_UNIQ(pvt, imei)[0] == 0 ? "" : " IMEI ", 
-				CONF_UNIQ(pvt, imei), 
-				CONF_UNIQ(pvt, imsi)[0] == 0 ? "" : " IMSI ", 
-				CONF_UNIQ(pvt, imsi),
+				imei[0] == 0 ? "" : " IMEI ", 
+				imei, 
+				imsi[0] == 0 ? "" : " IMSI ", 
+				imsi,
 				PVT_STATE(pvt, data_tty), 
 				PVT_STATE(pvt, audio_tty)
 				);
+		} else {
+			ast_debug(3, "[%s] Not found ports for%s%s%s%s\n", 
+				PVT_ID(pvt), 
+				imei[0] == 0 ? "" : " IMEI ", 
+				imei, 
+				imsi[0] == 0 ? "" : " IMSI ", 
+				imsi
+				);		
 		}
 	} else {
 		ast_copy_string (PVT_STATE(pvt, data_tty),  CONF_UNIQ(pvt, data_tty), sizeof (PVT_STATE(pvt, data_tty)));
 		ast_copy_string (PVT_STATE(pvt, audio_tty), CONF_UNIQ(pvt, audio_tty), sizeof (PVT_STATE(pvt, audio_tty)));
 	}
-	return not_resolved;
+	return ! resolved;
 }
 
 #/* */
@@ -601,12 +625,16 @@ static void * do_discovery(void * arg)
 {
 	struct public_state * state = (struct public_state *) arg;
 	struct pvt * pvt;
-
+	struct pvt * remove;
+	AST_LIST_HEAD_NOLOCK(, pvt) removed;
+	
+	AST_LIST_HEAD_INIT_NOLOCK(&removed);
+			
 	while(state->unloading_flag == 0)
 	{
-		/* TODO: unlock when IMEI/IMSI discovery */
-		AST_RWLIST_RDLOCK (&state->devices);
-		AST_RWLIST_TRAVERSE_SAFE_BEGIN (&state->devices, pvt, entry)
+		/* read lock for avoid deadlock when IMEI/IMSI discovery */
+		AST_RWLIST_RDLOCK(&state->devices);
+		AST_RWLIST_TRAVERSE(&state->devices, pvt, entry)
 		{
 			ast_mutex_lock (&pvt->lock);
 
@@ -623,18 +651,33 @@ static void * do_discovery(void * arg)
 						break;
 					case DEV_STATE_REMOVED:
 						pvt_stop(pvt);
-						AST_RWLIST_REMOVE_CURRENT(entry);
-						pvt_free(pvt);
-						continue;
+						AST_LIST_INSERT_TAIL(&removed, pvt, entry);
+						break;
 					case DEV_STATE_STOPPED:
 						pvt_stop(pvt);
 				}
 			}
 			ast_mutex_unlock (&pvt->lock);
 		}
-		AST_RWLIST_TRAVERSE_SAFE_END;
 		AST_RWLIST_UNLOCK (&state->devices);
 
+		/* actual device removal */
+		AST_RWLIST_WRLOCK(&state->devices);
+		while((remove = AST_RWLIST_REMOVE_HEAD(&removed, entry)))
+		{
+			AST_RWLIST_TRAVERSE_SAFE_BEGIN(&state->devices, pvt, entry)
+			{
+				if(pvt == remove)
+				{
+					ast_mutex_lock(&pvt->lock);
+					AST_RWLIST_REMOVE_CURRENT(entry);
+					pvt_free(pvt);
+				}
+			}
+			AST_RWLIST_TRAVERSE_SAFE_END;
+		}
+		AST_RWLIST_UNLOCK(&state->devices);
+		
 		/* Go to sleep (only if we are not unloading) */
 		if (state->unloading_flag == 0)
 		{
@@ -842,12 +885,12 @@ static int can_dial(struct pvt* pvt, int opts, const struct ast_channel * reques
 }
 
 #/* return locked pvt or NULL */
-EXPORT_DEF struct pvt * find_device(const char * name)
+EXPORT_DEF struct pvt * find_device_ex(struct public_state * state, const char * name)
 {
 	struct pvt * pvt;
 
-	AST_RWLIST_RDLOCK (&gpublic->devices);
-	AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
+	AST_RWLIST_RDLOCK(&state->devices);
+	AST_RWLIST_TRAVERSE(&state->devices, pvt, entry)
 	{
 		ast_mutex_lock (&pvt->lock);
 		if (!strcmp (PVT_ID(pvt), name))
@@ -856,7 +899,7 @@ EXPORT_DEF struct pvt * find_device(const char * name)
 		}
 		ast_mutex_unlock (&pvt->lock);
 	}
-	AST_RWLIST_UNLOCK (&gpublic->devices);
+	AST_RWLIST_UNLOCK(&state->devices);
 
 	return pvt;
 }
@@ -884,7 +927,7 @@ EXPORT_DEF struct pvt * find_device_ext (const char * name, const char ** reason
 }
 
 #/* like find_device but for resource spec; return locked! pvt or NULL */
-EXPORT_DEF struct pvt * find_device_by_resource(const char * resource, int opts, const struct ast_channel * requestor, int * exists)
+EXPORT_DEF struct pvt * find_device_by_resource_ex(struct public_state * state, const char * resource, int opts, const struct ast_channel * requestor, int * exists)
 {
 	int group;
 	size_t i;
@@ -896,7 +939,7 @@ EXPORT_DEF struct pvt * find_device_by_resource(const char * resource, int opts,
 
 	*exists = 0;
 	/* Find requested device and make sure it's connected and initialized. */
-	AST_RWLIST_RDLOCK (&gpublic->devices);
+	AST_RWLIST_RDLOCK(&state->devices);
 
 	if (((resource[0] == 'g') || (resource[0] == 'G')) && ((resource[1] >= '0') && (resource[1] <= '9')))
 	{
@@ -904,7 +947,7 @@ EXPORT_DEF struct pvt * find_device_by_resource(const char * resource, int opts,
 		group = (int) strtol (&resource[1], (char**) NULL, 10);
 		if (errno != EINVAL)
 		{
-			AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
+			AST_RWLIST_TRAVERSE(&state->devices, pvt, entry)
 			{
 				ast_mutex_lock (&pvt->lock);
 
@@ -927,17 +970,17 @@ EXPORT_DEF struct pvt * find_device_by_resource(const char * resource, int opts,
 		group = (int) strtol (&resource[1], (char**) NULL, 10);
 		if (errno != EINVAL)
 		{
-			ast_mutex_lock (&gpublic->round_robin_mtx);
+			ast_mutex_lock(&state->round_robin_mtx);
 
 			/* Generate a list of all availible devices */
-			j = ITEMS_OF (gpublic->round_robin);
+			j = ITEMS_OF (state->round_robin);
 			c = 0; last_used = 0;
-			AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
+			AST_RWLIST_TRAVERSE(&state->devices, pvt, entry)
 			{
 				ast_mutex_lock (&pvt->lock);
 				if (CONF_SHARED(pvt, group) == group)
 				{
-					gpublic->round_robin[c] = pvt;
+					state->round_robin[c] = pvt;
 					if (pvt->group_last_used == 1)
 					{
 						pvt->group_last_used = 0;
@@ -963,7 +1006,7 @@ EXPORT_DEF struct pvt * find_device_by_resource(const char * resource, int opts,
 					j = 0;
 				}
 
-				pvt = gpublic->round_robin[j];
+				pvt = state->round_robin[j];
 				*exists = 1;
 
 				ast_mutex_lock (&pvt->lock);
@@ -976,22 +1019,22 @@ EXPORT_DEF struct pvt * find_device_by_resource(const char * resource, int opts,
 				ast_mutex_unlock (&pvt->lock);
 			}
 
-			ast_mutex_unlock (&gpublic->round_robin_mtx);
+			ast_mutex_unlock(&state->round_robin_mtx);
 		}
 	}
 	else if (((resource[0] == 'p') || (resource[0] == 'P')) && resource[1] == ':')
 	{
-		ast_mutex_lock (&gpublic->round_robin_mtx);
+		ast_mutex_lock(&state->round_robin_mtx);
 
 		/* Generate a list of all availible devices */
-		j = ITEMS_OF (gpublic->round_robin);
+		j = ITEMS_OF(state->round_robin);
 		c = 0; last_used = 0;
-		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
+		AST_RWLIST_TRAVERSE(&state->devices, pvt, entry)
 		{
 			ast_mutex_lock (&pvt->lock);
 			if (!strcmp (pvt->provider_name, &resource[2]))
 			{
-				gpublic->round_robin[c] = pvt;
+				state->round_robin[c] = pvt;
 				if (pvt->prov_last_used == 1)
 				{
 					pvt->prov_last_used = 0;
@@ -1017,7 +1060,7 @@ EXPORT_DEF struct pvt * find_device_by_resource(const char * resource, int opts,
 				j = 0;
 			}
 
-			pvt = gpublic->round_robin[j];
+			pvt = state->round_robin[j];
 			*exists = 1;
 
 			ast_mutex_lock (&pvt->lock);
@@ -1030,22 +1073,23 @@ EXPORT_DEF struct pvt * find_device_by_resource(const char * resource, int opts,
 			ast_mutex_unlock (&pvt->lock);
 		}
 
-		ast_mutex_unlock (&gpublic->round_robin_mtx);
+		ast_mutex_unlock(&state->round_robin_mtx);
 	}
 	else if (((resource[0] == 's') || (resource[0] == 'S')) && resource[1] == ':')
 	{
-		ast_mutex_lock (&gpublic->round_robin_mtx);
+		ast_mutex_lock(&state->round_robin_mtx);
 
 		/* Generate a list of all availible devices */
-		j = ITEMS_OF (gpublic->round_robin);
+		j = ITEMS_OF(state->round_robin);
 		c = 0; last_used = 0;
 		i = strlen (&resource[2]);
-		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
+
+		AST_RWLIST_TRAVERSE(&state->devices, pvt, entry)
 		{
 			ast_mutex_lock (&pvt->lock);
 			if (!strncmp (pvt->imsi, &resource[2], i))
 			{
-				gpublic->round_robin[c] = pvt;
+				state->round_robin[c] = pvt;
 				if (pvt->sim_last_used == 1)
 				{
 					pvt->sim_last_used = 0;
@@ -1071,7 +1115,7 @@ EXPORT_DEF struct pvt * find_device_by_resource(const char * resource, int opts,
 				j = 0;
 			}
 
-			pvt = gpublic->round_robin[j];
+			pvt = state->round_robin[j];
 			*exists = 1;
 
 			ast_mutex_lock (&pvt->lock);
@@ -1084,11 +1128,11 @@ EXPORT_DEF struct pvt * find_device_by_resource(const char * resource, int opts,
 			ast_mutex_unlock (&pvt->lock);
 		}
 
-		ast_mutex_unlock (&gpublic->round_robin_mtx);
+		ast_mutex_unlock(&state->round_robin_mtx);
 	}
 	else if (((resource[0] == 'i') || (resource[0] == 'I')) && resource[1] == ':')
 	{
-		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
+		AST_RWLIST_TRAVERSE(&state->devices, pvt, entry)
 		{
 			ast_mutex_lock (&pvt->lock);
 			if (!strcmp(pvt->imei, &resource[2]))
@@ -1105,7 +1149,7 @@ EXPORT_DEF struct pvt * find_device_by_resource(const char * resource, int opts,
 	}
 	else
 	{
-		AST_RWLIST_TRAVERSE (&gpublic->devices, pvt, entry)
+		AST_RWLIST_TRAVERSE(&state->devices, pvt, entry)
 		{
 			ast_mutex_lock (&pvt->lock);
 			if (!strcmp (PVT_ID(pvt), resource))
@@ -1121,7 +1165,7 @@ EXPORT_DEF struct pvt * find_device_by_resource(const char * resource, int opts,
 		}
 	}
 
-	AST_RWLIST_UNLOCK (&gpublic->devices);
+	AST_RWLIST_UNLOCK(&state->devices);
 	return found;
 }
 
@@ -1459,14 +1503,14 @@ static int reload_config(public_state_t * state, int recofigure, restate_time_t 
 	dc_sconfig_fill(cfg, "defaults", &config_defaults);
 
 	/* FIXME: deadlock avoid ? */
-	AST_RWLIST_WRLOCK (&state->devices);
-	AST_RWLIST_TRAVERSE (&state->devices, pvt, entry)
+	AST_RWLIST_RDLOCK(&state->devices);
+	AST_RWLIST_TRAVERSE(&state->devices, pvt, entry)
 	{
 		ast_mutex_lock(&pvt->lock);
 		pvt->must_remove = 1;
 		ast_mutex_unlock(&pvt->lock);
 	}
-	AST_RWLIST_UNLOCK (&state->devices);
+	AST_RWLIST_UNLOCK(&state->devices);
 
 	/* now load devices */
 	for (cat = ast_category_browse (cfg, NULL); cat; cat = ast_category_browse (cfg, cat))
@@ -1503,9 +1547,9 @@ static int reload_config(public_state_t * state, int recofigure, restate_time_t 
 						if(pvt)
 						{
 							/* FIXME: deadlock avoid ? */
-							AST_RWLIST_WRLOCK (&state->devices);
-							AST_RWLIST_INSERT_TAIL (&state->devices, pvt, entry);
-							AST_RWLIST_UNLOCK (&state->devices);
+							AST_RWLIST_WRLOCK(&state->devices);
+							AST_RWLIST_INSERT_TAIL(&state->devices, pvt, entry);
+							AST_RWLIST_UNLOCK(&state->devices);
 							reload_now++;
 
 							ast_debug (1, "[%s] Loaded device\n", PVT_ID(pvt));
@@ -1520,8 +1564,8 @@ static int reload_config(public_state_t * state, int recofigure, restate_time_t 
 
 	/* FIXME: deadlock avoid ? */
 	/* schedule removal of devices not listed in config file or disabled */
-	AST_RWLIST_WRLOCK (&state->devices);
-	AST_RWLIST_TRAVERSE (&state->devices, pvt, entry)
+	AST_RWLIST_RDLOCK(&state->devices);
+	AST_RWLIST_TRAVERSE(&state->devices, pvt, entry)
 	{
 		ast_mutex_lock(&pvt->lock);
 		if(pvt->must_remove)
@@ -1551,79 +1595,91 @@ static void devices_destroy(public_state_t * state)
 	struct pvt * pvt;
 
 	/* Destroy the device list */
-	AST_RWLIST_WRLOCK (&state->devices);
-	while((pvt = AST_RWLIST_REMOVE_HEAD (&state->devices, entry)))
+	AST_RWLIST_WRLOCK(&state->devices);
+	while((pvt = AST_RWLIST_REMOVE_HEAD(&state->devices, entry)))
 	{
 		pvt_destroy(pvt);
 	}
-	AST_RWLIST_UNLOCK (&state->devices);
+	AST_RWLIST_UNLOCK(&state->devices);
 }
+
 
 static int load_module()
 {
-	int rv = AST_MODULE_LOAD_DECLINE;
+	int rv;
 
 	gpublic = ast_calloc(1, sizeof(*gpublic));
 	if(gpublic)
 	{
 		pdiscovery_init();
-		
-		AST_RWLIST_HEAD_INIT(&gpublic->devices);
-		ast_mutex_init(&gpublic->discovery_lock);
-		gpublic->discovery_thread = AST_PTHREADT_NULL;
-		ast_mutex_init(&gpublic->round_robin_mtx);
-
-		if(reload_config(gpublic, 0, RESTATE_TIME_NOW, NULL) == 0)
-		{
-			rv = AST_MODULE_LOAD_FAILURE;
-			if(discovery_restart(gpublic) == 0)
-			{
-				/* register our channel type */
-				if(ast_channel_register(&channel_tech) == 0)
-				{
-					cli_register();
-
-#ifdef BUILD_APPLICATIONS
-					app_register();
-#endif
-#ifdef BUILD_MANAGER
-					manager_register();
-#endif
-
-					return AST_MODULE_LOAD_SUCCESS;
-				}
-				else
-				{
-					ast_log (LOG_ERROR, "Unable to register channel class %s\n", "Datacard");
-				}
-				discovery_stop(gpublic);
-			}
-			else
-			{
-				ast_channel_unregister (&channel_tech);
-				ast_log (LOG_ERROR, "Unable to create discovery thread\n");
-			}
-			devices_destroy(gpublic);
-		}
-		else
-		{
-			ast_log (LOG_ERROR, "Errors reading config file " CONFIG_FILE ", Not loading module\n");
-			return AST_MODULE_LOAD_DECLINE;
-		}
-		ast_mutex_destroy(&gpublic->round_robin_mtx);
-		AST_RWLIST_HEAD_DESTROY(&gpublic->devices);
-
-		ast_free(gpublic);
+		rv = public_state_init(gpublic);
+		if(rv != AST_MODULE_LOAD_SUCCESS)
+			ast_free(gpublic);
 	}
 	else
 	{
 		ast_log (LOG_ERROR, "Unable to allocate global state structure\n");
-		return AST_MODULE_LOAD_DECLINE;
+		rv = AST_MODULE_LOAD_DECLINE;
 	}
 	return rv;
 }
 
-static int unload_module()
+#/* */
+static int public_state_init(struct public_state * state)
+{
+	int rv = AST_MODULE_LOAD_DECLINE;
+	
+	AST_RWLIST_HEAD_INIT(&state->devices);
+	ast_mutex_init(&state->discovery_lock);
+
+	state->discovery_thread = AST_PTHREADT_NULL;
+	ast_mutex_init(&state->round_robin_mtx);
+
+	if(reload_config(state, 0, RESTATE_TIME_NOW, NULL) == 0)
+	{
+		rv = AST_MODULE_LOAD_FAILURE;
+		if(discovery_restart(state) == 0)
+		{
+			/* register our channel type */
+			if(ast_channel_register(&channel_tech) == 0)
+			{
+				cli_register();
+
+#ifdef BUILD_APPLICATIONS
+				app_register();
+#endif
+#ifdef BUILD_MANAGER
+				manager_register();
+#endif
+
+				return AST_MODULE_LOAD_SUCCESS;
+			}
+			else
+			{
+				ast_log (LOG_ERROR, "Unable to register channel class %s\n", "Datacard");
+			}
+			discovery_stop(state);
+		}
+		else
+		{
+			ast_log (LOG_ERROR, "Unable to create discovery thread\n");
+		}
+		devices_destroy(state);
+	}
+	else
+	{
+		ast_log (LOG_ERROR, "Errors reading config file " CONFIG_FILE ", Not loading module\n");
+	}
+
+	ast_mutex_destroy(&state->round_robin_mtx);
+	ast_mutex_destroy(&state->discovery_lock);
+	AST_RWLIST_HEAD_DESTROY(&state->devices);
+
+	return rv;
+}
+
+#/* */
+static void public_state_fini(struct public_state * state)
 {
 	/* First, take us out of the channel loop */
 	ast_channel_unregister (&channel_tech);
@@ -1631,7 +1687,7 @@ static int unload_module()
 	/* Unregister the CLI & APP & MANAGER */
 
 #ifdef BUILD_MANAGER
-	manager_unregister ();
+	manager_unregister();
 #endif
 
 #ifdef BUILD_APPLICATIONS
@@ -1640,17 +1696,25 @@ static int unload_module()
 
 	cli_unregister();
 
-	discovery_stop(gpublic);
-	devices_destroy(gpublic);
-	ast_mutex_destroy(&gpublic->round_robin_mtx);
-	AST_RWLIST_HEAD_DESTROY(&gpublic->devices);
+	discovery_stop(state);
+	devices_destroy(state);
+	
+	ast_mutex_destroy(&state->round_robin_mtx);
+	ast_mutex_destroy(&state->discovery_lock);
+	AST_RWLIST_HEAD_DESTROY(&state->devices);
+}
 
+static int unload_module()
+{
+
+	public_state_fini(gpublic);
 	pdiscovery_fini();
 	
 	ast_free(gpublic);
 	gpublic = NULL;
 	return 0;
 }
+
 
 #/* */
 EXPORT_DEF void pvt_reload(restate_time_t when)
