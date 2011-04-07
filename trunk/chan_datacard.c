@@ -1566,6 +1566,8 @@ static int load_module()
 	gpublic = ast_calloc(1, sizeof(*gpublic));
 	if(gpublic)
 	{
+		pdiscovery_init();
+		
 		AST_RWLIST_HEAD_INIT(&gpublic->devices);
 		ast_mutex_init(&gpublic->discovery_lock);
 		gpublic->discovery_thread = AST_PTHREADT_NULL;
@@ -1643,6 +1645,8 @@ static int unload_module()
 	ast_mutex_destroy(&gpublic->round_robin_mtx);
 	AST_RWLIST_HEAD_DESTROY(&gpublic->devices);
 
+	pdiscovery_fini();
+	
 	ast_free(gpublic);
 	gpublic = NULL;
 	return 0;
